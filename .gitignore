@@ -3,6 +3,7 @@ node_modules/
 .pnpm-store/
 .dev.vars
 .github-token
+.github-token.rtf
 .env
 .env.*
 !.env.example
