@@ -2,7 +2,7 @@
 
 Content Agent is a Cloudflare Worker for a Telegram-based LinkedIn content assistant.
 
-This version is only the first deployable foundation.
+This version contains the deployable foundation plus the second-stage collection slice.
 
 It includes:
 
@@ -15,12 +15,13 @@ It includes:
 - Cron handler foundation;
 - manual setup page at `/setup`;
 - manual scheduled-handler test;
-- D1 repository layer.
+- D1 repository layer;
+- RSS/Atom collection;
+- disabled-by-default Reddit source support;
+- normalization and deduplication before D1 writes.
 
 It does not include:
 
-- RSS collection;
-- Reddit collection;
 - Content Pipeline;
 - OpenAI draft generation;
 - LinkedIn publishing.
@@ -144,6 +145,22 @@ The first migration creates:
 - `telegram_actions`;
 - `processing_runs`.
 
+The second migration adds:
+
+- dedupe fields for `collected_items`;
+- source/run statistics fields for `processing_runs`;
+- future visual metadata tables `visual_briefs` and `visual_assets`.
+
+The third migration seeds initial sources:
+
+- Nielsen Norman Group Articles;
+- Smashing Magazine;
+- A List Apart;
+- Intercom Blog;
+- Product Talk;
+- Reddit r/userexperience, disabled by default;
+- Reddit r/UXDesign, disabled by default.
+
 The `drafts` table already includes:
 
 ```text
@@ -154,10 +171,6 @@ This will be used later for rewrite and shorten versions.
 
 ## Next Stage
 
-The next stage should add only:
-
-- RSS Collector;
-- Reddit Collector;
-- collection records in D1.
+The next stage should add text topic selection and draft review planning.
 
 Do not add OpenAI, Content Pipeline, or LinkedIn publishing yet.

@@ -16,8 +16,28 @@ export interface ProcessingRun {
   deduplicated_count: number;
   scored_count: number;
   selected_topics_count: number;
+  processed_sources_count: number;
+  successful_sources_count: number;
+  failed_sources_count: number;
+  received_items_count: number;
+  new_items_count: number;
+  duplicate_items_count: number;
   error_message: string | null;
+  source_errors_json: string | null;
   metadata_json: string | null;
+}
+
+export interface CompleteProcessingRunInput {
+  collectedCount: number;
+  normalizedCount: number;
+  deduplicatedCount: number;
+  processedSourcesCount: number;
+  successfulSourcesCount: number;
+  failedSourcesCount: number;
+  receivedItemsCount: number;
+  newItemsCount: number;
+  duplicateItemsCount: number;
+  sourceErrors: unknown[];
 }
 
 export class ProcessingRunsRepository {
@@ -35,7 +55,14 @@ export class ProcessingRunsRepository {
       deduplicated_count: 0,
       scored_count: 0,
       selected_topics_count: 0,
+      processed_sources_count: 0,
+      successful_sources_count: 0,
+      failed_sources_count: 0,
+      received_items_count: 0,
+      new_items_count: 0,
+      duplicate_items_count: 0,
       error_message: null,
+      source_errors_json: null,
       metadata_json: metadata ? JSON.stringify(metadata) : null
     };
 
@@ -70,6 +97,42 @@ export class ProcessingRunsRepository {
     await this.db
       .prepare("UPDATE processing_runs SET status = ?, finished_at = ? WHERE id = ?")
       .bind("completed", nowIso(), id)
+      .run();
+  }
+
+  async completeWithStats(id: string, input: CompleteProcessingRunInput): Promise<void> {
+    await this.db
+      .prepare(
+        `UPDATE processing_runs
+         SET status = ?,
+             finished_at = ?,
+             collected_count = ?,
+             normalized_count = ?,
+             deduplicated_count = ?,
+             processed_sources_count = ?,
+             successful_sources_count = ?,
+             failed_sources_count = ?,
+             received_items_count = ?,
+             new_items_count = ?,
+             duplicate_items_count = ?,
+             source_errors_json = ?
+         WHERE id = ?`
+      )
+      .bind(
+        "completed",
+        nowIso(),
+        input.collectedCount,
+        input.normalizedCount,
+        input.deduplicatedCount,
+        input.processedSourcesCount,
+        input.successfulSourcesCount,
+        input.failedSourcesCount,
+        input.receivedItemsCount,
+        input.newItemsCount,
+        input.duplicateItemsCount,
+        JSON.stringify(input.sourceErrors.slice(0, 20)),
+        id
+      )
       .run();
   }
 

@@ -359,6 +359,91 @@ Expected result:
 
 Expected result: you see at least one row with status `completed`.
 
+## Part 17. Apply Stage 2 Migrations
+
+1. Open Cloudflare Dashboard.
+2. Click `Workers & Pages`.
+3. Click `D1 SQL Database`.
+4. Click the `content-agent` database.
+5. Click `Console`.
+6. Open this GitHub file:
+
+   ```text
+   migrations/0002_collection_pipeline.sql
+   ```
+
+7. Copy the whole file content.
+8. Paste it into the D1 Console.
+9. Click `Execute`.
+10. Open this GitHub file:
+
+    ```text
+    migrations/0003_seed_sources.sql
+    ```
+
+11. Copy the whole file content.
+12. Paste it into the D1 Console.
+13. Click `Execute`.
+
+Expected result: Cloudflare shows successful SQL execution for both files.
+
+## Part 18. Run Collection From Telegram
+
+1. Open Telegram.
+2. Open your bot.
+3. Send:
+
+   ```text
+   /collect
+   ```
+
+4. Wait for the bot to confirm that collection finished.
+5. Send:
+
+   ```text
+   /status
+   ```
+
+Expected result: `/status` shows real counters for new materials, duplicates, source errors, and total collected items.
+
+## Part 19. Check Collected Items In D1
+
+1. Open Cloudflare Dashboard.
+2. Click `Workers & Pages`.
+3. Click `D1 SQL Database`.
+4. Click the `content-agent` database.
+5. Click `Console`.
+6. Paste this SQL:
+
+   ```sql
+   SELECT source_id, title, canonical_url, published_at, collected_at
+   FROM collected_items
+   ORDER BY collected_at DESC
+   LIMIT 10;
+   ```
+
+7. Click `Execute`.
+
+Expected result: you see collected RSS/Atom materials.
+
+## Part 20. Check Deduplication
+
+1. Open Telegram.
+2. Send:
+
+   ```text
+   /collect
+   ```
+
+3. Wait for completion.
+4. Send:
+
+   ```text
+   /status
+   ```
+
+Expected result: the second run should show duplicates instead of adding the same items again.
+
 ## Done
 
 The first vertical slice is deployed when all checks pass:
@@ -368,4 +453,5 @@ The first vertical slice is deployed when all checks pass:
 - Telegram bot answers `/help`;
 - Telegram bot answers `/status`;
 - manual scheduled test creates a `processing_run`;
+- `/collect` creates `collected_items`;
 - no token was pasted into GitHub or browser URL.

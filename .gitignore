@@ -1,5 +1,6 @@
 node_modules/
 .wrangler/
+.test-build/
 .pnpm-store/
 .dev.vars
 .github-token

@@ -11,7 +11,8 @@ export async function buildStartMessage(): Promise<string> {
     "",
     "Команды:",
     "/help - помощь",
-    "/status - статус Worker и D1"
+    "/status - статус Worker и D1",
+    "/collect - запустить сбор материалов"
   ].join("\n");
 }
 
@@ -22,8 +23,9 @@ export async function buildHelpMessage(): Promise<string> {
     "/start - начать работу",
     "/help - показать помощь",
     "/status - проверить Worker и базу D1",
+    "/collect - вручную запустить сбор материалов",
     "",
-    "Сбор материалов, темы и генерация черновиков будут добавлены следующим этапом."
+    "На этом этапе бот собирает материалы из RSS/Atom и разрешённых Reddit-источников. Генерации постов пока нет."
   ].join("\n");
 }
 
@@ -35,13 +37,19 @@ export async function buildStatusMessage(env: Env): Promise<string> {
   const latestRunText = latestRun
     ? `${latestRun.status}, ${latestRun.started_at}`
     : "запусков пока нет";
+  const sourceErrors = latestRun?.failed_sources_count ?? 0;
+  const totalItems = await repos.collectedItems.count();
 
   return [
     "Статус Content Agent:",
     "",
     `Worker: доступен`,
     `D1: ${d1.available ? "доступна" : "недоступна"}`,
-    `Последний cron run: ${latestRunText}`
+    `Последний запуск: ${latestRunText}`,
+    `Новые материалы: ${latestRun?.new_items_count ?? 0}`,
+    `Дубли: ${latestRun?.duplicate_items_count ?? 0}`,
+    `Ошибки источников: ${sourceErrors}`,
+    `Всего материалов: ${totalItems}`
   ].join("\n");
 }
 

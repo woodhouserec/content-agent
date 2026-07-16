@@ -7,6 +7,7 @@ import { handleCallback } from "./callbacks";
 import { TelegramClient } from "./client";
 import { buildHelpMessage, buildStartMessage, buildStatusMessage, getCommand } from "./commands";
 import type { TelegramUpdate } from "./types";
+import { runScheduledCollection } from "../scheduled/handler";
 
 export async function handleTelegramWebhook(
   request: Request,
@@ -76,5 +77,16 @@ async function processTelegramUpdate(update: TelegramUpdate, env: Env, requestId
     return;
   }
 
-  await telegram.sendMessage(chatId, "Пока доступны команды /start, /help и /status.");
+  if (command === "/collect") {
+    await telegram.sendMessage(chatId, "Сбор материалов запущен. Проверить результат можно командой /status через минуту.");
+    await runScheduledCollection("manual", env, {
+      requestedBy: "telegram",
+      telegramChatId: chatId,
+      requestId
+    });
+    await telegram.sendMessage(chatId, "Сбор материалов завершён. Используйте /status, чтобы увидеть счётчики.");
+    return;
+  }
+
+  await telegram.sendMessage(chatId, "Пока доступны команды /start, /help, /status и /collect.");
 }
