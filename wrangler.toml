@@ -1,0 +1,12 @@
+name = "content-agent"
+main = "src/index.ts"
+compatibility_date = "2026-07-16"
+
+[triggers]
+crons = ["0 8 * * 1-5"]
+
+# Secrets and private values must be configured in Cloudflare Dashboard or with wrangler secret:
+# TELEGRAM_BOT_TOKEN
+# TELEGRAM_WEBHOOK_SECRET
+# ALLOWED_TELEGRAM_USER_ID
+# SETUP_SECRET
