@@ -18,3 +18,4 @@ database_id = "2aa027f2-fcbd-4d60-a148-68628ac45c78"
 # Optional for AI scoring. If absent, rule-based fallback is used:
 # OPENAI_API_KEY
 # OPENAI_SCORING_MODEL
+# OPENAI_DRAFT_MODEL

@@ -2,6 +2,8 @@ import type { Env } from "../domain/runtime";
 import type { BackgroundJobDispatcher } from "../jobs/background-job-dispatcher";
 import { logger } from "../utils/logger";
 import { getConfig } from "../app/config";
+import { createRepositories } from "../storage/repositories";
+import { nowIso } from "../utils/time";
 import { getCallbackQuery, getMessage, isAllowedTelegramUser } from "./auth";
 import { handleCallback } from "./callbacks";
 import { TelegramClient } from "./client";
@@ -11,6 +13,16 @@ import { runScheduledCollection } from "../scheduled/handler";
 import { runScoringAndSendTopics, sendLatestTopics } from "./topics";
 import { handleAddSource, handleSourceDisable, handleSources, handleSourceTest } from "./source-commands";
 import { extractUrl, handleAddUrl } from "./manual-url-commands";
+import {
+  approveDraft,
+  buildUsageMessage,
+  formatDraftSources,
+  handleCustomRevisionMessage,
+  rejectDraft,
+  requestCustomRevision,
+  runDraftGeneration,
+  runDraftRevision
+} from "./drafts";
 
 export async function handleTelegramWebhook(
   request: Request,
@@ -50,11 +62,18 @@ async function processTelegramUpdate(
   const callback = getCallbackQuery(update);
 
   if (callback) {
-    const text = await handleCallback(env, callback);
     await telegram.answerCallbackQuery(callback.id, "Принято");
 
     const chatId = callback.message?.chat.id ?? callback.from.id;
-    await telegram.sendMessage(String(chatId), text);
+    const handledAsDraft = await handleDraftCallback(env, telegram, dispatcher, callback, String(chatId), requestId);
+    if (handledAsDraft) {
+      return;
+    }
+
+    const response = await handleCallback(env, callback);
+    await telegram.sendMessage(String(chatId), response.text, {
+      replyMarkup: response.replyMarkup
+    });
     return;
   }
 
@@ -69,8 +88,16 @@ async function processTelegramUpdate(
 
   const chatId = String(message.chat.id);
   const command = getCommand(message.text);
+  const telegramUserId = String(message.from?.id ?? "");
 
   try {
+    if (!command && message.text) {
+      const handled = await handleCustomRevisionMessage(env, telegram, chatId, telegramUserId, message.text);
+      if (handled) {
+        return;
+      }
+    }
+
     if (command === "/start") {
       await telegram.sendMessage(chatId, await buildStartMessage());
       return;
@@ -88,6 +115,11 @@ async function processTelegramUpdate(
 
     if (command === "/profile") {
       await telegram.sendMessage(chatId, buildProfileMessage());
+      return;
+    }
+
+    if (command === "/usage") {
+      await telegram.sendMessage(chatId, await buildUsageMessage(env));
       return;
     }
 
@@ -171,7 +203,7 @@ async function processTelegramUpdate(
       return;
     }
 
-    await telegram.sendMessage(chatId, "Пока доступны команды /start, /help, /status, /collect, /score, /topics, /profile, /sources, /addsource, /addurl, /source_disable и /source_test.");
+    await telegram.sendMessage(chatId, "Пока доступны команды /start, /help, /status, /collect, /score, /topics, /profile, /usage, /sources, /addsource, /addurl, /source_disable и /source_test.");
   } catch (error: unknown) {
     const message = formatSafeError(error);
     logger.error("Telegram command failed", {
@@ -182,6 +214,98 @@ async function processTelegramUpdate(
     });
     await telegram.sendMessage(chatId, `Команда не выполнена: ${message}`);
   }
+}
+
+async function handleDraftCallback(
+  env: Env,
+  telegram: TelegramClient,
+  dispatcher: BackgroundJobDispatcher,
+  callback: NonNullable<ReturnType<typeof getCallbackQuery>>,
+  chatId: string,
+  requestId: string
+): Promise<boolean> {
+  const data = callback.data ?? "";
+  const [targetType, action, targetId] = data.split(":");
+
+  if (!targetId || !((targetType === "topic" && action === "draft") || targetType === "draft")) {
+    return false;
+  }
+
+  await logCallbackAction(env, callback, chatId, targetType, action ?? data, targetId, data);
+
+  if (targetType === "topic" && action === "draft") {
+    dispatcher.dispatch("telegram_draft_generation", async () => {
+      try {
+        await runDraftGeneration(env, telegram, chatId, targetId);
+      } catch (error: unknown) {
+        const message = formatSafeError(error);
+        logger.error("Draft generation failed", { event: "draft_generation_failed", requestId, error: message });
+        await telegram.sendMessage(chatId, `Черновик не создан: ${message}`);
+      }
+    });
+    return true;
+  }
+
+  if (targetType === "draft") {
+    if (action === "approve") {
+      await telegram.sendMessage(chatId, await approveDraft(env, targetId));
+      await telegram.sendMessage(chatId, await formatDraftSources(env, targetId));
+      return true;
+    }
+
+    if (action === "reject") {
+      await telegram.sendMessage(chatId, await rejectDraft(env, targetId));
+      return true;
+    }
+
+    if (action === "sources") {
+      await telegram.sendMessage(chatId, await formatDraftSources(env, targetId));
+      return true;
+    }
+
+    if (action === "custom") {
+      await telegram.sendMessage(chatId, await requestCustomRevision(env, targetId, String(callback.from.id), chatId));
+      return true;
+    }
+
+    if (action === "rewrite" || action === "shorten" || action === "expand" || action === "opening" || action === "tone") {
+      dispatcher.dispatch("telegram_draft_revision", async () => {
+        try {
+          await runDraftRevision(env, telegram, chatId, targetId, action);
+        } catch (error: unknown) {
+          const message = formatSafeError(error);
+          logger.error("Draft revision failed", { event: "draft_revision_failed", requestId, action, error: message });
+          await telegram.sendMessage(chatId, `Новая версия не создана: ${message}`);
+        }
+      });
+      return true;
+    }
+  }
+
+  return false;
+}
+
+async function logCallbackAction(
+  env: Env,
+  callback: NonNullable<ReturnType<typeof getCallbackQuery>>,
+  chatId: string,
+  targetType: string,
+  action: string,
+  targetId: string,
+  data: string
+): Promise<void> {
+  const repos = createRepositories(env.DB);
+  await repos.telegramActions.create({
+    telegramUserId: String(callback.from.id),
+    telegramChatId: chatId,
+    messageId: callback.message?.message_id ? String(callback.message.message_id) : undefined,
+    callbackQueryId: callback.id,
+    action,
+    targetType,
+    targetId,
+    payload: { data },
+    handledAt: nowIso()
+  });
 }
 
 function formatSafeError(error: unknown): string {

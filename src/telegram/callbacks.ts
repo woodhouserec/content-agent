@@ -5,8 +5,16 @@ import type { TelegramCallbackQuery } from "./types";
 import { formatTopicSources, formatTopicWhy, getTopicSources } from "./topics";
 import { confirmPendingSource } from "./source-commands";
 import { confirmManualUrl, rejectManualUrl } from "./manual-url-commands";
+import { buildCreateDraftButton } from "./drafts";
 
-export async function handleCallback(env: Env, callback: TelegramCallbackQuery): Promise<string> {
+export interface CallbackResponse {
+  text: string;
+  replyMarkup?: {
+    inline_keyboard: Array<Array<{ text: string; callback_data?: string; url?: string }>>;
+  };
+}
+
+export async function handleCallback(env: Env, callback: TelegramCallbackQuery): Promise<CallbackResponse> {
   const repos = createRepositories(env.DB);
   const chatId = callback.message?.chat.id ? String(callback.message.chat.id) : String(callback.from.id);
   const data = callback.data ?? "unknown";
@@ -28,41 +36,44 @@ export async function handleCallback(env: Env, callback: TelegramCallbackQuery):
     const topic = await repos.topics.getById(targetId);
 
     if (!topic) {
-      return "Тема не найдена.";
+      return { text: "Тема не найдена." };
     }
 
     if (action === "select") {
       await repos.topics.updateStatus(targetId, "selected");
-      return "Тема выбрана. Генерация поста пока не запускается.";
+      return {
+        text: "Тема выбрана. Генерация поста не запускается автоматически. Когда будете готовы, нажмите «Создать черновик».",
+        replyMarkup: buildCreateDraftButton(targetId)
+      };
     }
 
     if (action === "skip") {
       await repos.topics.updateStatus(targetId, "skipped");
-      return "Тема пропущена.";
+      return { text: "Тема пропущена." };
     }
 
     if (action === "sources") {
-      return formatTopicSources(topic, await getTopicSources(env, topic));
+      return { text: formatTopicSources(topic, await getTopicSources(env, topic)) };
     }
 
     if (action === "why") {
-      return formatTopicWhy(topic);
+      return { text: formatTopicWhy(topic) };
     }
   }
 
   if (targetType === "addsource" && action === "confirm" && targetId) {
-    return confirmPendingSource(env, targetId);
+    return { text: await confirmPendingSource(env, targetId) };
   }
 
   if (targetType === "manualurl" && targetId) {
     if (action === "add") {
-      return confirmManualUrl(env, targetId);
+      return { text: await confirmManualUrl(env, targetId) };
     }
 
     if (action === "reject") {
-      return rejectManualUrl(env, targetId);
+      return { text: await rejectManualUrl(env, targetId) };
     }
   }
 
-  return "Действие распознано, но пока не поддерживается.";
+  return { text: "Действие распознано, но пока не поддерживается." };
 }

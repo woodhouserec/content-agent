@@ -2,7 +2,7 @@
 
 Content Agent is a Cloudflare Worker for a Telegram-based LinkedIn content assistant.
 
-This version contains the deployable foundation plus the second-stage collection slice.
+This version contains the deployable foundation, collection, topic scoring, manual URL intake, and selected-topic draft generation.
 
 It includes:
 
@@ -21,14 +21,20 @@ It includes:
 - normalization and deduplication before D1 writes;
 - rule-based relevance scoring;
 - optional OpenAI scoring for a shortlist only;
-- topic formation and Telegram topic review.
-- source management through D1 and Telegram admin commands.
-- manual one-off URL intake through Telegram.
+- topic formation and Telegram topic review;
+- source management through D1 and Telegram admin commands;
+- manual one-off URL intake through Telegram;
+- selected-topic LinkedIn draft generation;
+- draft brief creation before writing;
+- factual review before Telegram delivery;
+- immutable draft versions for rewrite, shorten, expand, tone, opening, and custom revisions;
+- `/usage` for monthly AI usage.
 
 It does not include:
 
-- Content Pipeline;
-- OpenAI draft generation;
+- image generation;
+- R2 storage;
+- LinkedIn API;
 - LinkedIn publishing.
 
 ## What You Will Deploy
@@ -53,10 +59,12 @@ You will need these four private values:
 | `TELEGRAM_WEBHOOK_SECRET` | You create this random text yourself |
 | `ALLOWED_TELEGRAM_USER_ID` | Telegram user ID bot |
 | `SETUP_SECRET` | You create this random text yourself |
-| `OPENAI_API_KEY` | Optional, only for AI scoring shortlist |
+| `OPENAI_API_KEY` | Required for draft generation; optional for scoring fallback |
+| `OPENAI_SCORING_MODEL` | Optional model override for scoring |
+| `OPENAI_DRAFT_MODEL` | Optional model override for draft generation |
 
 Never paste these values into GitHub files.
-If `OPENAI_API_KEY` is absent, `/score` still works with rule-based fallback.
+If `OPENAI_API_KEY` is absent, `/score` still works with rule-based fallback, but draft generation stops with a clear error.
 
 ## Important Cloudflare Settings
 
@@ -203,16 +211,31 @@ Manual URL intake:
 - stores `ingestion_method = manual_url` metadata;
 - participates in the same deduplication and scoring flow.
 
+The seventh migration adds draft generation support:
+
+- `draft_briefs`;
+- draft metadata columns for prompt version, factual review, source snapshot, revision type, and generation metadata;
+- `ai_generation_logs`;
+- `conversation_states`.
+
+Draft commands and buttons:
+
+- select a topic;
+- press `Создать черновик`;
+- review the generated text;
+- approve, reject, rewrite, shorten, expand, improve opening, adjust tone, or send a custom instruction;
+- use `/usage` to see monthly AI calls, drafts, revisions, token usage, and errors.
+
 The `drafts` table already includes:
 
 ```text
 parent_draft_id
 ```
 
-This will be used later for rewrite and shorten versions.
+This is used for rewrite, shorten, expand, tone, opening, and custom revision versions.
 
 ## Next Stage
 
-The next stage should add text topic selection and draft review planning.
+The next stage should add richer text editing and prepare visual brief planning after approved or near-final drafts.
 
 Do not add full LinkedIn post generation, image generation, R2, or LinkedIn publishing yet.

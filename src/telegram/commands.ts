@@ -17,6 +17,7 @@ export async function buildStartMessage(): Promise<string> {
     "/score - оценить материалы и создать темы",
     "/topics - показать темы",
     "/profile - показать relevance profile",
+    "/usage - показать AI usage",
     "/sources - показать источники",
     "/addsource <url> - проверить и добавить RSS/Atom",
     "/source_disable <id> - отключить источник",
@@ -36,13 +37,14 @@ export async function buildHelpMessage(): Promise<string> {
     "/score - оценить новые материалы и сформировать темы",
     "/topics - показать последние доступные темы",
     "/profile - показать relevance profile",
+    "/usage - показать AI-вызовы, черновики, редакции и токены за месяц",
     "/sources - список источников",
     "/addsource <url> - безопасно проверить RSS/Atom перед добавлением",
     "/source_disable <id> - отключить источник без удаления",
     "/source_test <id> - тестовый запуск одного RSS/Atom источника",
     "/addurl <url> - извлечь preview статьи и добавить после подтверждения",
     "",
-    "На этом этапе бот собирает материалы из RSS/Atom и разрешённых Reddit-источников. Генерации постов пока нет."
+    "На этом этапе бот собирает материалы, оценивает темы и создаёт текстовые черновики только после выбора темы."
   ].join("\n");
 }
 

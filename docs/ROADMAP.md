@@ -1,13 +1,11 @@
 # Content Agent Roadmap
 
-## Current Stage: Collection
+## Current Stage: Text Draft Generation
 
-The current implementation collects materials from configured sources and stores normalized records in D1.
+The current implementation collects materials, scores them, forms topics, lets the owner select a topic, and generates text draft versions for selected topics.
 
-It does not call OpenAI.
-It does not generate topics.
-It does not generate LinkedIn drafts.
 It does not generate images.
+It does not publish to LinkedIn.
 
 ## Later Text Flow
 
@@ -18,7 +16,27 @@ collected_items -> topics -> drafts -> review -> approval
 ```
 
 The current stage creates `topics` from scored `collected_items`.
-The next stage should create draft proposals from a selected topic.
+Only a `selected` topic can produce a draft.
+Draft generation is explicit through Telegram and never starts automatically when a topic is selected.
+
+Draft generation uses:
+
+- an author writing profile;
+- a structured draft brief;
+- grounded source context;
+- OpenAI text generation;
+- factual review before Telegram delivery;
+- immutable draft versions with `parent_draft_id`;
+- owner-only Telegram review actions.
+
+The Telegram draft flow is:
+
+```text
+selected topic -> Create draft -> draft brief -> draft -> factual review -> approve/reject/revise
+```
+
+Custom revisions are stored temporarily in D1 conversation state.
+KV is still not used.
 
 ## Source Management
 
@@ -68,7 +86,7 @@ Manual URLs should:
 The planned visual flow is:
 
 ```text
-topic -> draft -> visual brief -> generated assets -> review -> approval
+approved or near-final draft -> visual brief -> generated assets -> review -> approval
 ```
 
 Future D1 metadata tables are already reserved:

@@ -6,6 +6,7 @@ export interface Env {
   SETUP_SECRET: string;
   OPENAI_API_KEY?: string;
   OPENAI_SCORING_MODEL?: string;
+  OPENAI_DRAFT_MODEL?: string;
 }
 
 export interface ExecutionContext {
