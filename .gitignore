@@ -2,6 +2,7 @@ node_modules/
 .wrangler/
 .pnpm-store/
 .dev.vars
+.github-token
 .env
 .env.*
 !.env.example
