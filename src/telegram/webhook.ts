@@ -95,12 +95,13 @@ async function processTelegramUpdate(
           });
           await telegram.sendMessage(chatId, "Сбор материалов завершён. Используйте /status, чтобы увидеть счётчики.");
         } catch (error: unknown) {
+          const message = formatSafeError(error);
           logger.error("Manual collection failed", {
             event: "manual_collection_failed",
             requestId,
-            error: error instanceof Error ? error.message : String(error)
+            error: message
           });
-          await telegram.sendMessage(chatId, "Сбор материалов не завершился из-за ошибки. Проверьте /status и Cloudflare Logs.");
+          await telegram.sendMessage(chatId, `Сбор материалов не завершился: ${message}`);
         }
       });
 
@@ -109,12 +110,18 @@ async function processTelegramUpdate(
 
     await telegram.sendMessage(chatId, "Пока доступны команды /start, /help, /status и /collect.");
   } catch (error: unknown) {
+    const message = formatSafeError(error);
     logger.error("Telegram command failed", {
       event: "telegram_command_failed",
       requestId,
       command,
-      error: error instanceof Error ? error.message : String(error)
+      error: message
     });
-    await telegram.sendMessage(chatId, "Команда не выполнена из-за ошибки. Попробуйте /status чуть позже.");
+    await telegram.sendMessage(chatId, `Команда не выполнена: ${message}`);
   }
+}
+
+function formatSafeError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.replace(/(bot|Bearer)\s+[A-Za-z0-9:_-]+/gi, "$1 [hidden]").slice(0, 260);
 }

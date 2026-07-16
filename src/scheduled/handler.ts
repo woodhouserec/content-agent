@@ -57,7 +57,16 @@ export async function runScheduledCollection(
     const message = error instanceof Error ? error.message : String(error);
 
     if (runId) {
-      await repos.processingRuns.fail(runId, message);
+      try {
+        await repos.processingRuns.fail(runId, message);
+      } catch (failError: unknown) {
+        logger.error("Failed to mark processing run as failed", {
+          event: "processing_run_fail_update_failed",
+          runId,
+          originalError: message,
+          failError: failError instanceof Error ? failError.message : String(failError)
+        });
+      }
     }
 
     logger.error("Scheduled processing run failed", {
