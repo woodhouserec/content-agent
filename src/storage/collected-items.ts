@@ -69,34 +69,49 @@ export class CollectedItemsRepository {
 
     const id = createId("item");
 
-    await this.db
-      .prepare(
-        `INSERT INTO collected_items (
+    try {
+      await this.db
+        .prepare(
+          `INSERT INTO collected_items (
           id, source_id, external_id, url, canonical_url, title, summary,
           raw_content, normalized_content, author, published_at, collected_at,
           last_seen_at, content_hash, relevance_score, status, metadata_json
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .bind(
-        id,
-        item.sourceId,
-        item.externalId,
-        item.url,
-        item.canonicalUrl,
-        item.title,
-        item.summary,
-        item.rawContent,
-        item.rawContent,
-        item.author,
-        item.publishedAt,
-        item.collectedAt,
-        seenAt,
-        item.contentHash,
-        null,
-        "collected",
-        JSON.stringify(item.metadata)
-      )
-      .run();
+        )
+        .bind(
+          id,
+          item.sourceId,
+          item.externalId,
+          item.url,
+          item.canonicalUrl,
+          item.title,
+          item.summary,
+          item.rawContent,
+          item.rawContent,
+          item.author,
+          item.publishedAt,
+          item.collectedAt,
+          seenAt,
+          item.contentHash,
+          null,
+          "collected",
+          JSON.stringify(item.metadata)
+        )
+        .run();
+    } catch (error: unknown) {
+      const duplicate = await this.findDuplicate(item);
+
+      if (!duplicate) {
+        throw error;
+      }
+
+      await this.touch(duplicate.id, seenAt);
+
+      return {
+        inserted: false,
+        id: duplicate.id
+      };
+    }
 
     return {
       inserted: true,
@@ -138,5 +153,12 @@ export class CollectedItemsRepository {
       .prepare("SELECT id FROM collected_items WHERE content_hash = ? LIMIT 1")
       .bind(item.contentHash)
       .first<{ id: string }>();
+  }
+
+  private async touch(id: string, seenAt: string): Promise<void> {
+    await this.db
+      .prepare("UPDATE collected_items SET last_seen_at = ? WHERE id = ?")
+      .bind(seenAt, id)
+      .run();
   }
 }

@@ -39,6 +39,9 @@ export async function buildStatusMessage(env: Env): Promise<string> {
     : "запусков пока нет";
   const sourceErrors = latestRun?.failed_sources_count ?? 0;
   const totalItems = await repos.collectedItems.count();
+  const failureText = latestRun?.status === "failed" && latestRun.error_message
+    ? [`Ошибка: ${latestRun.error_message.slice(0, 180)}`]
+    : [];
 
   return [
     "Статус Content Agent:",
@@ -49,7 +52,8 @@ export async function buildStatusMessage(env: Env): Promise<string> {
     `Новые материалы: ${latestRun?.new_items_count ?? 0}`,
     `Дубли: ${latestRun?.duplicate_items_count ?? 0}`,
     `Ошибки источников: ${sourceErrors}`,
-    `Всего материалов: ${totalItems}`
+    `Всего материалов: ${totalItems}`,
+    ...failureText
   ].join("\n");
 }
 

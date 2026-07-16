@@ -46,3 +46,21 @@ test("normalization creates stable hashes for duplicate content", async () => {
 
   assert.equal(first.contentHash, second.contentHash);
 });
+
+test("normalization rejects invalid URLs", async () => {
+  await assert.rejects(
+    () => normalizeCollectorItem({
+      externalId: "bad",
+      sourceId: "source",
+      title: "Broken link",
+      url: "not a valid url",
+      summary: null,
+      author: null,
+      publishedAt: null,
+      rawContent: null,
+      metadata: {},
+      collectedAt: "2026-07-17T00:00:00.000Z"
+    }),
+    /Invalid URL/
+  );
+});

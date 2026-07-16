@@ -3,7 +3,7 @@ import type { CollectorConfig, CollectorError } from "../collectors/types";
 import type { Env } from "../domain/runtime";
 import { logger } from "../utils/logger";
 import { createRepositories } from "../storage/repositories";
-import { normalizeCollectorItems } from "./normalization";
+import { normalizeCollectorItem } from "./normalization";
 
 export interface CollectionRunStats {
   processedSources: number;
@@ -52,34 +52,52 @@ export async function runCollection(env: Env, runId: string): Promise<Collection
       continue;
     }
 
-    logger.info("Collecting source", {
-      event: "source_collection_started",
-      runId,
-      sourceId: source.id,
-      sourceType: source.type
-    });
+    try {
+      logger.info("Collecting source", {
+        event: "source_collection_started",
+        runId,
+        sourceId: source.id,
+        sourceType: source.type
+      });
 
-    const result = await collector.collect(source, collectorConfig);
-    stats.errors.push(...result.errors);
-    stats.receivedItems += result.items.length;
+      const result = await collector.collect(source, collectorConfig);
+      stats.errors.push(...result.errors);
+      stats.receivedItems += result.items.length;
 
-    if (result.ok) {
-      stats.successfulSources += 1;
-    } else {
-      stats.failedSources += 1;
-    }
-
-    const normalized = await normalizeCollectorItems(result.items);
-    stats.normalizedItems += normalized.length;
-
-    for (const item of normalized) {
-      const saveResult = await repos.collectedItems.upsertCollectedItem(item);
-
-      if (saveResult.inserted) {
-        stats.newItems += 1;
+      if (result.ok) {
+        stats.successfulSources += 1;
       } else {
-        stats.duplicateItems += 1;
+        stats.failedSources += 1;
       }
+
+      for (const item of result.items) {
+        try {
+          const normalized = await normalizeCollectorItem(item);
+          stats.normalizedItems += 1;
+          const saveResult = await repos.collectedItems.upsertCollectedItem(normalized);
+
+          if (saveResult.inserted) {
+            stats.newItems += 1;
+          } else {
+            stats.duplicateItems += 1;
+          }
+        } catch (error: unknown) {
+          stats.errors.push({
+            sourceId: source.id,
+            stage: "item",
+            message: error instanceof Error ? error.message : String(error),
+            recoverable: true
+          });
+        }
+      }
+    } catch (error: unknown) {
+      stats.failedSources += 1;
+      stats.errors.push({
+        sourceId: source.id,
+        stage: "fetch",
+        message: error instanceof Error ? error.message : String(error),
+        recoverable: false
+      });
     }
   }
 
