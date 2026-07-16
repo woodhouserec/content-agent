@@ -198,6 +198,13 @@ export class CollectedItemsRepository {
       .run();
   }
 
+  async findDuplicateByCanonicalUrl(canonicalUrl: string): Promise<{ id: string } | null> {
+    return this.db
+      .prepare("SELECT id FROM collected_items WHERE canonical_url = ? LIMIT 1")
+      .bind(canonicalUrl)
+      .first<{ id: string }>();
+  }
+
   private async findDuplicate(item: CollectedItem): Promise<{ id: string } | null> {
     if (item.externalId) {
       const byExternalId = await this.db

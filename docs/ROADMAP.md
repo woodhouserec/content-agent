@@ -44,6 +44,25 @@ Source metadata lives in `sources.config_json`:
 Telegram source-management commands are intentionally admin-only through the existing owner check.
 Unsupported websites without RSS, Atom, or an official API should be reported as unsupported rather than scraped.
 
+## Manual URL Intake
+
+Manual URL intake is separate from permanent sources.
+
+Permanent sources are for scheduled collection.
+Manual URLs are one-off article submissions from the owner.
+
+Manual URLs should:
+
+- be added with `/addurl`;
+- be fetched with static HTTP only;
+- reject localhost, loopback, link-local, private IP ranges, and metadata endpoints;
+- cap redirects, timeout, and response size;
+- avoid cookies, credentials, browser automation, paywall bypass, and CAPTCHA bypass;
+- extract only available metadata and static text;
+- save only after Telegram confirmation;
+- store provenance with `ingestion_method = manual_url`;
+- use the same canonical URL deduplication as RSS and Reddit items.
+
 ## Later Visual Flow
 
 The planned visual flow is:

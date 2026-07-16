@@ -23,6 +23,7 @@ It includes:
 - optional OpenAI scoring for a shortlist only;
 - topic formation and Telegram topic review.
 - source management through D1 and Telegram admin commands.
+- manual one-off URL intake through Telegram.
 
 It does not include:
 
@@ -185,10 +186,22 @@ Admin source commands:
 - `/addsource https://example.com/feed.xml`
 - `/source_disable source_id`
 - `/source_test source_id`
+- `/addurl https://example.com/article`
 
 New RSS/Atom sources should be added through D1 rows or `/addsource`.
 Do not create a new Collector for every site if the existing RSS Collector can process it.
 HTML scraping is not enabled.
+
+Manual URL intake:
+
+- accepts one-off article URLs;
+- does not add domains to permanent `sources`;
+- fetches static HTML only;
+- does not run JavaScript;
+- does not bypass paywalls, CAPTCHA, or authorization;
+- saves only after Telegram confirmation;
+- stores `ingestion_method = manual_url` metadata;
+- participates in the same deduplication and scoring flow.
 
 The `drafts` table already includes:
 

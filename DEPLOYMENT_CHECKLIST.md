@@ -560,6 +560,44 @@ Expected result: the bot shows whether the source test succeeded and how many it
 
 Expected result: the source is added only after validation and owner confirmation.
 
+## Part 28. Apply Manual URL Intake Migration
+
+1. Open Cloudflare Dashboard.
+2. Click `Workers & Pages`.
+3. Click `D1 SQL Database`.
+4. Click the `content-agent` database.
+5. Click `Console`.
+6. Open this GitHub file:
+
+   ```text
+   migrations/0006_manual_url_intake.sql
+   ```
+
+7. Copy the whole file content.
+8. Paste it into the D1 Console.
+9. Click `Execute`.
+
+Expected result: Cloudflare shows successful SQL execution.
+
+## Part 29. Add A Manual Article URL
+
+1. Open Telegram.
+2. Send:
+
+   ```text
+   /addurl ARTICLE_URL
+   ```
+
+3. Review the preview.
+4. Press `Добавить материал`.
+5. Send:
+
+   ```text
+   /score
+   ```
+
+Expected result: the manually submitted article can be scored and grouped into topics.
+
 ## Done
 
 The first vertical slice is deployed when all checks pass:

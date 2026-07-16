@@ -10,6 +10,7 @@ import type { TelegramUpdate } from "./types";
 import { runScheduledCollection } from "../scheduled/handler";
 import { runScoringAndSendTopics, sendLatestTopics } from "./topics";
 import { handleAddSource, handleSourceDisable, handleSources, handleSourceTest } from "./source-commands";
+import { extractUrl, handleAddUrl } from "./manual-url-commands";
 
 export async function handleTelegramWebhook(
   request: Request,
@@ -100,6 +101,11 @@ async function processTelegramUpdate(
       return;
     }
 
+    if (command === "/addurl") {
+      await handleAddUrl(env, telegram, chatId, String(message.from?.id ?? ""), message.text);
+      return;
+    }
+
     if (command === "/source_disable") {
       await handleSourceDisable(env, telegram, chatId, message.text);
       return;
@@ -160,7 +166,12 @@ async function processTelegramUpdate(
       return;
     }
 
-    await telegram.sendMessage(chatId, "Пока доступны команды /start, /help, /status, /collect, /score, /topics, /profile, /sources, /addsource, /source_disable и /source_test.");
+    if (!command && extractUrl(message.text ?? "")) {
+      await telegram.sendMessage(chatId, "Вижу ссылку. Чтобы добавить её как разовый материал, отправьте /addurl перед ссылкой.");
+      return;
+    }
+
+    await telegram.sendMessage(chatId, "Пока доступны команды /start, /help, /status, /collect, /score, /topics, /profile, /sources, /addsource, /addurl, /source_disable и /source_test.");
   } catch (error: unknown) {
     const message = formatSafeError(error);
     logger.error("Telegram command failed", {

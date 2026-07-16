@@ -20,7 +20,8 @@ export async function buildStartMessage(): Promise<string> {
     "/sources - показать источники",
     "/addsource <url> - проверить и добавить RSS/Atom",
     "/source_disable <id> - отключить источник",
-    "/source_test <id> - проверить один источник"
+    "/source_test <id> - проверить один источник",
+    "/addurl <url> - добавить разовый материал"
   ].join("\n");
 }
 
@@ -39,6 +40,7 @@ export async function buildHelpMessage(): Promise<string> {
     "/addsource <url> - безопасно проверить RSS/Atom перед добавлением",
     "/source_disable <id> - отключить источник без удаления",
     "/source_test <id> - тестовый запуск одного RSS/Atom источника",
+    "/addurl <url> - извлечь preview статьи и добавить после подтверждения",
     "",
     "На этом этапе бот собирает материалы из RSS/Atom и разрешённых Reddit-источников. Генерации постов пока нет."
   ].join("\n");
