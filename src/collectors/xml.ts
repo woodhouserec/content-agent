@@ -21,6 +21,23 @@ export function parseFeedEntries(xml: string): XmlEntry[] {
   return extractBlocks(xml, "entry").map(parseAtomEntry);
 }
 
+export function detectFeedType(xml: string): "rss" | "atom" | "unsupported" {
+  if (/<rss(?:\s|>)/i.test(xml) || /<channel(?:\s|>)/i.test(xml)) {
+    return "rss";
+  }
+
+  if (/<feed(?:\s|>)/i.test(xml)) {
+    return "atom";
+  }
+
+  return "unsupported";
+}
+
+export function parseFeedTitle(xml: string): string | null {
+  const channel = extractBlocks(xml, "channel")[0];
+  return channel ? readTagText(channel, "title") : readTagText(xml, "title");
+}
+
 function parseRssItem(itemXml: string): XmlEntry {
   const title = readTagText(itemXml, "title");
   const link = readTagText(itemXml, "link");

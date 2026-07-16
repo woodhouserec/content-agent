@@ -18,6 +18,24 @@ test("rule-based scoring boosts relevant UX/Product material", () => {
   assert.equal(score.version, scoringConfig.scoringVersion);
 });
 
+test("source metadata improves score but does not override irrelevant content", () => {
+  const irrelevant = scoreCollectedItem(makeItem({
+    title: "Sponsored crypto coupon sale",
+    summary: "Buy now.",
+    source_id: "src_nngroup_articles",
+    metadata_json: JSON.stringify({
+      sourceConfig: {
+        source_tier: "primary",
+        content_kind: "original_research",
+        trust_score: 100,
+        editorial_priority: 5
+      }
+    })
+  }));
+
+  assert.ok(irrelevant.score < 70);
+});
+
 test("rule-based scoring penalizes shallow promotional material", () => {
   const score = scoreCollectedItem(makeItem({
     title: "Sponsored top tools sale",

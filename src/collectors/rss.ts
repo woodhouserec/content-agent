@@ -1,6 +1,6 @@
 import type { SourceRecord } from "../storage/sources";
 import { nowIso } from "../utils/time";
-import { getSourceLimit } from "./config";
+import { getSourceLimit, parseSourceConfig } from "./config";
 import { fetchTextWithRetry } from "./http";
 import type { Collector, CollectorConfig, CollectorError, CollectorItem, CollectorResult } from "./types";
 import { parseFeedEntries } from "./xml";
@@ -11,6 +11,7 @@ export class RssCollector implements Collector {
   async collect(source: SourceRecord, config: CollectorConfig): Promise<CollectorResult> {
     const errors: CollectorError[] = [];
     const limit = getSourceLimit(source.config_json, config.maxItemsPerSource, config.maxItemsPerSource);
+    const sourceConfig = parseSourceConfig(source.config_json);
 
     try {
       const xml = await fetchTextWithRetry(source.url, {
@@ -44,7 +45,10 @@ export class RssCollector implements Collector {
             author: entry.author,
             publishedAt: entry.publishedAt,
             rawContent: entry.rawContent,
-            metadata: entry.metadata,
+            metadata: {
+              ...entry.metadata,
+              sourceConfig
+            },
             collectedAt: nowIso()
           });
         } catch (error: unknown) {

@@ -22,6 +22,7 @@ It includes:
 - rule-based relevance scoring;
 - optional OpenAI scoring for a shortlist only;
 - topic formation and Telegram topic review.
+- source management through D1 and Telegram admin commands.
 
 It does not include:
 
@@ -172,6 +173,22 @@ The fourth migration adds scoring and topic fields:
 - scoring breakdown metadata;
 - topic fingerprint deduplication;
 - topic explanation fields.
+
+The fifth migration adds source-management support:
+
+- `pending_sources`;
+- richer `sources.config_json` metadata for tier, trust, content kind, language, tags, priority, licensing notes, and per-run limits.
+
+Admin source commands:
+
+- `/sources`
+- `/addsource https://example.com/feed.xml`
+- `/source_disable source_id`
+- `/source_test source_id`
+
+New RSS/Atom sources should be added through D1 rows or `/addsource`.
+Do not create a new Collector for every site if the existing RSS Collector can process it.
+HTML scraping is not enabled.
 
 The `drafts` table already includes:
 

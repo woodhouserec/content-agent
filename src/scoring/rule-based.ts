@@ -45,6 +45,11 @@ export function scoreCollectedItem(item: CollectedItemRecord): RuleScoreBreakdow
   }
 
   factors.sourceQuality = sourceQualityScore(item.source_id);
+  const sourceConfig = readSourceConfig(item.metadata_json);
+  factors.sourceMetadata = sourceMetadataScore(sourceConfig);
+  if (factors.sourceMetadata > 0) {
+    boosts.push(`Source metadata: tier=${sourceConfig.source_tier ?? "unknown"}, trust=${sourceConfig.trust_score ?? "n/a"}, priority=${sourceConfig.editorial_priority ?? "n/a"}`);
+  }
   if (factors.sourceQuality >= 15) {
     boosts.push("High-quality professional source");
   }
@@ -69,6 +74,15 @@ export function scoreCollectedItem(item: CollectedItemRecord): RuleScoreBreakdow
   if (text.length < 160) {
     factors.penalty -= 15;
     penalties.push("Content is too short");
+  }
+
+  if (sourceConfig.max_content_age_days && item.published_at) {
+    const ageDays = (Date.now() - new Date(item.published_at).getTime()) / 86_400_000;
+
+    if (!Number.isNaN(ageDays) && ageDays > sourceConfig.max_content_age_days) {
+      factors.penalty -= 10;
+      penalties.push(`Older than source max_content_age_days (${sourceConfig.max_content_age_days})`);
+    }
   }
 
   const score = clamp(Object.values(factors).reduce((sum, value) => sum + value, 20), 0, 100);
@@ -112,6 +126,53 @@ function sourceQualityScore(sourceId: string): number {
   if (sourceId.includes("product_talk")) return 18;
   if (sourceId.includes("a_list_apart")) return 14;
   return 10;
+}
+
+interface ScoringSourceConfig {
+  source_tier?: "primary" | "professional" | "community" | "discovery";
+  content_kind?: string;
+  trust_score?: number;
+  editorial_priority?: number;
+  max_content_age_days?: number;
+  topic_tags?: string[];
+}
+
+function readSourceConfig(metadataJson: string | null): ScoringSourceConfig {
+  if (!metadataJson) {
+    return {};
+  }
+
+  try {
+    const metadata = JSON.parse(metadataJson) as { sourceConfig?: ScoringSourceConfig };
+    return metadata.sourceConfig ?? {};
+  } catch {
+    return {};
+  }
+}
+
+function sourceMetadataScore(config: ScoringSourceConfig): number {
+  let score = 0;
+
+  if (config.source_tier === "primary") score += 8;
+  if (config.source_tier === "professional") score += 6;
+  if (config.source_tier === "community") score += 3;
+  if (config.source_tier === "discovery") score += 1;
+
+  if (typeof config.trust_score === "number") {
+    score += Math.round(Math.max(0, Math.min(100, config.trust_score)) / 20);
+  }
+
+  if (typeof config.editorial_priority === "number") {
+    score += Math.max(0, Math.min(5, config.editorial_priority));
+  }
+
+  if (config.content_kind === "original_research") score += 5;
+  if (config.content_kind === "author_essay") score += 4;
+  if (config.content_kind === "case_study") score += 4;
+  if (config.content_kind === "community_discussion") score += 1;
+  if (config.content_kind === "news") score += 0;
+
+  return Math.min(18, score);
 }
 
 function summaryQualityScore(item: CollectedItemRecord): number {

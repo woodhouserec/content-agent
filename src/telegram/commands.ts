@@ -16,7 +16,11 @@ export async function buildStartMessage(): Promise<string> {
     "/collect - запустить сбор материалов",
     "/score - оценить материалы и создать темы",
     "/topics - показать темы",
-    "/profile - показать relevance profile"
+    "/profile - показать relevance profile",
+    "/sources - показать источники",
+    "/addsource <url> - проверить и добавить RSS/Atom",
+    "/source_disable <id> - отключить источник",
+    "/source_test <id> - проверить один источник"
   ].join("\n");
 }
 
@@ -31,6 +35,10 @@ export async function buildHelpMessage(): Promise<string> {
     "/score - оценить новые материалы и сформировать темы",
     "/topics - показать последние доступные темы",
     "/profile - показать relevance profile",
+    "/sources - список источников",
+    "/addsource <url> - безопасно проверить RSS/Atom перед добавлением",
+    "/source_disable <id> - отключить источник без удаления",
+    "/source_test <id> - тестовый запуск одного RSS/Atom источника",
     "",
     "На этом этапе бот собирает материалы из RSS/Atom и разрешённых Reddit-источников. Генерации постов пока нет."
   ].join("\n");

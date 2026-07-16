@@ -41,6 +41,17 @@ export interface Collector {
 
 export interface SourceConfig {
   limit?: number;
+  author_name?: string;
+  source_tier?: "primary" | "professional" | "community" | "discovery";
+  content_kind?: "original_research" | "author_essay" | "case_study" | "product_update" | "news" | "community_discussion" | "podcast" | "video";
+  language?: string;
+  topic_tags?: string[];
+  trust_score?: number;
+  editorial_priority?: number;
+  max_content_age_days?: number;
+  allow_full_text?: boolean;
+  license_notes?: string;
+  max_items_per_run?: number;
   subreddit?: string;
   listing?: "hot" | "new" | "top";
   timeframe?: "hour" | "day" | "week" | "month" | "year" | "all";

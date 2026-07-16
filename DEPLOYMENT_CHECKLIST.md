@@ -509,6 +509,57 @@ Expected result: the bot sends 3-5 topic cards with buttons.
 
 Expected result: the selected topic status becomes `selected`, and no LinkedIn post is generated yet.
 
+## Part 25. Apply Stage 3 Source Management Migration
+
+1. Open Cloudflare Dashboard.
+2. Click `Workers & Pages`.
+3. Click `D1 SQL Database`.
+4. Click the `content-agent` database.
+5. Click `Console`.
+6. Open this GitHub file:
+
+   ```text
+   migrations/0005_source_management.sql
+   ```
+
+7. Copy the whole file content.
+8. Paste it into the D1 Console.
+9. Click `Execute`.
+
+Expected result: Cloudflare shows successful SQL execution.
+
+## Part 26. Check Source Commands
+
+1. Open Telegram.
+2. Send:
+
+   ```text
+   /sources
+   ```
+
+3. Confirm that the bot shows configured sources.
+4. Send:
+
+   ```text
+   /source_test src_nngroup_articles
+   ```
+
+Expected result: the bot shows whether the source test succeeded and how many items were read.
+
+## Part 27. Add A Source Safely
+
+1. Find an RSS or Atom feed URL.
+2. Send:
+
+   ```text
+   /addsource FEED_URL
+   ```
+
+3. Wait for the preview.
+4. Press `Добавить источник`.
+
+Expected result: the source is added only after validation and owner confirmation.
+
 ## Done
 
 The first vertical slice is deployed when all checks pass:

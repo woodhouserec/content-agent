@@ -9,6 +9,7 @@ import { buildHelpMessage, buildProfileMessage, buildStartMessage, buildStatusMe
 import type { TelegramUpdate } from "./types";
 import { runScheduledCollection } from "../scheduled/handler";
 import { runScoringAndSendTopics, sendLatestTopics } from "./topics";
+import { handleAddSource, handleSourceDisable, handleSources, handleSourceTest } from "./source-commands";
 
 export async function handleTelegramWebhook(
   request: Request,
@@ -89,6 +90,26 @@ async function processTelegramUpdate(
       return;
     }
 
+    if (command === "/sources") {
+      await handleSources(env, telegram, chatId);
+      return;
+    }
+
+    if (command === "/addsource") {
+      await handleAddSource(env, telegram, chatId, String(message.from?.id ?? ""), message.text);
+      return;
+    }
+
+    if (command === "/source_disable") {
+      await handleSourceDisable(env, telegram, chatId, message.text);
+      return;
+    }
+
+    if (command === "/source_test") {
+      await handleSourceTest(env, telegram, chatId, message.text);
+      return;
+    }
+
     if (command === "/topics") {
       await sendLatestTopics(env, telegram, chatId);
       return;
@@ -139,7 +160,7 @@ async function processTelegramUpdate(
       return;
     }
 
-    await telegram.sendMessage(chatId, "Пока доступны команды /start, /help, /status, /collect, /score, /topics и /profile.");
+    await telegram.sendMessage(chatId, "Пока доступны команды /start, /help, /status, /collect, /score, /topics, /profile, /sources, /addsource, /source_disable и /source_test.");
   } catch (error: unknown) {
     const message = formatSafeError(error);
     logger.error("Telegram command failed", {

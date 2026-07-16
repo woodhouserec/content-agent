@@ -88,6 +88,7 @@ export class RedditCollector implements Collector {
             rawContent: truncateText(text, 4000),
             metadata: {
               platform: "reddit",
+              sourceConfig,
               subreddit: item.subreddit ?? subreddit,
               outboundUrl: item.url ?? null,
               score: item.score ?? null,

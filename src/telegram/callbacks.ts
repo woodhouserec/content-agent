@@ -3,6 +3,7 @@ import { createRepositories } from "../storage/repositories";
 import { nowIso } from "../utils/time";
 import type { TelegramCallbackQuery } from "./types";
 import { formatTopicSources, formatTopicWhy, getTopicSources } from "./topics";
+import { confirmPendingSource } from "./source-commands";
 
 export async function handleCallback(env: Env, callback: TelegramCallbackQuery): Promise<string> {
   const repos = createRepositories(env.DB);
@@ -46,6 +47,10 @@ export async function handleCallback(env: Env, callback: TelegramCallbackQuery):
     if (action === "why") {
       return formatTopicWhy(topic);
     }
+  }
+
+  if (targetType === "addsource" && action === "confirm" && targetId) {
+    return confirmPendingSource(env, targetId);
   }
 
   return "Действие распознано, но пока не поддерживается.";
