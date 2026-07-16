@@ -18,7 +18,7 @@ export interface CollectionRunStats {
 
 const collectorConfig: CollectorConfig = {
   maxItemsPerSource: 10,
-  timeoutMs: 8000,
+  timeoutMs: 5000,
   retries: 1,
   userAgent: "ContentAgent/0.2 (+https://github.com/woodhouserec/content-agent)"
 };

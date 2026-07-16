@@ -29,13 +29,18 @@ export async function handleTelegramWebhook(
   }
 
   dispatcher.dispatch("telegram_update", async () => {
-    await processTelegramUpdate(update, env, requestId);
+    await processTelegramUpdate(update, env, dispatcher, requestId);
   });
 
   return new Response("ok");
 }
 
-async function processTelegramUpdate(update: TelegramUpdate, env: Env, requestId: string): Promise<void> {
+async function processTelegramUpdate(
+  update: TelegramUpdate,
+  env: Env,
+  dispatcher: BackgroundJobDispatcher,
+  requestId: string
+): Promise<void> {
   const config = getConfig(env);
   const telegram = new TelegramClient(config.telegramBotToken);
   const message = getMessage(update);
@@ -62,31 +67,54 @@ async function processTelegramUpdate(update: TelegramUpdate, env: Env, requestId
   const chatId = String(message.chat.id);
   const command = getCommand(message.text);
 
-  if (command === "/start") {
-    await telegram.sendMessage(chatId, await buildStartMessage());
-    return;
-  }
+  try {
+    if (command === "/start") {
+      await telegram.sendMessage(chatId, await buildStartMessage());
+      return;
+    }
 
-  if (command === "/help") {
-    await telegram.sendMessage(chatId, await buildHelpMessage());
-    return;
-  }
+    if (command === "/help") {
+      await telegram.sendMessage(chatId, await buildHelpMessage());
+      return;
+    }
 
-  if (command === "/status") {
-    await telegram.sendMessage(chatId, await buildStatusMessage(env));
-    return;
-  }
+    if (command === "/status") {
+      await telegram.sendMessage(chatId, await buildStatusMessage(env));
+      return;
+    }
 
-  if (command === "/collect") {
-    await telegram.sendMessage(chatId, "Сбор материалов запущен. Проверить результат можно командой /status через минуту.");
-    await runScheduledCollection("manual", env, {
-      requestedBy: "telegram",
-      telegramChatId: chatId,
-      requestId
+    if (command === "/collect") {
+      await telegram.sendMessage(chatId, "Сбор материалов запущен. Я напишу, когда закончу. /status можно использовать параллельно.");
+
+      dispatcher.dispatch("telegram_manual_collection", async () => {
+        try {
+          await runScheduledCollection("manual", env, {
+            requestedBy: "telegram",
+            telegramChatId: chatId,
+            requestId
+          });
+          await telegram.sendMessage(chatId, "Сбор материалов завершён. Используйте /status, чтобы увидеть счётчики.");
+        } catch (error: unknown) {
+          logger.error("Manual collection failed", {
+            event: "manual_collection_failed",
+            requestId,
+            error: error instanceof Error ? error.message : String(error)
+          });
+          await telegram.sendMessage(chatId, "Сбор материалов не завершился из-за ошибки. Проверьте /status и Cloudflare Logs.");
+        }
+      });
+
+      return;
+    }
+
+    await telegram.sendMessage(chatId, "Пока доступны команды /start, /help, /status и /collect.");
+  } catch (error: unknown) {
+    logger.error("Telegram command failed", {
+      event: "telegram_command_failed",
+      requestId,
+      command,
+      error: error instanceof Error ? error.message : String(error)
     });
-    await telegram.sendMessage(chatId, "Сбор материалов завершён. Используйте /status, чтобы увидеть счётчики.");
-    return;
+    await telegram.sendMessage(chatId, "Команда не выполнена из-за ошибки. Попробуйте /status чуть позже.");
   }
-
-  await telegram.sendMessage(chatId, "Пока доступны команды /start, /help, /status и /collect.");
 }
