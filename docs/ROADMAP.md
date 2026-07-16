@@ -17,6 +17,9 @@ The planned text flow is:
 collected_items -> topics -> drafts -> review -> approval
 ```
 
+The current stage creates `topics` from scored `collected_items`.
+The next stage should create draft proposals from a selected topic.
+
 ## Later Visual Flow
 
 The planned visual flow is:

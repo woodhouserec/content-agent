@@ -444,6 +444,71 @@ Expected result: you see collected RSS/Atom materials.
 
 Expected result: the second run should show duplicates instead of adding the same items again.
 
+## Part 21. Apply Stage 3 Migration
+
+1. Open Cloudflare Dashboard.
+2. Click `Workers & Pages`.
+3. Click `D1 SQL Database`.
+4. Click the `content-agent` database.
+5. Click `Console`.
+6. Open this GitHub file:
+
+   ```text
+   migrations/0004_scoring_topics.sql
+   ```
+
+7. Copy the whole file content.
+8. Paste it into the D1 Console.
+9. Click `Execute`.
+
+Expected result: Cloudflare shows successful SQL execution.
+
+## Part 22. Optional OpenAI Secret
+
+Skip this part if you want rule-based fallback only.
+
+1. Open the `content-agent` Worker in Cloudflare.
+2. Click `Settings`.
+3. Click `Variables and Secrets`.
+4. Add a secret named:
+
+   ```text
+   OPENAI_API_KEY
+   ```
+
+5. Paste your OpenAI API key.
+6. Save it.
+
+Expected result: `/score` can use OpenAI only for the shortlisted materials.
+
+## Part 23. Run Scoring
+
+1. Open Telegram.
+2. Open your bot.
+3. Send:
+
+   ```text
+   /score
+   ```
+
+4. Wait for the bot to send scoring results and topic suggestions.
+
+Expected result: the bot sends 3-5 topic cards with buttons.
+
+## Part 24. Review Topics
+
+1. Send:
+
+   ```text
+   /topics
+   ```
+
+2. Press `Почему выбрано` on one topic.
+3. Press `Показать источники` on one topic.
+4. Press `Выбрать тему` on one topic.
+
+Expected result: the selected topic status becomes `selected`, and no LinkedIn post is generated yet.
+
 ## Done
 
 The first vertical slice is deployed when all checks pass:

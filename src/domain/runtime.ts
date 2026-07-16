@@ -4,6 +4,8 @@ export interface Env {
   TELEGRAM_WEBHOOK_SECRET: string;
   ALLOWED_TELEGRAM_USER_ID: string;
   SETUP_SECRET: string;
+  OPENAI_API_KEY?: string;
+  OPENAI_SCORING_MODEL?: string;
 }
 
 export interface ExecutionContext {

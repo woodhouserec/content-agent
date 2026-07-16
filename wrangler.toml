@@ -15,3 +15,6 @@ database_id = "2aa027f2-fcbd-4d60-a148-68628ac45c78"
 # TELEGRAM_WEBHOOK_SECRET
 # ALLOWED_TELEGRAM_USER_ID
 # SETUP_SECRET
+# Optional for AI scoring. If absent, rule-based fallback is used:
+# OPENAI_API_KEY
+# OPENAI_SCORING_MODEL

@@ -19,8 +19,23 @@ export interface CollectedItemRecord {
   last_seen_at: string | null;
   content_hash: string;
   relevance_score: number | null;
+  rule_score: number | null;
+  ai_score: number | null;
+  final_score: number | null;
+  scoring_breakdown_json: string | null;
+  scored_at: string | null;
+  scoring_version: string | null;
   status: string;
   metadata_json: string | null;
+}
+
+export interface UpdateScoringInput {
+  id: string;
+  ruleScore: number;
+  aiScore: number | null;
+  finalScore: number;
+  scoringBreakdown: unknown;
+  scoringVersion: string;
 }
 
 export interface UpsertCollectedItemResult {
@@ -126,6 +141,61 @@ export class CollectedItemsRepository {
       .all<CollectedItemRecord>();
 
     return result.results ?? [];
+  }
+
+  async listForScoring(limit: number): Promise<CollectedItemRecord[]> {
+    const result = await this.db
+      .prepare(
+        `SELECT * FROM collected_items
+         WHERE scored_at IS NULL
+            OR scoring_version IS NULL
+         ORDER BY collected_at DESC
+         LIMIT ?`
+      )
+      .bind(limit)
+      .all<CollectedItemRecord>();
+
+    return result.results ?? [];
+  }
+
+  async getByIds(ids: string[]): Promise<CollectedItemRecord[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const placeholders = ids.map(() => "?").join(", ");
+    const result = await this.db
+      .prepare(`SELECT * FROM collected_items WHERE id IN (${placeholders})`)
+      .bind(...ids)
+      .all<CollectedItemRecord>();
+
+    return result.results ?? [];
+  }
+
+  async updateScoring(input: UpdateScoringInput): Promise<void> {
+    await this.db
+      .prepare(
+        `UPDATE collected_items
+         SET rule_score = ?,
+             ai_score = ?,
+             final_score = ?,
+             relevance_score = ?,
+             scoring_breakdown_json = ?,
+             scored_at = ?,
+             scoring_version = ?
+         WHERE id = ?`
+      )
+      .bind(
+        input.ruleScore,
+        input.aiScore,
+        input.finalScore,
+        input.finalScore,
+        JSON.stringify(input.scoringBreakdown),
+        nowIso(),
+        input.scoringVersion,
+        input.id
+      )
+      .run();
   }
 
   private async findDuplicate(item: CollectedItem): Promise<{ id: string } | null> {

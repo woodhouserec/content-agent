@@ -5,9 +5,10 @@ import { getConfig } from "../app/config";
 import { getCallbackQuery, getMessage, isAllowedTelegramUser } from "./auth";
 import { handleCallback } from "./callbacks";
 import { TelegramClient } from "./client";
-import { buildHelpMessage, buildStartMessage, buildStatusMessage, getCommand } from "./commands";
+import { buildHelpMessage, buildProfileMessage, buildStartMessage, buildStatusMessage, getCommand } from "./commands";
 import type { TelegramUpdate } from "./types";
 import { runScheduledCollection } from "../scheduled/handler";
+import { runScoringAndSendTopics, sendLatestTopics } from "./topics";
 
 export async function handleTelegramWebhook(
   request: Request,
@@ -83,6 +84,36 @@ async function processTelegramUpdate(
       return;
     }
 
+    if (command === "/profile") {
+      await telegram.sendMessage(chatId, buildProfileMessage());
+      return;
+    }
+
+    if (command === "/topics") {
+      await sendLatestTopics(env, telegram, chatId);
+      return;
+    }
+
+    if (command === "/score") {
+      await telegram.sendMessage(chatId, "Scoring запущен. Я пришлю темы, когда закончу.");
+
+      dispatcher.dispatch("telegram_scoring", async () => {
+        try {
+          await runScoringAndSendTopics(env, telegram, chatId);
+        } catch (error: unknown) {
+          const message = formatSafeError(error);
+          logger.error("Manual scoring failed", {
+            event: "manual_scoring_failed",
+            requestId,
+            error: message
+          });
+          await telegram.sendMessage(chatId, `Scoring не завершился: ${message}`);
+        }
+      });
+
+      return;
+    }
+
     if (command === "/collect") {
       await telegram.sendMessage(chatId, "Сбор материалов запущен. Я напишу, когда закончу. /status можно использовать параллельно.");
 
@@ -108,7 +139,7 @@ async function processTelegramUpdate(
       return;
     }
 
-    await telegram.sendMessage(chatId, "Пока доступны команды /start, /help, /status и /collect.");
+    await telegram.sendMessage(chatId, "Пока доступны команды /start, /help, /status, /collect, /score, /topics и /profile.");
   } catch (error: unknown) {
     const message = formatSafeError(error);
     logger.error("Telegram command failed", {

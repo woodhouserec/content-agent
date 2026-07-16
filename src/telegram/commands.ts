@@ -1,6 +1,7 @@
 import { checkD1 } from "../storage/db";
 import { createRepositories } from "../storage/repositories";
 import type { Env } from "../domain/runtime";
+import { buildProfileSummary } from "../scoring/relevance-profile";
 
 export async function buildStartMessage(): Promise<string> {
   return [
@@ -12,7 +13,10 @@ export async function buildStartMessage(): Promise<string> {
     "Команды:",
     "/help - помощь",
     "/status - статус Worker и D1",
-    "/collect - запустить сбор материалов"
+    "/collect - запустить сбор материалов",
+    "/score - оценить материалы и создать темы",
+    "/topics - показать темы",
+    "/profile - показать relevance profile"
   ].join("\n");
 }
 
@@ -24,9 +28,16 @@ export async function buildHelpMessage(): Promise<string> {
     "/help - показать помощь",
     "/status - проверить Worker и базу D1",
     "/collect - вручную запустить сбор материалов",
+    "/score - оценить новые материалы и сформировать темы",
+    "/topics - показать последние доступные темы",
+    "/profile - показать relevance profile",
     "",
     "На этом этапе бот собирает материалы из RSS/Atom и разрешённых Reddit-источников. Генерации постов пока нет."
   ].join("\n");
+}
+
+export function buildProfileMessage(): string {
+  return ["Relevance profile:", "", buildProfileSummary()].join("\n");
 }
 
 export async function buildStatusMessage(env: Env): Promise<string> {

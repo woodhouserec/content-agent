@@ -18,7 +18,10 @@ It includes:
 - D1 repository layer;
 - RSS/Atom collection;
 - disabled-by-default Reddit source support;
-- normalization and deduplication before D1 writes.
+- normalization and deduplication before D1 writes;
+- rule-based relevance scoring;
+- optional OpenAI scoring for a shortlist only;
+- topic formation and Telegram topic review.
 
 It does not include:
 
@@ -48,8 +51,10 @@ You will need these four private values:
 | `TELEGRAM_WEBHOOK_SECRET` | You create this random text yourself |
 | `ALLOWED_TELEGRAM_USER_ID` | Telegram user ID bot |
 | `SETUP_SECRET` | You create this random text yourself |
+| `OPENAI_API_KEY` | Optional, only for AI scoring shortlist |
 
 Never paste these values into GitHub files.
+If `OPENAI_API_KEY` is absent, `/score` still works with rule-based fallback.
 
 ## Important Cloudflare Settings
 
@@ -161,6 +166,13 @@ The third migration seeds initial sources:
 - Reddit r/userexperience, disabled by default;
 - Reddit r/UXDesign, disabled by default.
 
+The fourth migration adds scoring and topic fields:
+
+- `rule_score`, `ai_score`, `final_score`;
+- scoring breakdown metadata;
+- topic fingerprint deduplication;
+- topic explanation fields.
+
 The `drafts` table already includes:
 
 ```text
@@ -173,4 +185,4 @@ This will be used later for rewrite and shorten versions.
 
 The next stage should add text topic selection and draft review planning.
 
-Do not add OpenAI, Content Pipeline, or LinkedIn publishing yet.
+Do not add full LinkedIn post generation, image generation, R2, or LinkedIn publishing yet.
