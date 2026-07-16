@@ -5,6 +5,11 @@ compatibility_date = "2026-07-16"
 [triggers]
 crons = ["0 8 * * 1-5"]
 
+[[d1_databases]]
+binding = "DB"
+database_name = "content-agent"
+database_id = "2aa027f2-fcbd-4d60-a148-68628ac45c78"
+
 # Secrets and private values must be configured in Cloudflare Dashboard or with wrangler secret:
 # TELEGRAM_BOT_TOKEN
 # TELEGRAM_WEBHOOK_SECRET
