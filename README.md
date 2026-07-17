@@ -28,6 +28,7 @@ It includes:
 - draft brief creation before writing;
 - factual review before Telegram delivery;
 - immutable draft versions for rewrite, shorten, expand, tone, opening, and custom revisions;
+- Telegram reply-keyboard navigation with a main menu and back buttons;
 - `/usage` for monthly AI usage.
 
 It does not include:
@@ -220,6 +221,8 @@ The seventh migration adds draft generation support:
 
 Draft commands and buttons:
 
+- `/start` opens the main menu panel;
+- setup installs Telegram slash commands through `setMyCommands`;
 - select a topic;
 - press `Создать черновик`;
 - review the generated text;

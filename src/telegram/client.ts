@@ -1,7 +1,7 @@
-import type { InlineKeyboardMarkup } from "./types";
+import type { TelegramReplyMarkup } from "./types";
 
 interface SendMessageOptions {
-  replyMarkup?: InlineKeyboardMarkup;
+  replyMarkup?: TelegramReplyMarkup;
 }
 
 export class TelegramClient {
@@ -30,6 +30,10 @@ export class TelegramClient {
       callback_query_id: callbackQueryId,
       text
     });
+  }
+
+  async setMyCommands(commands: Array<{ command: string; description: string }>): Promise<void> {
+    await this.call("setMyCommands", { commands });
   }
 
   private async call(method: string, body: Record<string, unknown>): Promise<void> {

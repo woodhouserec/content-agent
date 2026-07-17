@@ -8,6 +8,7 @@ import { logger } from "../utils/logger";
 import { assertTelegramWebhookSecret } from "../telegram/auth";
 import { TelegramClient } from "../telegram/client";
 import { handleTelegramWebhook } from "../telegram/webhook";
+import { botCommands } from "../telegram/menu";
 
 export async function handleFetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const requestId = crypto.randomUUID();
@@ -63,6 +64,7 @@ export async function handleFetch(request: Request, env: Env, ctx: ExecutionCont
       const workerUrl = url.origin;
       const telegram = new TelegramClient(config.telegramBotToken);
       await telegram.setWebhook(`${workerUrl}/telegram/webhook`, config.telegramWebhookSecret);
+      await telegram.setMyCommands(botCommands);
 
       logger.info("Telegram webhook configured", {
         event: "telegram_webhook_configured",
@@ -71,7 +73,8 @@ export async function handleFetch(request: Request, env: Env, ctx: ExecutionCont
 
       return jsonResponse({
         ok: true,
-        webhook: `${workerUrl}/telegram/webhook`
+        webhook: `${workerUrl}/telegram/webhook`,
+        commands: botCommands.length
       });
     }
 
@@ -159,10 +162,10 @@ function buildSetupPage(): string {
     <p>Эта страница не показывает Telegram token. Вставьте только <code>SETUP_SECRET</code>, который вы сохранили в Cloudflare.</p>
 
     <form method="post" action="/setup/telegram-webhook">
-      <h2>1. Установить Telegram webhook</h2>
+      <h2>1. Установить Telegram webhook и меню команд</h2>
       <label for="webhook-secret">SETUP_SECRET</label>
       <input id="webhook-secret" name="setup_secret" type="password" autocomplete="off" required>
-      <button type="submit">Установить webhook</button>
+      <button type="submit">Установить webhook и команды</button>
     </form>
 
     <form method="post" action="/setup/run-scheduled">

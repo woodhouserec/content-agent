@@ -13,6 +13,7 @@ import { runScheduledCollection } from "../scheduled/handler";
 import { runScoringAndSendTopics, sendLatestTopics } from "./topics";
 import { handleAddSource, handleSourceDisable, handleSources, handleSourceTest } from "./source-commands";
 import { extractUrl, handleAddUrl } from "./manual-url-commands";
+import { buildMainMenu, buildMenuMessage, buildSectionMenu, resolveMenuAction } from "./menu";
 import {
   approveDraft,
   buildUsageMessage,
@@ -87,10 +88,26 @@ async function processTelegramUpdate(
   }
 
   const chatId = String(message.chat.id);
-  const command = getCommand(message.text);
+  const menuAction = resolveMenuAction(message.text);
+  const command = menuAction?.kind === "command" ? menuAction.value : getCommand(message.text);
   const telegramUserId = String(message.from?.id ?? "");
 
   try {
+    if (menuAction?.kind === "screen") {
+      const screen = menuAction.value as "main" | "materials" | "topics" | "drafts" | "system";
+      await telegram.sendMessage(chatId, buildMenuMessage(screen), {
+        replyMarkup: screen === "main" ? buildMainMenu() : buildSectionMenu(screen)
+      });
+      return;
+    }
+
+    if (menuAction?.kind === "instruction") {
+      await telegram.sendMessage(chatId, menuAction.value, {
+        replyMarkup: buildSectionMenu("materials")
+      });
+      return;
+    }
+
     if (!command && message.text) {
       const handled = await handleCustomRevisionMessage(env, telegram, chatId, telegramUserId, message.text);
       if (handled) {
@@ -99,12 +116,16 @@ async function processTelegramUpdate(
     }
 
     if (command === "/start") {
-      await telegram.sendMessage(chatId, await buildStartMessage());
+      await telegram.sendMessage(chatId, await buildStartMessage(), {
+        replyMarkup: buildMainMenu()
+      });
       return;
     }
 
     if (command === "/help") {
-      await telegram.sendMessage(chatId, await buildHelpMessage());
+      await telegram.sendMessage(chatId, await buildHelpMessage(), {
+        replyMarkup: buildMainMenu()
+      });
       return;
     }
 
