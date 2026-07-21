@@ -28,7 +28,9 @@ It includes:
 - draft brief creation before writing;
 - factual review before Telegram delivery;
 - immutable draft versions for rewrite, shorten, expand, tone, opening, and custom revisions;
-- Telegram reply-keyboard navigation with a main menu and back buttons;
+- Telegram reply-keyboard navigation with nested Sources, Topics, Drafts, and System menus;
+- source URL intake without typing `/addurl` or `/addsource` after choosing the matching menu action;
+- relevance profile storage with an active profile and profile wizard;
 - `/usage` for monthly AI usage.
 
 It does not include:
@@ -223,6 +225,9 @@ Draft commands and buttons:
 
 - `/start` opens the main menu panel;
 - setup installs Telegram slash commands through `setMyCommands`;
+- `Источники` opens temporary and permanent source menus;
+- `Добавить URL источника` lets you send a URL directly as the next message;
+- `Профиль` opens current profile and saved profiles;
 - select a topic;
 - press `Создать черновик`;
 - review the generated text;

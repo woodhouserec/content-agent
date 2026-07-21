@@ -79,4 +79,24 @@ export class SourcesRepository {
 
     return Boolean(result.meta?.changes);
   }
+
+  async updateUrl(input: { id: string; name: string; url: string; config: Record<string, unknown>; enabled?: boolean }): Promise<boolean> {
+    const result = await this.db
+      .prepare(
+        `UPDATE sources
+         SET name = ?, url = ?, config_json = ?, enabled = COALESCE(?, enabled), updated_at = ?
+         WHERE id = ?`
+      )
+      .bind(
+        input.name,
+        input.url,
+        JSON.stringify(input.config),
+        typeof input.enabled === "boolean" ? input.enabled ? 1 : 0 : null,
+        nowIso(),
+        input.id
+      )
+      .run();
+
+    return Boolean(result.meta?.changes);
+  }
 }

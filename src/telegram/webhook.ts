@@ -15,6 +15,15 @@ import { handleAddSource, handleSourceDisable, handleSources, handleSourceTest }
 import { extractUrl, handleAddUrl } from "./manual-url-commands";
 import { buildMainMenu, buildMenuMessage, buildSectionMenu, resolveMenuAction } from "./menu";
 import {
+  handleAwaitingSourceUrl,
+  handleSourceEditorMessage,
+  promptForSourceUrl,
+  setSourceMenuContext,
+  showSourcesForCurrentMode,
+  startSourceEditor
+} from "./source-editor";
+import { handleProfileMessage, showMyProfiles, startCreateProfile } from "./profiles";
+import {
   approveDraft,
   buildUsageMessage,
   formatDraftSources,
@@ -93,8 +102,27 @@ async function processTelegramUpdate(
   const telegramUserId = String(message.from?.id ?? "");
 
   try {
+    if (message.text && await handleSourceEditorMessage(env, telegram, chatId, telegramUserId, message.text)) {
+      return;
+    }
+
+    if (message.text && await handleProfileMessage(env, telegram, chatId, telegramUserId, message.text)) {
+      return;
+    }
+
+    if (message.text && await handleAwaitingSourceUrl(env, telegram, chatId, telegramUserId, message.text)) {
+      return;
+    }
+
     if (menuAction?.kind === "screen") {
-      const screen = menuAction.value as "main" | "materials" | "topics" | "drafts" | "system";
+      const screen = menuAction.value as "main" | "sourcesRoot" | "temporarySources" | "permanentSources" | "topics" | "profileRoot" | "myProfiles" | "drafts" | "system";
+      if (screen === "temporarySources" || screen === "permanentSources") {
+        await setSourceMenuContext(env, telegramUserId, chatId, screen === "temporarySources" ? "temporary" : "permanent");
+      }
+      if (screen === "myProfiles") {
+        await showMyProfiles(env, telegram, chatId);
+        return;
+      }
       await telegram.sendMessage(chatId, buildMenuMessage(screen), {
         replyMarkup: screen === "main" ? buildMainMenu() : buildSectionMenu(screen)
       });
@@ -102,9 +130,26 @@ async function processTelegramUpdate(
     }
 
     if (menuAction?.kind === "instruction") {
-      await telegram.sendMessage(chatId, menuAction.value, {
-        replyMarkup: buildSectionMenu("materials")
-      });
+      if (menuAction.value === "add_url_source") {
+        await promptForSourceUrl(env, telegram, chatId, telegramUserId);
+        return;
+      }
+
+      if (menuAction.value === "show_sources") {
+        await showSourcesForCurrentMode(env, telegram, chatId, telegramUserId);
+        return;
+      }
+
+      if (menuAction.value === "edit_sources") {
+        await startSourceEditor(env, telegram, chatId, telegramUserId);
+        return;
+      }
+
+      if (menuAction.value === "create_profile") {
+        await startCreateProfile(env, telegram, chatId, telegramUserId);
+        return;
+      }
+
       return;
     }
 
@@ -135,7 +180,7 @@ async function processTelegramUpdate(
     }
 
     if (command === "/profile") {
-      await telegram.sendMessage(chatId, buildProfileMessage());
+      await telegram.sendMessage(chatId, await buildProfileMessage(env));
       return;
     }
 

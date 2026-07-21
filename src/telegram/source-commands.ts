@@ -171,7 +171,7 @@ function formatSourcePreview(validation: Awaited<ReturnType<typeof validateRssSo
   ].join("\n");
 }
 
-function formatSourceLine(source: SourceRecord): string {
+export function formatSourceLine(source: SourceRecord): string {
   let config: { source_tier?: string; content_kind?: string; trust_score?: number; editorial_priority?: number } = {};
 
   try {

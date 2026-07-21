@@ -48,10 +48,14 @@ const topicMap = [
   }
 ];
 
-export async function formTopics(items: CollectedItemRecord[], aiResults: AiScoringResult[]): Promise<Array<TopicCandidate & { fingerprint: string }>> {
+export async function formTopics(
+  items: CollectedItemRecord[],
+  aiResults: AiScoringResult[],
+  options: { minFinalScoreForTopic?: number } = {}
+): Promise<Array<TopicCandidate & { fingerprint: string }>> {
   const aiByItemId = new Map(aiResults.map((result) => [result.itemId, result]));
   const eligible = items
-    .filter((item) => (item.final_score ?? 0) >= scoringConfig.minFinalScoreForTopic)
+    .filter((item) => (item.final_score ?? 0) >= (options.minFinalScoreForTopic ?? scoringConfig.minFinalScoreForTopic))
     .sort((a, b) => (b.final_score ?? 0) - (a.final_score ?? 0));
   const groups = new Map<string, CollectedItemRecord[]>();
 

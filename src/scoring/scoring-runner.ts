@@ -16,11 +16,12 @@ export interface ScoringRunResult {
 
 export async function runScoring(env: Env): Promise<ScoringRunResult> {
   const repos = createRepositories(env.DB);
+  const activeProfile = await repos.relevanceProfiles.getActive();
   const candidates = await repos.collectedItems.listForScoring(100);
   const scoredItems = [];
 
   for (const item of candidates) {
-    const rule = scoreCollectedItem(item);
+    const rule = scoreCollectedItem(item, activeProfile);
 
     await repos.collectedItems.updateScoring({
       id: item.id,
@@ -44,7 +45,7 @@ export async function runScoring(env: Env): Promise<ScoringRunResult> {
   }
 
   const shortlist = scoredItems
-    .filter((item) => (item.rule_score ?? 0) >= scoringConfig.minRuleScoreForAi)
+    .filter((item) => (item.rule_score ?? 0) >= (activeProfile?.min_rule_score ?? scoringConfig.minRuleScoreForAi))
     .sort((a, b) => (b.rule_score ?? 0) - (a.rule_score ?? 0))
     .slice(0, scoringConfig.maxAiScoringItems);
 
@@ -90,7 +91,9 @@ export async function runScoring(env: Env): Promise<ScoringRunResult> {
     });
   }
 
-  const topics = await formTopics(scoredItems, aiResults);
+  const topics = await formTopics(scoredItems, aiResults, {
+    minFinalScoreForTopic: activeProfile?.min_final_score_for_topic
+  });
   let topicsCreated = 0;
   let topicsSkippedAsDuplicates = 0;
 

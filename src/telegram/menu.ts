@@ -2,23 +2,52 @@ import type { ReplyKeyboardMarkup } from "./types";
 
 export const menuLabels = {
   main: "Главное меню",
-  materials: "Материалы",
+  sourcesRoot: "Источники",
+  temporarySources: "Временные источники",
+  permanentSources: "Постоянные источники",
   topics: "Темы",
   drafts: "Черновики",
   system: "Система",
   collect: "Собрать материалы",
-  sources: "Источники",
-  addUrl: "Добавить URL",
+  showSources: "Показать источники",
+  addUrlSource: "Добавить URL источника",
+  editList: "Редактировать список",
+  change: "Изменить",
+  delete: "Удалить",
+  next: "Далее",
+  startOver: "Начать сначала",
+  saveList: "Сохранить список",
+  exit: "Выйти",
+  yes: "Да",
+  no: "Нет",
   showTopics: "Показать темы",
   score: "Scoring",
   profile: "Профиль",
+  currentProfile: "Текущий профиль",
+  myProfiles: "Мои профили",
+  createProfile: "Создать новый",
+  editProfile: "Изменить профиль",
+  deleteProfile: "Удалить профиль",
+  saveProfile: "Сохранить",
   usage: "Usage",
   status: "Статус",
   help: "Помощь",
   back: "Назад"
 } as const;
 
-export type MenuScreen = "main" | "materials" | "topics" | "drafts" | "system";
+export type MenuScreen =
+  | "main"
+  | "sourcesRoot"
+  | "temporarySources"
+  | "permanentSources"
+  | "sourceList"
+  | "sourceEditor"
+  | "topics"
+  | "profileRoot"
+  | "myProfiles"
+  | "profileWizard"
+  | "drafts"
+  | "system";
 
 export interface MenuAction {
   kind: "screen" | "command" | "instruction";
@@ -27,18 +56,40 @@ export interface MenuAction {
 
 export function buildMainMenu(): ReplyKeyboardMarkup {
   return keyboard([
-    [menuLabels.materials, menuLabels.topics],
+    [menuLabels.sourcesRoot, menuLabels.topics],
     [menuLabels.drafts, menuLabels.system]
   ], "Выберите раздел");
 }
 
 export function buildSectionMenu(screen: MenuScreen): ReplyKeyboardMarkup {
-  if (screen === "materials") {
+  if (screen === "sourcesRoot") {
     return keyboard([
-      [menuLabels.collect, menuLabels.sources],
-      [menuLabels.addUrl],
+      [menuLabels.temporarySources, menuLabels.permanentSources],
       [menuLabels.back]
-    ], "Материалы");
+    ], "Источники");
+  }
+
+  if (screen === "temporarySources" || screen === "permanentSources") {
+    return keyboard([
+      [menuLabels.collect],
+      [menuLabels.addUrlSource, menuLabels.showSources],
+      [menuLabels.back]
+    ], screen === "temporarySources" ? "Временные источники" : "Постоянные источники");
+  }
+
+  if (screen === "sourceList") {
+    return keyboard([
+      [menuLabels.editList],
+      [menuLabels.back]
+    ], "Список источников");
+  }
+
+  if (screen === "sourceEditor") {
+    return keyboard([
+      [menuLabels.change, menuLabels.delete],
+      [menuLabels.back, menuLabels.next],
+      [menuLabels.saveList, menuLabels.exit]
+    ], "Редактирование источников");
   }
 
   if (screen === "topics") {
@@ -47,6 +98,27 @@ export function buildSectionMenu(screen: MenuScreen): ReplyKeyboardMarkup {
       [menuLabels.profile],
       [menuLabels.back]
     ], "Темы");
+  }
+
+  if (screen === "profileRoot") {
+    return keyboard([
+      [menuLabels.currentProfile, menuLabels.myProfiles],
+      [menuLabels.back]
+    ], "Профиль");
+  }
+
+  if (screen === "myProfiles") {
+    return keyboard([
+      [menuLabels.createProfile],
+      [menuLabels.back]
+    ], "Мои профили");
+  }
+
+  if (screen === "profileWizard") {
+    return keyboard([
+      [menuLabels.back, menuLabels.next],
+      [menuLabels.exit]
+    ], "Редактор профиля");
   }
 
   if (screen === "drafts") {
@@ -75,7 +147,9 @@ export function resolveMenuAction(text: string | undefined): MenuAction | null {
 
   const screenMap: Record<string, MenuScreen> = {
     [menuLabels.main]: "main",
-    [menuLabels.materials]: "materials",
+    [menuLabels.sourcesRoot]: "sourcesRoot",
+    [menuLabels.temporarySources]: "temporarySources",
+    [menuLabels.permanentSources]: "permanentSources",
     [menuLabels.topics]: "topics",
     [menuLabels.drafts]: "drafts",
     [menuLabels.system]: "system",
@@ -88,10 +162,9 @@ export function resolveMenuAction(text: string | undefined): MenuAction | null {
 
   const commandMap: Record<string, string> = {
     [menuLabels.collect]: "/collect",
-    [menuLabels.sources]: "/sources",
     [menuLabels.showTopics]: "/topics",
     [menuLabels.score]: "/score",
-    [menuLabels.profile]: "/profile",
+    [menuLabels.currentProfile]: "/profile",
     [menuLabels.usage]: "/usage",
     [menuLabels.status]: "/status",
     [menuLabels.help]: "/help"
@@ -101,8 +174,28 @@ export function resolveMenuAction(text: string | undefined): MenuAction | null {
     return { kind: "command", value: commandMap[normalized] };
   }
 
-  if (normalized === menuLabels.addUrl) {
-    return { kind: "instruction", value: "Отправьте ссылку в формате:\n\n/addurl https://example.com/article" };
+  if (normalized === menuLabels.profile) {
+    return { kind: "screen", value: "profileRoot" };
+  }
+
+  if (normalized === menuLabels.myProfiles) {
+    return { kind: "screen", value: "myProfiles" };
+  }
+
+  if (normalized === menuLabels.addUrlSource) {
+    return { kind: "instruction", value: "add_url_source" };
+  }
+
+  if (normalized === menuLabels.showSources) {
+    return { kind: "instruction", value: "show_sources" };
+  }
+
+  if (normalized === menuLabels.editList) {
+    return { kind: "instruction", value: "edit_sources" };
+  }
+
+  if (normalized === menuLabels.createProfile) {
+    return { kind: "instruction", value: "create_profile" };
   }
 
   return null;
@@ -113,12 +206,32 @@ export function buildMenuMessage(screen: MenuScreen): string {
     return "Главное меню Content Agent.";
   }
 
-  if (screen === "materials") {
-    return "Раздел материалов: сбор, источники и ручное добавление статей.";
+  if (screen === "sourcesRoot") {
+    return "Раздел источников. Выберите временные или постоянные источники.";
+  }
+
+  if (screen === "temporarySources") {
+    return "Временные источники: разовые URL-материалы для анализа и постов.";
+  }
+
+  if (screen === "permanentSources") {
+    return "Постоянные источники: RSS/Atom/Reddit, которые собираются автоматически.";
+  }
+
+  if (screen === "sourceList") {
+    return "Список источников.";
   }
 
   if (screen === "topics") {
     return "Раздел тем: scoring, список тем и профиль релевантности.";
+  }
+
+  if (screen === "profileRoot") {
+    return "Профиль релевантности.";
+  }
+
+  if (screen === "myProfiles") {
+    return "Мои профили. Выберите профиль или создайте новый.";
   }
 
   if (screen === "drafts") {
@@ -148,4 +261,3 @@ function keyboard(rows: string[][], placeholder: string): ReplyKeyboardMarkup {
     input_field_placeholder: placeholder
   };
 }
-

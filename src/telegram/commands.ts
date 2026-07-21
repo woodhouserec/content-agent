@@ -1,14 +1,14 @@
 import { checkD1 } from "../storage/db";
 import { createRepositories } from "../storage/repositories";
 import type { Env } from "../domain/runtime";
-import { buildProfileSummary } from "../scoring/relevance-profile";
+import { buildActiveProfileSummary } from "../scoring/relevance-profile";
 
 export async function buildStartMessage(): Promise<string> {
   return [
     "Content Agent запущен.",
     "",
     "Я буду помогать выбирать темы и готовить черновики LinkedIn-постов.",
-    "В первом техническом срезе доступны только базовые команды и проверка инфраструктуры.",
+    "Теперь можно работать через кнопки меню: источники, темы, черновики и системные действия.",
     "",
     "Команды:",
     "/help - помощь",
@@ -48,8 +48,8 @@ export async function buildHelpMessage(): Promise<string> {
   ].join("\n");
 }
 
-export function buildProfileMessage(): string {
-  return ["Relevance profile:", "", buildProfileSummary()].join("\n");
+export async function buildProfileMessage(env: Env): Promise<string> {
+  return ["Relevance profile:", "", await buildActiveProfileSummary(env)].join("\n");
 }
 
 export async function buildStatusMessage(env: Env): Promise<string> {

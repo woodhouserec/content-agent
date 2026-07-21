@@ -1,4 +1,6 @@
 import type { CollectedItemRecord } from "../storage/collected-items";
+import type { RelevanceProfileRecord } from "../storage/relevance-profiles";
+import { profileFocusKeywords } from "./relevance-profile";
 import { scoringConfig } from "./config";
 
 export interface RuleScoreBreakdown {
@@ -20,7 +22,7 @@ const unwantedKeywords = [
   "top tools", "best tools", "coupon", "sale"
 ];
 
-export function scoreCollectedItem(item: CollectedItemRecord): RuleScoreBreakdown {
+export function scoreCollectedItem(item: CollectedItemRecord, profile: RelevanceProfileRecord | null = null): RuleScoreBreakdown {
   const text = [
     item.title,
     item.summary,
@@ -32,7 +34,8 @@ export function scoreCollectedItem(item: CollectedItemRecord): RuleScoreBreakdow
   const boosts: string[] = [];
   const penalties: string[] = [];
 
-  const matchedFocus = focusKeywords.filter((keyword) => text.includes(keyword));
+  const activeFocusKeywords = [...new Set([...focusKeywords, ...profileFocusKeywords(profile)])];
+  const matchedFocus = activeFocusKeywords.filter((keyword) => text.includes(keyword));
   factors.topicMatch = Math.min(35, matchedFocus.length * 7);
   if (matchedFocus.length > 0) {
     boosts.push(`Matched focus areas: ${matchedFocus.slice(0, 5).join(", ")}`);
