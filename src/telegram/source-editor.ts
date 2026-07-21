@@ -78,7 +78,9 @@ export async function showSourcesForCurrentMode(env: Env, telegram: TelegramClie
   const mode = await getSourceMenuMode(env, telegramUserId);
 
   if (mode === "temporary") {
-    await telegram.sendMessage(chatId, "Временные источники сохраняются как разовые материалы. Сейчас показываю постоянный список для управления источниками.");
+    const items = await createRepositories(env.DB).collectedItems.listManualUrlItems(10);
+    await telegram.sendMessage(chatId, formatTemporarySources(items), { replyMarkup: buildSectionMenu("sourceList") });
+    return;
   }
 
   await handleSources(env, telegram, chatId);
@@ -87,6 +89,17 @@ export async function showSourcesForCurrentMode(env: Env, telegram: TelegramClie
 
 export async function startSourceEditor(env: Env, telegram: TelegramClient, chatId: string, telegramUserId: string): Promise<void> {
   const repos = createRepositories(env.DB);
+  const mode = await getSourceMenuMode(env, telegramUserId);
+
+  if (mode === "temporary") {
+    await telegram.sendMessage(
+      chatId,
+      "Временные источники - это разовые материалы. Их список не редактируется как RSS-источники. Чтобы добавить новый временный источник, нажмите «Добавить URL источника» и отправьте ссылку.",
+      { replyMarkup: buildSectionMenu("temporarySources") }
+    );
+    return;
+  }
+
   const sources = await repos.sources.listAll();
 
   if (sources.length === 0) {
@@ -317,6 +330,38 @@ function readConfig(source: SourceRecord | null): Record<string, unknown> {
 
   try {
     return JSON.parse(source.config_json) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+function formatTemporarySources(items: Array<{ title: string; canonical_url: string | null; url: string; published_at: string | null; collected_at: string; extraction_status?: string | null; metadata_json: string | null }>): string {
+  if (items.length === 0) {
+    return "Временных источников пока нет. Нажмите «Добавить URL источника» и отправьте ссылку на статью.";
+  }
+
+  const lines = items.map((item, index) => {
+    const metadata = readMetadata(item.metadata_json);
+    const status = typeof metadata.extraction_status === "string" ? metadata.extraction_status : "saved";
+    const date = item.published_at?.slice(0, 10) ?? item.collected_at.slice(0, 10);
+    return [
+      `${index + 1}. ${item.title}`,
+      `Status: ${status}`,
+      `Date: ${date}`,
+      item.canonical_url ?? item.url
+    ].join("\n");
+  });
+
+  return ["Временные источники:", "", lines.join("\n\n")].join("\n");
+}
+
+function readMetadata(value: string | null): Record<string, unknown> {
+  if (!value) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(value) as Record<string, unknown>;
   } catch {
     return {};
   }

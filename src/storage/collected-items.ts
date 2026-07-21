@@ -143,6 +143,22 @@ export class CollectedItemsRepository {
     return result.results ?? [];
   }
 
+  async listManualUrlItems(limit: number): Promise<CollectedItemRecord[]> {
+    const result = await this.db
+      .prepare(
+        `SELECT * FROM collected_items
+         WHERE source_id = 'src_manual_urls'
+            OR metadata_json LIKE '%"ingestion_method":"manual_url"%'
+            OR metadata_json LIKE '%"ingestionMethod":"manual_url"%'
+         ORDER BY collected_at DESC
+         LIMIT ?`
+      )
+      .bind(limit)
+      .all<CollectedItemRecord>();
+
+    return result.results ?? [];
+  }
+
   async listForScoring(limit: number): Promise<CollectedItemRecord[]> {
     const result = await this.db
       .prepare(
