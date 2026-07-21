@@ -1,15 +1,16 @@
 import type { Env } from "../domain/runtime";
 import { runScoring } from "../scoring/scoring-runner";
+import type { CollectedItemMode } from "../storage/collected-items";
 import { createRepositories } from "../storage/repositories";
 import type { TopicRecord } from "../storage/topics";
 import type { TelegramClient } from "./client";
 
-export async function runScoringAndSendTopics(env: Env, telegram: TelegramClient, chatId: string): Promise<void> {
-  const result = await runScoring(env);
+export async function runScoringAndSendTopics(env: Env, telegram: TelegramClient, chatId: string, mode?: CollectedItemMode): Promise<void> {
+  const result = await runScoring(env, { mode });
   await telegram.sendMessage(
     chatId,
     [
-      "Scoring завершён.",
+      `Scoring завершён${mode ? ` (${mode === "temporary" ? "временные источники" : "постоянные источники"})` : ""}.`,
       `Материалов оценено: ${result.scoredItems}`,
       `OpenAI-запросов: ${result.aiRequests}`,
       `Fallback без OpenAI: ${result.usedAiFallback ? "да" : "нет"}`,
@@ -17,12 +18,13 @@ export async function runScoringAndSendTopics(env: Env, telegram: TelegramClient
       `Дубликатов тем: ${result.topicsSkippedAsDuplicates}`
     ].join("\n")
   );
-  await sendLatestTopics(env, telegram, chatId);
+  await sendLatestTopics(env, telegram, chatId, mode);
 }
 
-export async function sendLatestTopics(env: Env, telegram: TelegramClient, chatId: string): Promise<void> {
+export async function sendLatestTopics(env: Env, telegram: TelegramClient, chatId: string, mode?: CollectedItemMode): Promise<void> {
   const repos = createRepositories(env.DB);
-  const topics = await repos.topics.listAvailable(5);
+  const allTopics = await repos.topics.listAvailable(10);
+  const topics = mode ? await filterTopicsByMode(env, allTopics, mode, 5) : allTopics.slice(0, 5);
 
   if (topics.length === 0) {
     await telegram.sendMessage(chatId, "Пока нет доступных тем. Сначала запустите /score после /collect.");
@@ -45,6 +47,29 @@ export async function sendLatestTopics(env: Env, telegram: TelegramClient, chatI
     });
     await repos.topics.markSent(topic.id);
   }
+}
+
+async function filterTopicsByMode(env: Env, topics: TopicRecord[], mode: CollectedItemMode, limit: number): Promise<TopicRecord[]> {
+  const filtered: TopicRecord[] = [];
+
+  for (const topic of topics) {
+    const sources = await getTopicSources(env, topic);
+    const hasTemporary = sources.some(isManualItem);
+
+    if ((mode === "temporary" && hasTemporary) || (mode === "permanent" && !hasTemporary)) {
+      filtered.push(topic);
+    }
+
+    if (filtered.length >= limit) {
+      break;
+    }
+  }
+
+  return filtered;
+}
+
+function isManualItem(item: { source_id?: string; metadata_json?: string | null }): boolean {
+  return item.source_id === "src_manual_urls" || Boolean(item.metadata_json?.includes("\"ingestion_method\":\"manual_url\"") || item.metadata_json?.includes("\"ingestionMethod\":\"manual_url\""));
 }
 
 export async function getTopicSources(env: Env, topic: TopicRecord) {

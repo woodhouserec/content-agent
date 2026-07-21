@@ -22,6 +22,7 @@ import {
   showSourcesForCurrentMode,
   startSourceEditor
 } from "./source-editor";
+import { getSourceMenuMode } from "./source-editor";
 import { handleProfileMessage, showMyProfiles, startCreateProfile } from "./profiles";
 import {
   approveDraft,
@@ -215,16 +216,17 @@ async function processTelegramUpdate(
     }
 
     if (command === "/topics") {
-      await sendLatestTopics(env, telegram, chatId);
+      await sendLatestTopics(env, telegram, chatId, await getSourceMenuMode(env, telegramUserId));
       return;
     }
 
     if (command === "/score") {
-      await telegram.sendMessage(chatId, "Scoring запущен. Я пришлю темы, когда закончу.");
+      const mode = await getSourceMenuMode(env, telegramUserId);
+      await telegram.sendMessage(chatId, `Scoring запущен (${mode === "temporary" ? "временные источники" : "постоянные источники"}). Я пришлю темы, когда закончу.`);
 
       dispatcher.dispatch("telegram_scoring", async () => {
         try {
-          await runScoringAndSendTopics(env, telegram, chatId);
+          await runScoringAndSendTopics(env, telegram, chatId, mode);
         } catch (error: unknown) {
           const message = formatSafeError(error);
           logger.error("Manual scoring failed", {
@@ -240,6 +242,13 @@ async function processTelegramUpdate(
     }
 
     if (command === "/collect") {
+      const mode = await getSourceMenuMode(env, telegramUserId);
+
+      if (mode === "temporary") {
+        await telegram.sendMessage(chatId, "Для временных источников автоматический сбор не нужен: материалы добавляются ссылками. Добавьте URL источника, затем нажмите Scoring.");
+        return;
+      }
+
       await telegram.sendMessage(chatId, "Сбор материалов запущен. Я напишу, когда закончу. /status можно использовать параллельно.");
 
       dispatcher.dispatch("telegram_manual_collection", async () => {

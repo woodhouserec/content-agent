@@ -73,6 +73,7 @@ export function buildSectionMenu(screen: MenuScreen): ReplyKeyboardMarkup {
     return keyboard([
       [menuLabels.collect],
       [menuLabels.addUrlSource, menuLabels.showSources],
+      [menuLabels.score, menuLabels.showTopics],
       [menuLabels.back]
     ], screen === "temporarySources" ? "Временные источники" : "Постоянные источники");
   }
@@ -94,7 +95,6 @@ export function buildSectionMenu(screen: MenuScreen): ReplyKeyboardMarkup {
 
   if (screen === "topics") {
     return keyboard([
-      [menuLabels.showTopics, menuLabels.score],
       [menuLabels.profile],
       [menuLabels.back]
     ], "Темы");

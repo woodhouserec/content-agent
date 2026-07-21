@@ -1,6 +1,9 @@
 import type { D1Database } from "../domain/runtime";
 import type { CollectedItem } from "../domain/collected-item";
+import type { ExtractedArticle } from "../manual-url/types";
+import { articleToMetadata } from "../manual-url/article-metadata";
 import { createId } from "../utils/ids";
+import { sha256Hex } from "../utils/hash";
 import { nowIso } from "../utils/time";
 
 export interface CollectedItemRecord {
@@ -42,6 +45,8 @@ export interface UpsertCollectedItemResult {
   inserted: boolean;
   id: string;
 }
+
+export type CollectedItemMode = "temporary" | "permanent";
 
 export class CollectedItemsRepository {
   constructor(private readonly db: D1Database) {}
@@ -147,9 +152,12 @@ export class CollectedItemsRepository {
     const result = await this.db
       .prepare(
         `SELECT * FROM collected_items
-         WHERE source_id = 'src_manual_urls'
-            OR metadata_json LIKE '%"ingestion_method":"manual_url"%'
-            OR metadata_json LIKE '%"ingestionMethod":"manual_url"%'
+         WHERE status != 'archived'
+           AND (
+             source_id = 'src_manual_urls'
+             OR metadata_json LIKE '%"ingestion_method":"manual_url"%'
+             OR metadata_json LIKE '%"ingestionMethod":"manual_url"%'
+           )
          ORDER BY collected_at DESC
          LIMIT ?`
       )
@@ -159,12 +167,103 @@ export class CollectedItemsRepository {
     return result.results ?? [];
   }
 
-  async listForScoring(limit: number): Promise<CollectedItemRecord[]> {
+  async getById(id: string): Promise<CollectedItemRecord | null> {
+    return this.db.prepare("SELECT * FROM collected_items WHERE id = ? LIMIT 1").bind(id).first<CollectedItemRecord>();
+  }
+
+  async archive(id: string): Promise<boolean> {
+    const result = await this.db
+      .prepare("UPDATE collected_items SET status = 'archived', last_seen_at = ? WHERE id = ?")
+      .bind(nowIso(), id)
+      .run();
+
+    return Boolean(result.meta?.changes);
+  }
+
+  async updateManualUrlItem(id: string, article: ExtractedArticle, submittedBy: string): Promise<boolean> {
+    const metadata = {
+      ...articleToMetadata(article, submittedBy),
+      ingestion_method: "manual_url",
+      submitted_by: submittedBy,
+      submitted_at: nowIso(),
+      extraction_status: article.extractionStatus,
+      extraction_method: article.extractionMethod,
+      canonical_url: article.canonicalUrl,
+      source_domain: article.finalUrl ? new URL(article.finalUrl).hostname : null,
+      fetched_at: article.fetchedAt,
+      content_length: article.contentLength,
+      extraction_warnings: article.extractionWarnings
+    };
+    const title = article.title ?? article.canonicalUrl ?? article.finalUrl;
+    const contentHash = await sha256Hex([article.canonicalUrl, title, article.description, article.text].join("\n"));
+
+    const result = await this.db
+      .prepare(
+        `UPDATE collected_items
+         SET external_id = ?,
+             url = ?,
+             canonical_url = ?,
+             title = ?,
+             summary = ?,
+             raw_content = ?,
+             normalized_content = ?,
+             author = ?,
+             published_at = ?,
+             collected_at = ?,
+             last_seen_at = ?,
+             content_hash = ?,
+             metadata_json = ?,
+             rule_score = NULL,
+             ai_score = NULL,
+             final_score = NULL,
+             relevance_score = NULL,
+             scoring_breakdown_json = NULL,
+             scored_at = NULL,
+             scoring_version = NULL,
+             status = 'collected'
+         WHERE id = ?`
+      )
+      .bind(
+        article.canonicalUrl,
+        article.finalUrl,
+        article.canonicalUrl,
+        title,
+        article.description,
+        article.text,
+        article.text,
+        article.author,
+        article.publishedAt,
+        nowIso(),
+        nowIso(),
+        contentHash,
+        JSON.stringify(metadata),
+        id
+      )
+      .run();
+
+    return Boolean(result.meta?.changes);
+  }
+
+  async listForScoring(limit: number, mode?: CollectedItemMode): Promise<CollectedItemRecord[]> {
+    const modeFilter = mode === "temporary"
+      ? `AND (
+           source_id = 'src_manual_urls'
+           OR metadata_json LIKE '%"ingestion_method":"manual_url"%'
+           OR metadata_json LIKE '%"ingestionMethod":"manual_url"%'
+         )`
+      : mode === "permanent"
+        ? `AND source_id != 'src_manual_urls'
+           AND COALESCE(metadata_json, '') NOT LIKE '%"ingestion_method":"manual_url"%'
+           AND COALESCE(metadata_json, '') NOT LIKE '%"ingestionMethod":"manual_url"%'`
+        : "";
     const result = await this.db
       .prepare(
         `SELECT * FROM collected_items
-         WHERE scored_at IS NULL
+         WHERE status != 'archived'
+           ${modeFilter}
+           AND (scored_at IS NULL
             OR scoring_version IS NULL
+           )
          ORDER BY collected_at DESC
          LIMIT ?`
       )

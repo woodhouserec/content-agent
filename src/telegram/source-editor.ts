@@ -2,11 +2,14 @@ import type { Env } from "../domain/runtime";
 import { createRepositories } from "../storage/repositories";
 import type { SourceRecord } from "../storage/sources";
 import { validateRssSourceUrl } from "../sources/source-validation";
+import { ArticleFetcher } from "../manual-url/article-fetcher";
+import { ArticleExtractor } from "../manual-url/article-extractor";
 import type { TelegramClient } from "./client";
 import { buildSectionMenu, menuLabels } from "./menu";
 import { formatSourceLine, handleAddSource, handleSources } from "./source-commands";
 
 interface SourceEditorPayload {
+  itemType: "temporary" | "permanent";
   sourceIds: string[];
   index: number;
 }
@@ -92,11 +95,15 @@ export async function startSourceEditor(env: Env, telegram: TelegramClient, chat
   const mode = await getSourceMenuMode(env, telegramUserId);
 
   if (mode === "temporary") {
-    await telegram.sendMessage(
-      chatId,
-      "Временные источники - это разовые материалы. Их список не редактируется как RSS-источники. Чтобы добавить новый временный источник, нажмите «Добавить URL источника» и отправьте ссылку.",
-      { replyMarkup: buildSectionMenu("temporarySources") }
-    );
+    const items = await repos.collectedItems.listManualUrlItems(100);
+
+    if (items.length === 0) {
+      await telegram.sendMessage(chatId, "Временных источников пока нет.", { replyMarkup: buildSectionMenu("sourceList") });
+      return;
+    }
+
+    await saveEditorState(env, telegramUserId, chatId, { itemType: "temporary", sourceIds: items.map((item) => item.id), index: 0 });
+    await sendCurrentSource(env, telegram, chatId, telegramUserId);
     return;
   }
 
@@ -107,7 +114,7 @@ export async function startSourceEditor(env: Env, telegram: TelegramClient, chat
     return;
   }
 
-  await saveEditorState(env, telegramUserId, chatId, { sourceIds: sources.map((source) => source.id), index: 0 });
+  await saveEditorState(env, telegramUserId, chatId, { itemType: "permanent", sourceIds: sources.map((source) => source.id), index: 0 });
   await sendCurrentSource(env, telegram, chatId, telegramUserId);
 }
 
@@ -117,16 +124,24 @@ export async function handleSourceEditorMessage(env: Env, telegram: TelegramClie
 
   if (editUrlState) {
     await repos.conversationStates.clear(telegramUserId, "source_edit_url");
-    await updateCurrentSourceUrl(env, telegram, chatId, telegramUserId, editUrlState.target_id, text);
+    if (editUrlState.target_type === "manual_item") {
+      await updateCurrentManualItemUrl(env, telegram, chatId, telegramUserId, editUrlState.target_id, text);
+    } else {
+      await updateCurrentSourceUrl(env, telegram, chatId, telegramUserId, editUrlState.target_id, text);
+    }
     return true;
   }
 
   const deleteState = await repos.conversationStates.getActive(telegramUserId, "source_delete_confirm");
   if (deleteState) {
     if (text.trim() === menuLabels.yes) {
-      await repos.sources.disable(deleteState.target_id);
+      if (deleteState.target_type === "manual_item") {
+        await repos.collectedItems.archive(deleteState.target_id);
+      } else {
+        await repos.sources.disable(deleteState.target_id);
+      }
       await repos.conversationStates.clear(telegramUserId, "source_delete_confirm");
-      await telegram.sendMessage(chatId, "Источник отключён.");
+      await telegram.sendMessage(chatId, deleteState.target_type === "manual_item" ? "Временный источник архивирован." : "Источник отключён.");
       await moveSourceIndex(env, telegram, chatId, telegramUserId, 1);
       return true;
     }
@@ -151,11 +166,11 @@ export async function handleSourceEditorMessage(env: Env, telegram: TelegramClie
       telegramUserId,
       telegramChatId: chatId,
       stateType: "source_edit_url",
-      targetType: "source",
+      targetType: payload.itemType === "temporary" ? "manual_item" : "source",
       targetId: sourceId,
       ttlMinutes: 30
     });
-    await telegram.sendMessage(chatId, "Отправьте новую ссылку RSS/Atom для текущего источника.");
+    await telegram.sendMessage(chatId, payload.itemType === "temporary" ? "Отправьте новую ссылку на статью для текущего временного источника." : "Отправьте новую ссылку RSS/Atom для текущего источника.");
     return true;
   }
 
@@ -166,11 +181,11 @@ export async function handleSourceEditorMessage(env: Env, telegram: TelegramClie
       telegramUserId,
       telegramChatId: chatId,
       stateType: "source_delete_confirm",
-      targetType: "source",
+      targetType: payload.itemType === "temporary" ? "manual_item" : "source",
       targetId: sourceId,
       ttlMinutes: 10
     });
-    await telegram.sendMessage(chatId, "Отключить этот источник?", {
+    await telegram.sendMessage(chatId, payload.itemType === "temporary" ? "Архивировать этот временный источник?" : "Отключить этот источник?", {
       replyMarkup: { keyboard: [[{ text: menuLabels.yes }, { text: menuLabels.no }]], resize_keyboard: true }
     });
     return true;
@@ -212,15 +227,16 @@ async function sendCurrentSource(env: Env, telegram: TelegramClient, chatId: str
 
   const payload = parsePayload(state.payload_json);
   const sourceId = payload.sourceIds[payload.index];
-  const source = sourceId ? await repos.sources.getById(sourceId) : null;
+  const source = sourceId && payload.itemType === "permanent" ? await repos.sources.getById(sourceId) : null;
+  const item = sourceId && payload.itemType === "temporary" ? await repos.collectedItems.getById(sourceId) : null;
 
-  if (!source) {
+  if (!source && !item) {
     await telegram.sendMessage(chatId, "Источник не найден. Завершаю редактирование.", { replyMarkup: buildSectionMenu("sourceList") });
     await repos.conversationStates.clear(telegramUserId, "source_editor");
     return;
   }
 
-  await telegram.sendMessage(chatId, [`Источник ${payload.index + 1} из ${payload.sourceIds.length}:`, "", formatSourceLine(source)].join("\n"), {
+  await telegram.sendMessage(chatId, [`Источник ${payload.index + 1} из ${payload.sourceIds.length}:`, "", source ? formatSourceLine(source) : formatTemporarySourceLine(item!)].join("\n"), {
     replyMarkup: buildSectionMenu("sourceEditor")
   });
 }
@@ -309,17 +325,18 @@ async function updateCurrentSourceUrl(env: Env, telegram: TelegramClient, chatId
 
 function parsePayload(value: string | null): SourceEditorPayload {
   if (!value) {
-    return { sourceIds: [], index: 0 };
+    return { itemType: "permanent", sourceIds: [], index: 0 };
   }
 
   try {
     const parsed = JSON.parse(value) as Partial<SourceEditorPayload>;
     return {
+      itemType: parsed.itemType === "temporary" ? "temporary" : "permanent",
       sourceIds: Array.isArray(parsed.sourceIds) ? parsed.sourceIds.filter((id): id is string => typeof id === "string") : [],
       index: typeof parsed.index === "number" ? parsed.index : 0
     };
   } catch {
-    return { sourceIds: [], index: 0 };
+    return { itemType: "permanent", sourceIds: [], index: 0 };
   }
 }
 
@@ -332,6 +349,29 @@ function readConfig(source: SourceRecord | null): Record<string, unknown> {
     return JSON.parse(source.config_json) as Record<string, unknown>;
   } catch {
     return {};
+  }
+}
+
+async function updateCurrentManualItemUrl(env: Env, telegram: TelegramClient, chatId: string, telegramUserId: string, itemId: string, url: string): Promise<void> {
+  const fetcher = new ArticleFetcher();
+  const extractor = new ArticleExtractor();
+
+  try {
+    const fetched = await fetcher.fetch(url.trim());
+    const article = extractor.extract(url.trim(), fetched);
+
+    if (article.extractionStatus === "unsupported") {
+      await telegram.sendMessage(chatId, "Ссылка не сохранена: страницу не удалось извлечь обычным HTTP-запросом.");
+      await sendCurrentSource(env, telegram, chatId, telegramUserId);
+      return;
+    }
+
+    await createRepositories(env.DB).collectedItems.updateManualUrlItem(itemId, article, telegramUserId);
+    await telegram.sendMessage(chatId, "Временный источник обновлён. Его scoring сброшен, можно снова нажать «Scoring».");
+    await sendCurrentSource(env, telegram, chatId, telegramUserId);
+  } catch (error: unknown) {
+    await telegram.sendMessage(chatId, `Ссылка не сохранена: ${error instanceof Error ? error.message : String(error)}`);
+    await sendCurrentSource(env, telegram, chatId, telegramUserId);
   }
 }
 
@@ -353,6 +393,21 @@ function formatTemporarySources(items: Array<{ title: string; canonical_url: str
   });
 
   return ["Временные источники:", "", lines.join("\n\n")].join("\n");
+}
+
+function formatTemporarySourceLine(item: { id: string; title: string; canonical_url: string | null; url: string; published_at: string | null; collected_at: string; status: string; metadata_json: string | null }): string {
+  const metadata = readMetadata(item.metadata_json);
+  const extractionStatus = typeof metadata.extraction_status === "string" ? metadata.extraction_status : "saved";
+  const date = item.published_at?.slice(0, 10) ?? item.collected_at.slice(0, 10);
+
+  return [
+    `${item.status === "archived" ? "OFF" : "ON"} ${item.title}`,
+    `ID: ${item.id}`,
+    `Type: manual_url`,
+    `Status: ${extractionStatus}`,
+    `Date: ${date}`,
+    item.canonical_url ?? item.url
+  ].join("\n");
 }
 
 function readMetadata(value: string | null): Record<string, unknown> {

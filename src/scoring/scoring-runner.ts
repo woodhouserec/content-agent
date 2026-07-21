@@ -1,5 +1,6 @@
 import type { Env } from "../domain/runtime";
 import { createRepositories } from "../storage/repositories";
+import type { CollectedItemMode } from "../storage/collected-items";
 import { logger } from "../utils/logger";
 import { scoringConfig } from "./config";
 import { scoreWithOpenAi } from "./openai";
@@ -14,10 +15,10 @@ export interface ScoringRunResult {
   topicsSkippedAsDuplicates: number;
 }
 
-export async function runScoring(env: Env): Promise<ScoringRunResult> {
+export async function runScoring(env: Env, options: { mode?: CollectedItemMode } = {}): Promise<ScoringRunResult> {
   const repos = createRepositories(env.DB);
   const activeProfile = await repos.relevanceProfiles.getActive();
-  const candidates = await repos.collectedItems.listForScoring(100);
+  const candidates = await repos.collectedItems.listForScoring(100, options.mode);
   const scoredItems = [];
 
   for (const item of candidates) {
