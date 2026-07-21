@@ -10,7 +10,7 @@ export async function runScoringAndSendTopics(env: Env, telegram: TelegramClient
   await telegram.sendMessage(
     chatId,
     [
-      `Scoring завершён${mode ? ` (${mode === "temporary" ? "временные источники" : "постоянные источники"})` : ""}.`,
+      `Создание тем завершено${mode ? ` (${mode === "temporary" ? "временные источники" : "постоянные источники"})` : ""}.`,
       `Материалов оценено: ${result.scoredItems}`,
       `OpenAI-запросов: ${result.aiRequests}`,
       `Fallback без OpenAI: ${result.usedAiFallback ? "да" : "нет"}`,
@@ -27,7 +27,7 @@ export async function sendLatestTopics(env: Env, telegram: TelegramClient, chatI
   const topics = mode ? await filterTopicsByMode(env, allTopics, mode, 5) : allTopics.slice(0, 5);
 
   if (topics.length === 0) {
-    await telegram.sendMessage(chatId, "Пока нет доступных тем. Сначала запустите /score после /collect.");
+    await telegram.sendMessage(chatId, "Пока нет доступных тем. Сначала нажмите «Создать темы» после сбора или добавления материалов.");
     return;
   }
 
@@ -119,7 +119,7 @@ export function formatTopicWhy(topic: TopicRecord): string {
     "",
     `Score: ${Math.round(topic.relevance_score)}`,
     `Novelty: ${Math.round(topic.novelty_score ?? 0)}`,
-    `Reasoning: ${escapeHtml(topic.ai_reasoning_summary ?? topic.why_it_matters ?? "Rule-based scoring and source relevance.")}`
+    `Reasoning: ${escapeHtml(topic.ai_reasoning_summary ?? topic.why_it_matters ?? "Rule-based relevance and source fit.")}`
   ].join("\n");
 }
 

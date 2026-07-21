@@ -227,6 +227,7 @@ Draft commands and buttons:
 - setup installs Telegram slash commands through `setMyCommands`;
 - `Источники` opens temporary and permanent source menus;
 - `Добавить URL источника` lets you send a URL directly as the next message;
+- `Создать темы` runs topic creation for the current source section;
 - `Профиль` opens current profile and saved profiles;
 - select a topic;
 - press `Создать черновик`;

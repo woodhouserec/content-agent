@@ -21,7 +21,7 @@ export const menuLabels = {
   yes: "Да",
   no: "Нет",
   showTopics: "Показать темы",
-  score: "Scoring",
+  score: "Создать темы",
   profile: "Профиль",
   currentProfile: "Текущий профиль",
   myProfiles: "Мои профили",
@@ -223,7 +223,7 @@ export function buildMenuMessage(screen: MenuScreen): string {
   }
 
   if (screen === "topics") {
-    return "Раздел тем: scoring, список тем и профиль релевантности.";
+    return "Раздел тем: профиль релевантности и настройки повествования.";
   }
 
   if (screen === "profileRoot") {

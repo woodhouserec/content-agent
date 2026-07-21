@@ -222,7 +222,7 @@ async function processTelegramUpdate(
 
     if (command === "/score") {
       const mode = await getSourceMenuMode(env, telegramUserId);
-      await telegram.sendMessage(chatId, `Scoring запущен (${mode === "temporary" ? "временные источники" : "постоянные источники"}). Я пришлю темы, когда закончу.`);
+      await telegram.sendMessage(chatId, `Создание тем запущено (${mode === "temporary" ? "временные источники" : "постоянные источники"}). Я пришлю темы, когда закончу.`);
 
       dispatcher.dispatch("telegram_scoring", async () => {
         try {
@@ -234,7 +234,7 @@ async function processTelegramUpdate(
             requestId,
             error: message
           });
-          await telegram.sendMessage(chatId, `Scoring не завершился: ${message}`);
+          await telegram.sendMessage(chatId, `Создание тем не завершилось: ${message}`);
         }
       });
 
@@ -245,7 +245,7 @@ async function processTelegramUpdate(
       const mode = await getSourceMenuMode(env, telegramUserId);
 
       if (mode === "temporary") {
-        await telegram.sendMessage(chatId, "Для временных источников автоматический сбор не нужен: материалы добавляются ссылками. Добавьте URL источника, затем нажмите Scoring.");
+        await telegram.sendMessage(chatId, "Для временных источников автоматический сбор не нужен: материалы добавляются ссылками. Добавьте URL источника, затем нажмите «Создать темы».");
         return;
       }
 

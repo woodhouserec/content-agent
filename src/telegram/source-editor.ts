@@ -367,7 +367,7 @@ async function updateCurrentManualItemUrl(env: Env, telegram: TelegramClient, ch
     }
 
     await createRepositories(env.DB).collectedItems.updateManualUrlItem(itemId, article, telegramUserId);
-    await telegram.sendMessage(chatId, "Временный источник обновлён. Его scoring сброшен, можно снова нажать «Scoring».");
+    await telegram.sendMessage(chatId, "Временный источник обновлён. Его оценка сброшена, можно снова нажать «Создать темы».");
     await sendCurrentSource(env, telegram, chatId, telegramUserId);
   } catch (error: unknown) {
     await telegram.sendMessage(chatId, `Ссылка не сохранена: ${error instanceof Error ? error.message : String(error)}`);

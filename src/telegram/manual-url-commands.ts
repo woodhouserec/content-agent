@@ -32,7 +32,7 @@ export async function handleAddUrl(env: Env, telegram: TelegramClient, chatId: s
 export async function confirmManualUrl(env: Env, pendingId: string): Promise<string> {
   const result = await service.confirm(env, pendingId);
   return result.inserted
-    ? `Материал добавлен: ${result.title}\nТеперь можно запустить /score.`
+    ? `Материал добавлен: ${result.title}\nТеперь можно нажать «Создать темы».`
     : `Материал уже был в базе, дубль не создан: ${result.title}`;
 }
 
