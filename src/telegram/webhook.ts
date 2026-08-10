@@ -265,12 +265,21 @@ async function processTelegramUpdate(
 
       dispatcher.dispatch("telegram_manual_collection", async () => {
         try {
-          await runScheduledCollection("manual", env, {
+          const { stats } = await runScheduledCollection("manual", env, {
             requestedBy: "telegram",
             telegramChatId: chatId,
             requestId
           });
-          await telegram.sendMessage(chatId, "Сбор материалов завершён. Используйте /status, чтобы увидеть счётчики.");
+          await telegram.sendMessage(chatId, [
+            "Сбор материалов завершён.",
+            `Источников обработано: ${stats.processedSources}`,
+            `Успешных источников: ${stats.successfulSources}`,
+            `Ошибок источников: ${stats.failedSources}`,
+            `Новых материалов: ${stats.newItems}`,
+            `Дублей: ${stats.duplicateItems}`,
+            "",
+            "Теперь можно нажать «Создать темы»."
+          ].join("\n"));
         } catch (error: unknown) {
           const message = formatSafeError(error);
           logger.error("Manual collection failed", {

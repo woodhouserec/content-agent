@@ -18,10 +18,12 @@ export interface CollectionRunStats {
 
 const collectorConfig: CollectorConfig = {
   maxItemsPerSource: 10,
-  timeoutMs: 5000,
-  retries: 1,
+  timeoutMs: 4500,
+  retries: 0,
   userAgent: "ContentAgent/0.2 (+https://github.com/woodhouserec/content-agent)"
 };
+
+const collectorConcurrency = 5;
 
 export async function runCollection(env: Env, runId: string): Promise<CollectionRunStats> {
   const repos = createRepositories(env.DB);
@@ -37,19 +39,21 @@ export async function runCollection(env: Env, runId: string): Promise<Collection
     errors: []
   };
 
-  for (const source of sources) {
+  const results = await mapWithConcurrency(sources, collectorConcurrency, async (source) => {
     stats.processedSources += 1;
     const collector = getCollectorForSource(source);
 
     if (!collector) {
-      stats.failedSources += 1;
-      stats.errors.push({
-        sourceId: source.id,
-        stage: "config",
-        message: `No collector registered for source type: ${source.type}`,
-        recoverable: false
-      });
-      continue;
+      return {
+        source,
+        result: null,
+        error: {
+          sourceId: source.id,
+          stage: "config",
+          message: `No collector registered for source type: ${source.type}`,
+          recoverable: false
+        } as CollectorError
+      };
     }
 
     try {
@@ -60,46 +64,86 @@ export async function runCollection(env: Env, runId: string): Promise<Collection
         sourceType: source.type
       });
 
-      const result = await collector.collect(source, collectorConfig);
-      stats.errors.push(...result.errors);
-      stats.receivedItems += result.items.length;
-
-      if (result.ok) {
-        stats.successfulSources += 1;
-      } else {
-        stats.failedSources += 1;
-      }
-
-      for (const item of result.items) {
-        try {
-          const normalized = await normalizeCollectorItem(item);
-          stats.normalizedItems += 1;
-          const saveResult = await repos.collectedItems.upsertCollectedItem(normalized);
-
-          if (saveResult.inserted) {
-            stats.newItems += 1;
-          } else {
-            stats.duplicateItems += 1;
-          }
-        } catch (error: unknown) {
-          stats.errors.push({
-            sourceId: source.id,
-            stage: "item",
-            message: error instanceof Error ? error.message : String(error),
-            recoverable: true
-          });
-        }
-      }
+      return {
+        source,
+        result: await collector.collect(source, collectorConfig),
+        error: null
+      };
     } catch (error: unknown) {
+      return {
+        source,
+        result: null,
+        error: {
+          sourceId: source.id,
+          stage: "fetch",
+          message: error instanceof Error ? error.message : String(error),
+          recoverable: false
+        } as CollectorError
+      };
+    }
+  });
+
+  for (const { source, result, error } of results) {
+    if (error) {
       stats.failedSources += 1;
-      stats.errors.push({
-        sourceId: source.id,
-        stage: "fetch",
-        message: error instanceof Error ? error.message : String(error),
-        recoverable: false
-      });
+      stats.errors.push(error);
+      continue;
+    }
+
+    if (!result) {
+      continue;
+    }
+
+    stats.errors.push(...result.errors);
+    stats.receivedItems += result.items.length;
+
+    if (result.ok) {
+      stats.successfulSources += 1;
+    } else {
+      stats.failedSources += 1;
+    }
+
+    for (const item of result.items) {
+      try {
+        const normalized = await normalizeCollectorItem(item);
+        stats.normalizedItems += 1;
+        const saveResult = await repos.collectedItems.upsertCollectedItem(normalized);
+
+        if (saveResult.inserted) {
+          stats.newItems += 1;
+        } else {
+          stats.duplicateItems += 1;
+        }
+      } catch (itemError: unknown) {
+        stats.errors.push({
+          sourceId: source.id,
+          stage: "item",
+          message: itemError instanceof Error ? itemError.message : String(itemError),
+          recoverable: true
+        });
+      }
     }
   }
 
   return stats;
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = [];
+  let index = 0;
+
+  async function worker(): Promise<void> {
+    while (index < items.length) {
+      const currentIndex = index;
+      index += 1;
+      results[currentIndex] = await mapper(items[currentIndex]);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()));
+  return results;
 }

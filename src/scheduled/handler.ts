@@ -1,5 +1,5 @@
 import type { Env, ScheduledController } from "../domain/runtime";
-import { runCollection } from "../pipeline/collection-runner";
+import { runCollection, type CollectionRunStats } from "../pipeline/collection-runner";
 import { createRepositories } from "../storage/repositories";
 import { logger } from "../utils/logger";
 
@@ -14,7 +14,7 @@ export async function runScheduledCollection(
   triggerType: "cron" | "manual",
   env: Env,
   metadata: Record<string, unknown>
-): Promise<string> {
+): Promise<{ runId: string; stats: CollectionRunStats }> {
   const repos = createRepositories(env.DB);
   let runId: string | null = null;
 
@@ -52,7 +52,7 @@ export async function runScheduledCollection(
       failedSources: stats.failedSources
     });
 
-    return run.id;
+    return { runId: run.id, stats };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
 
