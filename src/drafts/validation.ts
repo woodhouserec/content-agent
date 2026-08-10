@@ -19,7 +19,8 @@ export function validateDraftBriefResponse(value: unknown): DraftBriefData {
 export function validateDraftGenerationResponse(value: unknown): DraftGenerationResult {
   const record = expectRecord(value, "draft generation");
   return {
-    content: expectText(record.content, "content", 120)
+    content: expectText(record.content, "content", 120),
+    russianTranslation: optionalText(record.russian_translation, "russian_translation", 80)
   };
 }
 
@@ -58,6 +59,14 @@ function expectText(value: unknown, field: string, minLength = 1): string {
   }
 
   return value.trim();
+}
+
+function optionalText(value: unknown, field: string, minLength = 1): string | null {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  return expectText(value, field, minLength);
 }
 
 function expectTextArray(value: unknown, field: string, allowEmpty = false): string[] {

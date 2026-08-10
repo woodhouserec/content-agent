@@ -12,6 +12,7 @@ export function buildCreateDraftButton(topicId: string) {
 }
 
 export function formatDraftMessage(result: DraftServiceResult): string {
+  const russianTranslation = extractRussianTranslation(result.draft.generation_metadata_json);
   const warning = result.factualReview.hasSeriousConflict
     ? [
         "",
@@ -32,7 +33,9 @@ export function formatDraftMessage(result: DraftServiceResult): string {
     `Status: ${escapeHtml(result.draft.status)}`,
     `Length: ${result.draft.content.length} chars`,
     "",
+    "<b>English draft:</b>",
     escapeHtml(result.draft.content),
+    ...(russianTranslation ? ["", "<b>Русский перевод:</b>", escapeHtml(russianTranslation)] : []),
     ...warning,
     "",
     "<b>Sources:</b>",
@@ -155,5 +158,20 @@ function parseSourceIds(value: string): string[] {
     return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
   } catch {
     return [];
+  }
+}
+
+function extractRussianTranslation(metadataJson: string | null): string | null {
+  if (!metadataJson) {
+    return null;
+  }
+
+  try {
+    const metadata = JSON.parse(metadataJson) as { russian_translation?: unknown };
+    return typeof metadata.russian_translation === "string" && metadata.russian_translation.trim().length > 0
+      ? metadata.russian_translation.trim()
+      : null;
+  } catch {
+    return null;
   }
 }

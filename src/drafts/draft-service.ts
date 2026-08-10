@@ -208,7 +208,7 @@ export class DraftService {
       content: draft.content,
       model: generated.model,
       promptVersion: promptVersions.draftGeneration,
-      generationMetadata: { provider: "openai", usage: generated.usage, latencyMs: generated.latencyMs },
+      generationMetadata: buildDraftGenerationMetadata(generated, draft),
       sourceSnapshot: sources,
       factualReview: factual
     });
@@ -260,7 +260,7 @@ export class DraftService {
       revisionType,
       userInstruction,
       promptVersion,
-      generationMetadata: { provider: "openai", usage: generated.usage, latencyMs: generated.latencyMs },
+      generationMetadata: buildDraftGenerationMetadata(generated, draft),
       sourceSnapshot: sources,
       factualReview: factual
     });
@@ -434,6 +434,19 @@ function mergeUsage(usages: Array<OpenAiUsage | null>): { inputTokens: number; o
   }
 
   return total;
+}
+
+function buildDraftGenerationMetadata(
+  generated: OpenAiJsonResult<Record<string, unknown>>,
+  draft: DraftGenerationResult
+): Record<string, unknown> {
+  return {
+    provider: "openai",
+    model: generated.model,
+    usage: generated.usage,
+    latencyMs: generated.latencyMs,
+    russian_translation: draft.russianTranslation
+  };
 }
 
 function numberFrom(value: unknown): number {

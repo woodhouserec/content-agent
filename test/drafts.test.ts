@@ -52,6 +52,15 @@ test("draft generation response rejects too-short content", () => {
   assert.throws(() => validateDraftGenerationResponse({ content: "Too short" }), /Invalid content/);
 });
 
+test("draft generation response accepts Russian translation metadata", () => {
+  const result = validateDraftGenerationResponse({
+    content: "Product design teams do not need AI to replace judgment. They need it to make weak signals easier to inspect, compare, and challenge before teams commit to a direction. That changes the designer's role in a practical way: less time polishing the first answer, more time asking whether the answer fits the product problem.",
+    russian_translation: "Командам продуктового дизайна не нужен AI, чтобы заменить профессиональное суждение. Им нужен AI, который помогает быстрее увидеть, сравнить и проверить слабые сигналы до того, как команда выберет направление."
+  });
+
+  assert.equal(result.russianTranslation?.startsWith("Командам продуктового дизайна"), true);
+});
+
 test("factual review flags serious conflicts", () => {
   const review = validateFactualReviewResponse({
     has_serious_conflict: true,

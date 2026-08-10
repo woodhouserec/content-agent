@@ -29,6 +29,7 @@ export interface FactualReviewData {
 
 export interface DraftGenerationResult {
   content: string;
+  russianTranslation: string | null;
 }
 
 export interface OpenAiUsage {
@@ -47,4 +48,3 @@ export interface OpenAiJsonResult<T> {
 }
 
 export type DraftRevisionType = "rewrite" | "shorten" | "expand" | "opening" | "tone" | "custom";
-
