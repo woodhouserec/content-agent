@@ -5,6 +5,8 @@ import { createRepositories } from "../storage/repositories";
 import type { TelegramClient } from "./client";
 import { escapeHtml } from "./html";
 
+const telegramSafeMessageLength = 3400;
+
 export function buildCreateDraftButton(topicId: string) {
   return {
     inline_keyboard: [[{ text: "Создать черновик", callback_data: `topic:draft:${topicId}` }]]
@@ -71,18 +73,14 @@ export async function runDraftGeneration(env: Env, telegram: TelegramClient, cha
   const service = new DraftService(env);
   await telegram.sendMessage(chatId, "Генерация черновика запущена. Сначала создам brief, затем текст и factual review.");
   const result = await service.generateInitialDraft(topicId, chatId);
-  await telegram.sendMessage(chatId, formatDraftMessage(result), {
-    replyMarkup: buildDraftReviewKeyboard(result.draft.id)
-  });
+  await sendDraftReviewMessages(telegram, chatId, result);
 }
 
 export async function runDraftRevision(env: Env, telegram: TelegramClient, chatId: string, draftId: string, revisionType: "rewrite" | "shorten" | "expand" | "opening" | "tone" | "custom", userInstruction?: string): Promise<void> {
   const service = new DraftService(env);
   await telegram.sendMessage(chatId, revisionType === "custom" ? "Принял инструкцию. Создаю новую версию." : "Создаю новую версию черновика.");
   const result = await service.reviseDraft(draftId, revisionType, chatId, userInstruction);
-  await telegram.sendMessage(chatId, formatDraftMessage(result), {
-    replyMarkup: buildDraftReviewKeyboard(result.draft.id)
-  });
+  await sendDraftReviewMessages(telegram, chatId, result);
 }
 
 export async function handleCustomRevisionMessage(env: Env, telegram: TelegramClient, chatId: string, telegramUserId: string, text: string): Promise<boolean> {
@@ -159,6 +157,78 @@ function parseSourceIds(value: string): string[] {
   } catch {
     return [];
   }
+}
+
+async function sendDraftReviewMessages(telegram: TelegramClient, chatId: string, result: DraftServiceResult): Promise<void> {
+  const russianTranslation = extractRussianTranslation(result.draft.generation_metadata_json);
+
+  await telegram.sendMessage(chatId, [
+    `<b>${escapeHtml(result.topic.title_ru ?? result.topic.title)}</b>`,
+    `Draft version: ${result.draft.version}`,
+    `Status: ${escapeHtml(result.draft.status)}`,
+    `English length: ${result.draft.content.length} chars`
+  ].join("\n"));
+
+  if (russianTranslation) {
+    await sendLongSection(telegram, chatId, "Русский перевод для проверки", russianTranslation);
+  }
+
+  await sendLongSection(telegram, chatId, "English LinkedIn post", result.draft.content);
+  await telegram.sendMessage(chatId, formatDraftReviewFooter(result), {
+    replyMarkup: buildDraftReviewKeyboard(result.draft.id)
+  });
+}
+
+async function sendLongSection(telegram: TelegramClient, chatId: string, title: string, text: string): Promise<void> {
+  const chunks = chunkText(text, telegramSafeMessageLength);
+
+  for (let index = 0; index < chunks.length; index += 1) {
+    const suffix = chunks.length > 1 ? ` ${index + 1}/${chunks.length}` : "";
+    await telegram.sendMessage(chatId, [`<b>${escapeHtml(title)}${suffix}:</b>`, escapeHtml(chunks[index])].join("\n"));
+  }
+}
+
+function formatDraftReviewFooter(result: DraftServiceResult): string {
+  const warning = result.factualReview.hasSeriousConflict
+    ? [
+        "",
+        "<b>Внимание:</b> factual review нашёл серьёзные риски.",
+        escapeHtml(result.factualReview.summary),
+        ...result.factualReview.flags.slice(0, 3).map((flag) => `- ${escapeHtml(flag)}`)
+      ]
+    : [];
+
+  const sources = result.sources.slice(0, 3).map((source, index) => {
+    const date = source.publishedAt ? source.publishedAt.slice(0, 10) : "no date";
+    return `${index + 1}. ${escapeHtml(source.title)} (${date})`;
+  });
+
+  return [
+    "Черновик готов. Используйте кнопки ниже для правок или одобрения.",
+    ...warning,
+    "",
+    "<b>Sources:</b>",
+    sources.join("\n") || "No sources"
+  ].join("\n");
+}
+
+function chunkText(text: string, maxLength: number): string[] {
+  const chunks: string[] = [];
+  let remaining = text.trim();
+
+  while (remaining.length > maxLength) {
+    const slice = remaining.slice(0, maxLength);
+    const breakpoint = Math.max(slice.lastIndexOf("\n\n"), slice.lastIndexOf("\n"), slice.lastIndexOf(". "), slice.lastIndexOf(" "));
+    const end = breakpoint > maxLength * 0.6 ? breakpoint + 1 : maxLength;
+    chunks.push(remaining.slice(0, end).trim());
+    remaining = remaining.slice(end).trim();
+  }
+
+  if (remaining.length > 0) {
+    chunks.push(remaining);
+  }
+
+  return chunks.length > 0 ? chunks : [""];
 }
 
 function extractRussianTranslation(metadataJson: string | null): string | null {

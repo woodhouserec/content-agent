@@ -70,7 +70,12 @@ export class DraftService {
 
     const draftCount = await this.repos.drafts.countForTopic(topic.id);
     if (draftCount > 0) {
-      throw new Error("Draft already exists for this topic. Use revision buttons to create a new version.");
+      const existing = await this.repos.drafts.latestForTopic(topic.id);
+      if (!existing) {
+        throw new Error("Draft already exists for this topic, but latest draft was not found.");
+      }
+
+      return this.resultFromExistingDraft(topic, existing);
     }
 
     if (draftCount >= draftConfig.maxDraftGenerationsPerTopic) {
@@ -292,6 +297,25 @@ export class DraftService {
     return validateFactualReviewResponse(review.data);
   }
 
+  private async resultFromExistingDraft(topic: TopicRecord, draft: DraftRecord): Promise<DraftServiceResult> {
+    const brief = await this.requireBrief(draft.draft_brief_id);
+    const sources = await buildGroundedSourceContext(this.env, topic);
+
+    return {
+      topic,
+      draft,
+      brief,
+      sources,
+      factualReview: parseFactualReview(draft.factual_review_json),
+      aiCalls: 0,
+      tokenUsage: {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0
+      }
+    };
+  }
+
   private async callAi<T>(input: {
     requestType: string;
     promptVersion: string;
@@ -389,6 +413,26 @@ function parseJsonArray(value: string): string[] {
     return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
   } catch {
     return [];
+  }
+}
+
+function parseFactualReview(value: string | null): FactualReviewData {
+  if (!value) {
+    return {
+      hasSeriousConflict: false,
+      flags: [],
+      summary: "Factual review is not available for this saved draft."
+    };
+  }
+
+  try {
+    return validateFactualReviewResponse(JSON.parse(value) as unknown);
+  } catch {
+    return {
+      hasSeriousConflict: false,
+      flags: [],
+      summary: "Factual review could not be parsed for this saved draft."
+    };
   }
 }
 
