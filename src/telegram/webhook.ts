@@ -10,7 +10,7 @@ import { TelegramClient } from "./client";
 import { buildHelpMessage, buildProfileMessage, buildStartMessage, buildStatusMessage, getCommand } from "./commands";
 import type { TelegramUpdate } from "./types";
 import { runScheduledCollection } from "../scheduled/handler";
-import { runScoringAndSendTopics, sendLatestTopics } from "./topics";
+import { resetTopicsForMode, runScoringAndSendTopics, sendLatestTopics } from "./topics";
 import { handleAddSource, handleSourceDisable, handleSources, handleSourceTest } from "./source-commands";
 import { extractUrl, handleAddUrl } from "./manual-url-commands";
 import { buildMainMenu, buildMenuMessage, buildSectionMenu, resolveMenuAction } from "./menu";
@@ -148,6 +148,18 @@ async function processTelegramUpdate(
 
       if (menuAction.value === "create_profile") {
         await startCreateProfile(env, telegram, chatId, telegramUserId);
+        return;
+      }
+
+      if (menuAction.value === "reset_topics") {
+        const mode = await getSourceMenuMode(env, telegramUserId);
+        const resetCount = await resetTopicsForMode(env, mode);
+        await telegram.sendMessage(
+          chatId,
+          resetCount > 0
+            ? `Темы сброшены (${mode === "temporary" ? "временные источники" : "постоянные источники"}): ${resetCount}. Теперь нажмите «Показать темы».`
+            : `Нет тем для сброса (${mode === "temporary" ? "временные источники" : "постоянные источники"}).`
+        );
         return;
       }
 

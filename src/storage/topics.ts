@@ -115,6 +115,20 @@ export class TopicsRepository {
     return result.results ?? [];
   }
 
+  async listForReset(limit: number): Promise<TopicRecord[]> {
+    const result = await this.db
+      .prepare(
+        `SELECT * FROM topics
+         WHERE status IN ('sent', 'selected', 'skipped', 'archived')
+         ORDER BY updated_at DESC, relevance_score DESC
+         LIMIT ?`
+      )
+      .bind(limit)
+      .all<TopicRecord>();
+
+    return result.results ?? [];
+  }
+
   async getById(id: string): Promise<TopicRecord | null> {
     return this.db.prepare("SELECT * FROM topics WHERE id = ? LIMIT 1").bind(id).first<TopicRecord>();
   }
@@ -138,6 +152,20 @@ export class TopicsRepository {
          WHERE id = ?`
       )
       .bind(status, selectedAt, nowIso(), id)
+      .run();
+  }
+
+  async resetToCandidate(id: string): Promise<void> {
+    await this.db
+      .prepare(
+        `UPDATE topics
+         SET status = 'candidate',
+             sent_to_telegram_at = NULL,
+             selected_by_user_at = NULL,
+             updated_at = ?
+         WHERE id = ?`
+      )
+      .bind(nowIso(), id)
       .run();
   }
 }

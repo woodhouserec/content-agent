@@ -50,6 +50,18 @@ export async function sendLatestTopics(env: Env, telegram: TelegramClient, chatI
   }
 }
 
+export async function resetTopicsForMode(env: Env, mode: CollectedItemMode): Promise<number> {
+  const repos = createRepositories(env.DB);
+  const topics = await repos.topics.listForReset(100);
+  const matching = await filterTopicsByMode(env, topics, mode, 100);
+
+  for (const topic of matching) {
+    await repos.topics.resetToCandidate(topic.id);
+  }
+
+  return matching.length;
+}
+
 async function filterTopicsByMode(env: Env, topics: TopicRecord[], mode: CollectedItemMode, limit: number): Promise<TopicRecord[]> {
   const filtered: TopicRecord[] = [];
 

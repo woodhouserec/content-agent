@@ -22,6 +22,7 @@ export const menuLabels = {
   no: "Нет",
   showTopics: "Показать темы",
   score: "Создать темы",
+  resetTopics: "Сбросить темы",
   profile: "Профиль",
   currentProfile: "Текущий профиль",
   myProfiles: "Мои профили",
@@ -74,6 +75,7 @@ export function buildSectionMenu(screen: MenuScreen): ReplyKeyboardMarkup {
       [menuLabels.collect],
       [menuLabels.addUrlSource, menuLabels.showSources],
       [menuLabels.score, menuLabels.showTopics],
+      [menuLabels.resetTopics],
       [menuLabels.back]
     ], screen === "temporarySources" ? "Временные источники" : "Постоянные источники");
   }
@@ -196,6 +198,10 @@ export function resolveMenuAction(text: string | undefined): MenuAction | null {
 
   if (normalized === menuLabels.createProfile) {
     return { kind: "instruction", value: "create_profile" };
+  }
+
+  if (normalized === menuLabels.resetTopics) {
+    return { kind: "instruction", value: "reset_topics" };
   }
 
   return null;
