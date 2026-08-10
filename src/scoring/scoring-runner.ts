@@ -9,6 +9,7 @@ import { formTopics } from "./topic-formation";
 
 export interface ScoringRunResult {
   scoredItems: number;
+  topicCandidateItems: number;
   aiRequests: number;
   usedAiFallback: boolean;
   topicsCreated: number;
@@ -92,7 +93,11 @@ export async function runScoring(env: Env, options: { mode?: CollectedItemMode }
     });
   }
 
-  const topics = await formTopics(scoredItems, aiResults, {
+  const topicItems = scoredItems.length > 0
+    ? scoredItems
+    : await repos.collectedItems.listTopicCandidates(100, options.mode);
+
+  const topics = await formTopics(topicItems, aiResults, {
     minFinalScoreForTopic: activeProfile?.min_final_score_for_topic
   });
   let topicsCreated = 0;
@@ -121,6 +126,7 @@ export async function runScoring(env: Env, options: { mode?: CollectedItemMode }
 
   return {
     scoredItems: scoredItems.length,
+    topicCandidateItems: topicItems.length,
     aiRequests,
     usedAiFallback,
     topicsCreated,

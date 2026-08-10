@@ -12,6 +12,7 @@ export async function runScoringAndSendTopics(env: Env, telegram: TelegramClient
     [
       `Создание тем завершено${mode ? ` (${mode === "temporary" ? "временные источники" : "постоянные источники"})` : ""}.`,
       `Материалов оценено: ${result.scoredItems}`,
+      `Материалов использовано для тем: ${result.topicCandidateItems}`,
       `OpenAI-запросов: ${result.aiRequests}`,
       `Fallback без OpenAI: ${result.usedAiFallback ? "да" : "нет"}`,
       `Новых тем: ${result.topicsCreated}`,

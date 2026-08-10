@@ -245,17 +245,7 @@ export class CollectedItemsRepository {
   }
 
   async listForScoring(limit: number, mode?: CollectedItemMode): Promise<CollectedItemRecord[]> {
-    const modeFilter = mode === "temporary"
-      ? `AND (
-           source_id = 'src_manual_urls'
-           OR metadata_json LIKE '%"ingestion_method":"manual_url"%'
-           OR metadata_json LIKE '%"ingestionMethod":"manual_url"%'
-         )`
-      : mode === "permanent"
-        ? `AND source_id != 'src_manual_urls'
-           AND COALESCE(metadata_json, '') NOT LIKE '%"ingestion_method":"manual_url"%'
-           AND COALESCE(metadata_json, '') NOT LIKE '%"ingestionMethod":"manual_url"%'`
-        : "";
+    const modeFilter = modeFilterSql(mode);
     const result = await this.db
       .prepare(
         `SELECT * FROM collected_items
@@ -265,6 +255,24 @@ export class CollectedItemsRepository {
             OR scoring_version IS NULL
            )
          ORDER BY collected_at DESC
+         LIMIT ?`
+      )
+      .bind(limit)
+      .all<CollectedItemRecord>();
+
+    return result.results ?? [];
+  }
+
+  async listTopicCandidates(limit: number, mode?: CollectedItemMode): Promise<CollectedItemRecord[]> {
+    const modeFilter = modeFilterSql(mode);
+    const result = await this.db
+      .prepare(
+        `SELECT * FROM collected_items
+         WHERE status != 'archived'
+           ${modeFilter}
+           AND final_score IS NOT NULL
+           AND scored_at IS NOT NULL
+         ORDER BY final_score DESC, scored_at DESC, collected_at DESC
          LIMIT ?`
       )
       .bind(limit)
@@ -353,4 +361,22 @@ export class CollectedItemsRepository {
       .bind(seenAt, id)
       .run();
   }
+}
+
+function modeFilterSql(mode?: CollectedItemMode): string {
+  if (mode === "temporary") {
+    return `AND (
+      source_id = 'src_manual_urls'
+      OR metadata_json LIKE '%"ingestion_method":"manual_url"%'
+      OR metadata_json LIKE '%"ingestionMethod":"manual_url"%'
+    )`;
+  }
+
+  if (mode === "permanent") {
+    return `AND source_id != 'src_manual_urls'
+      AND COALESCE(metadata_json, '') NOT LIKE '%"ingestion_method":"manual_url"%'
+      AND COALESCE(metadata_json, '') NOT LIKE '%"ingestionMethod":"manual_url"%'`;
+  }
+
+  return "";
 }
