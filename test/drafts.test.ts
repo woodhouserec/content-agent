@@ -48,6 +48,37 @@ test("draft brief accepts target audience as an array", () => {
   assert.equal(brief.targetAudience, "Product Designers, Design Leads");
 });
 
+test("draft brief accepts tone and desired length as arrays", () => {
+  const brief = validateDraftBriefResponse({
+    central_thesis: "Designers should use AI as support, not abdication.",
+    author_position: "Practitioner insight",
+    supporting_points: ["AI can speed up exploration"],
+    source_facts: ["The source discusses AI design context"],
+    practical_takeaway: "Use AI to improve decision quality.",
+    target_audience: ["Product Designers", "Design Leads"],
+    desired_length: ["default", "900-1500 characters"],
+    tone: ["thoughtful", "confident", "professional"],
+    factual_constraints: ["Do not invent adoption numbers"]
+  });
+
+  assert.equal(brief.desiredLength, "default, 900-1500 characters");
+  assert.equal(brief.tone, "thoughtful, confident, professional");
+});
+
+test("draft brief rejects empty tone array", () => {
+  assert.throws(() => validateDraftBriefResponse({
+    central_thesis: "Designers should use AI as support, not abdication.",
+    author_position: "Practitioner insight",
+    supporting_points: ["AI can speed up exploration"],
+    source_facts: ["The source discusses AI design context"],
+    practical_takeaway: "Use AI to improve decision quality.",
+    target_audience: ["Product Designers"],
+    desired_length: "default",
+    tone: [],
+    factual_constraints: ["Do not invent adoption numbers"]
+  }), /Invalid tone/);
+});
+
 test("draft generation response rejects too-short content", () => {
   assert.throws(() => validateDraftGenerationResponse({ content: "Too short" }), /Invalid content/);
 });

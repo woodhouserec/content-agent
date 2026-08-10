@@ -10,8 +10,8 @@ export function validateDraftBriefResponse(value: unknown): DraftBriefData {
     sourceFacts: expectTextArray(record.source_facts, "source_facts"),
     practicalTakeaway: expectText(record.practical_takeaway, "practical_takeaway"),
     targetAudience: expectTextOrArray(record.target_audience, "target_audience"),
-    desiredLength: expectText(record.desired_length, "desired_length"),
-    tone: expectText(record.tone, "tone"),
+    desiredLength: expectTextOrArray(record.desired_length, "desired_length"),
+    tone: expectTextOrArray(record.tone, "tone"),
     factualConstraints: expectTextArray(record.factual_constraints, "factual_constraints")
   };
 }
