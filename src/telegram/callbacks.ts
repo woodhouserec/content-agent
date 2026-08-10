@@ -2,7 +2,7 @@ import type { Env } from "../domain/runtime";
 import { createRepositories } from "../storage/repositories";
 import { nowIso } from "../utils/time";
 import type { TelegramCallbackQuery } from "./types";
-import { formatTopicSources, formatTopicWhy, getTopicSources } from "./topics";
+import { formatTopicEnglish, formatTopicSources, formatTopicWhy, getTopicSources } from "./topics";
 import { confirmPendingSource } from "./source-commands";
 import { confirmManualUrl, rejectManualUrl } from "./manual-url-commands";
 import { buildCreateDraftButton } from "./drafts";
@@ -58,6 +58,10 @@ export async function handleCallback(env: Env, callback: TelegramCallbackQuery):
 
     if (action === "why") {
       return { text: formatTopicWhy(topic) };
+    }
+
+    if (action === "english") {
+      return { text: formatTopicEnglish(topic, await getTopicSources(env, topic)) };
     }
   }
 

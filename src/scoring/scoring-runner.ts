@@ -106,9 +106,13 @@ export async function runScoring(env: Env, options: { mode?: CollectedItemMode }
   for (const topic of topics) {
     const result = await repos.topics.createIfNotExists({
       title: topic.title,
+      titleRu: topic.titleRu,
       summary: topic.summary,
+      summaryRu: topic.summaryRu,
       whyItMatters: topic.whyItMatters,
+      whyItMattersRu: topic.whyItMattersRu,
       suggestedAngle: topic.suggestedAngle,
+      suggestedAngleRu: topic.suggestedAngleRu,
       targetAudience: topic.targetAudience,
       sourceItemIds: topic.sourceItemIds,
       relevanceScore: topic.combinedScore,

@@ -6,12 +6,16 @@ export interface TopicRecord {
   id: string;
   processing_run_id: string | null;
   title: string;
+  title_ru: string | null;
   angle: string | null;
   summary: string | null;
+  summary_ru: string | null;
   source_item_ids_json: string;
   relevance_score: number;
   why_it_matters: string | null;
+  why_it_matters_ru: string | null;
   suggested_angle: string | null;
+  suggested_angle_ru: string | null;
   target_audience: string | null;
   novelty_score: number | null;
   topic_fingerprint: string | null;
@@ -25,9 +29,13 @@ export interface TopicRecord {
 
 export interface CreateTopicInput {
   title: string;
+  titleRu?: string | null;
   summary: string;
+  summaryRu?: string | null;
   whyItMatters: string;
+  whyItMattersRu?: string | null;
   suggestedAngle: string;
+  suggestedAngleRu?: string | null;
   targetAudience: string;
   sourceItemIds: string[];
   relevanceScore: number;
@@ -67,22 +75,26 @@ export class TopicsRepository {
     await this.db
       .prepare(
         `INSERT INTO topics (
-          id, processing_run_id, title, angle, summary, source_item_ids_json,
-          relevance_score, why_it_matters, suggested_angle, target_audience,
+          id, processing_run_id, title, title_ru, angle, summary, summary_ru, source_item_ids_json,
+          relevance_score, why_it_matters, why_it_matters_ru, suggested_angle, suggested_angle_ru, target_audience,
           novelty_score, topic_fingerprint, ai_reasoning_summary, status,
           sent_to_telegram_at, selected_by_user_at, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         id,
         null,
         input.title,
+        input.titleRu ?? null,
         input.suggestedAngle,
         input.summary,
+        input.summaryRu ?? null,
         JSON.stringify(input.sourceItemIds),
         input.relevanceScore,
         input.whyItMatters,
+        input.whyItMattersRu ?? null,
         input.suggestedAngle,
+        input.suggestedAngleRu ?? null,
         input.targetAudience,
         input.noveltyScore,
         input.topicFingerprint,

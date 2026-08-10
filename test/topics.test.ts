@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { CollectedItemRecord } from "../src/storage/collected-items";
 import { createTopicFingerprint, normalizeForFingerprint } from "../src/scoring/topic-fingerprint";
-import { classifyItem } from "../src/scoring/topic-formation";
+import { classifyItem, formTopics } from "../src/scoring/topic-formation";
 
 test("topic fingerprint normalizes similar title text", async () => {
   const first = await createTopicFingerprint(
@@ -46,4 +46,23 @@ test("topic classification recognizes design system governance", () => {
   } as CollectedItemRecord;
 
   assert.equal(classifyItem(item), "design_systems_governance");
+});
+
+test("topic formation includes Russian review fields for Telegram", async () => {
+  const item = {
+    id: "item_forms",
+    source_id: "src_test",
+    title: "The 6 UX Principles That Reduce User Frustration When Filling Out Forms",
+    summary: "Input validation, field labels, checkout friction, and signup form usability patterns.",
+    normalized_content: "Teams can reduce form friction by improving input fields and validation.",
+    final_score: 82,
+    scoring_breakdown_json: JSON.stringify({ factors: { freshness: 18 } })
+  } as CollectedItemRecord;
+
+  const topics = await formTopics([item], [], { minFinalScoreForTopic: 70 });
+
+  assert.equal(topics.length, 1);
+  assert.equal(topics[0].titleRu.includes("формах"), true);
+  assert.equal(topics[0].whyItMattersRu.length > 20, true);
+  assert.equal(topics[0].suggestedAngleRu.length > 20, true);
 });

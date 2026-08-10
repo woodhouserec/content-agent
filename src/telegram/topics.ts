@@ -42,7 +42,10 @@ export async function sendLatestTopics(env: Env, telegram: TelegramClient, chatI
             { text: "Пропустить", callback_data: `topic:skip:${topic.id}` },
             { text: "Показать источники", callback_data: `topic:sources:${topic.id}` }
           ],
-          [{ text: "Почему выбрано", callback_data: `topic:why:${topic.id}` }]
+          [
+            { text: "Почему выбрано", callback_data: `topic:why:${topic.id}` },
+            { text: "English", callback_data: `topic:english:${topic.id}` }
+          ]
         ]
       }
     });
@@ -106,6 +109,24 @@ function formatTopicMessage(topic: TopicRecord, sources: Array<{ title: string; 
   });
 
   return [
+    `<b>${escapeHtml(topic.title_ru ?? topic.title)}</b>`,
+    "",
+    `<b>Почему важно:</b> ${escapeHtml(topic.why_it_matters_ru ?? topic.why_it_matters ?? topic.summary ?? "Нет объяснения")}`,
+    `<b>Угол:</b> ${escapeHtml(topic.suggested_angle_ru ?? topic.suggested_angle ?? topic.angle ?? "Нет угла")}`,
+    `<b>Score:</b> ${Math.round(topic.relevance_score)}`,
+    "",
+    "<b>Источники:</b>",
+    sourceLines.join("\n") || "No sources"
+  ].join("\n");
+}
+
+export function formatTopicEnglish(topic: TopicRecord, sources: Array<{ title: string; canonical_url: string | null; published_at: string | null }>): string {
+  const sourceLines = sources.slice(0, 3).map((source, index) => {
+    const date = source.published_at ? source.published_at.slice(0, 10) : "no date";
+    return `${index + 1}. ${escapeHtml(source.title)} (${date})`;
+  });
+
+  return [
     `<b>${escapeHtml(topic.title)}</b>`,
     "",
     `<b>Why it matters:</b> ${escapeHtml(topic.why_it_matters ?? topic.summary ?? "No explanation")}`,
@@ -123,16 +144,18 @@ export function formatTopicSources(topic: TopicRecord, sources: Array<{ title: s
     return `${index + 1}. ${escapeHtml(source.title)}\n${escapeHtml(source.canonical_url ?? "")}\n${date}`;
   });
 
-  return [`Источники темы: ${escapeHtml(topic.title)}`, "", lines.join("\n\n") || "Источники не найдены."].join("\n");
+  return [`Источники темы: ${escapeHtml(topic.title_ru ?? topic.title)}`, "", lines.join("\n\n") || "Источники не найдены."].join("\n");
 }
 
 export function formatTopicWhy(topic: TopicRecord): string {
   return [
-    `Почему выбрано: ${escapeHtml(topic.title)}`,
+    `Почему выбрано: ${escapeHtml(topic.title_ru ?? topic.title)}`,
     "",
     `Score: ${Math.round(topic.relevance_score)}`,
     `Novelty: ${Math.round(topic.novelty_score ?? 0)}`,
-    `Reasoning: ${escapeHtml(topic.ai_reasoning_summary ?? topic.why_it_matters ?? "Rule-based relevance and source fit.")}`
+    `Объяснение: ${escapeHtml(topic.why_it_matters_ru ?? topic.ai_reasoning_summary ?? topic.why_it_matters ?? "Rule-based relevance and source fit.")}`,
+    "",
+    `English title: ${escapeHtml(topic.title)}`
   ].join("\n");
 }
 
