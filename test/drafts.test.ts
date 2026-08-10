@@ -32,6 +32,22 @@ test("draft brief structured response is validated and normalized", () => {
   assert.deepEqual(brief.supportingPoints, ["AI can speed up exploration", "Product responsibility remains human"]);
 });
 
+test("draft brief accepts target audience as an array", () => {
+  const brief = validateDraftBriefResponse({
+    central_thesis: "Designers should use AI as support, not abdication.",
+    author_position: "Practitioner insight",
+    supporting_points: ["AI can speed up exploration"],
+    source_facts: ["The source discusses AI design context"],
+    practical_takeaway: "Use AI to improve decision quality.",
+    target_audience: ["Product Designers", "Design Leads"],
+    desired_length: "default",
+    tone: "thoughtful and professional",
+    factual_constraints: ["Do not invent adoption numbers"]
+  });
+
+  assert.equal(brief.targetAudience, "Product Designers, Design Leads");
+});
+
 test("draft generation response rejects too-short content", () => {
   assert.throws(() => validateDraftGenerationResponse({ content: "Too short" }), /Invalid content/);
 });
@@ -66,4 +82,3 @@ test("draft callback payloads stay within Telegram callback_data limit", () => {
     assert.ok(callback.length <= 64, callback);
   }
 });
-

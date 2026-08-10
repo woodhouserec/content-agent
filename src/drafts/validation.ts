@@ -9,7 +9,7 @@ export function validateDraftBriefResponse(value: unknown): DraftBriefData {
     supportingPoints: expectTextArray(record.supporting_points, "supporting_points"),
     sourceFacts: expectTextArray(record.source_facts, "source_facts"),
     practicalTakeaway: expectText(record.practical_takeaway, "practical_takeaway"),
-    targetAudience: expectText(record.target_audience, "target_audience"),
+    targetAudience: expectTextOrArray(record.target_audience, "target_audience"),
     desiredLength: expectText(record.desired_length, "desired_length"),
     tone: expectText(record.tone, "tone"),
     factualConstraints: expectTextArray(record.factual_constraints, "factual_constraints")
@@ -73,3 +73,14 @@ function expectTextArray(value: unknown, field: string, allowEmpty = false): str
   return items;
 }
 
+function expectTextOrArray(value: unknown, field: string): string {
+  if (typeof value === "string") {
+    return expectText(value, field);
+  }
+
+  if (Array.isArray(value)) {
+    return expectTextArray(value, field).join(", ");
+  }
+
+  throw new Error(`Invalid ${field} in model response`);
+}
