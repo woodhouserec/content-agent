@@ -1,4 +1,4 @@
-import type { LinkedInConfig } from "./config";
+import type { LinkedInConfig, LinkedInPublishConfig } from "./config";
 
 export interface LinkedInTokenResponse {
   access_token: string;
@@ -14,25 +14,27 @@ export interface LinkedInUserInfo {
 }
 
 export class LinkedInClient {
-  constructor(private readonly config: LinkedInConfig) {}
+  constructor(private readonly config: LinkedInConfig | LinkedInPublishConfig) {}
 
   buildAuthorizationUrl(state: string): string {
+    const config = requireOauthConfig(this.config);
     const url = new URL("https://www.linkedin.com/oauth/v2/authorization");
     url.searchParams.set("response_type", "code");
-    url.searchParams.set("client_id", this.config.clientId);
-    url.searchParams.set("redirect_uri", this.config.redirectUri);
+    url.searchParams.set("client_id", config.clientId);
+    url.searchParams.set("redirect_uri", config.redirectUri);
     url.searchParams.set("scope", "openid profile w_member_social");
     url.searchParams.set("state", state);
     return url.toString();
   }
 
   async exchangeCode(code: string): Promise<LinkedInTokenResponse> {
+    const config = requireOauthConfig(this.config);
     const body = new URLSearchParams({
       grant_type: "authorization_code",
       code,
-      redirect_uri: this.config.redirectUri,
-      client_id: this.config.clientId,
-      client_secret: this.config.clientSecret
+      redirect_uri: config.redirectUri,
+      client_id: config.clientId,
+      client_secret: config.clientSecret
     });
 
     const response = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
@@ -101,4 +103,12 @@ export class LinkedInClient {
 
     return response.headers.get("x-restli-id") ?? "published";
   }
+}
+
+function requireOauthConfig(config: LinkedInConfig | LinkedInPublishConfig): LinkedInConfig {
+  if ("clientId" in config && "clientSecret" in config && "redirectUri" in config) {
+    return config;
+  }
+
+  throw new Error("LinkedIn OAuth config is required for this operation.");
 }

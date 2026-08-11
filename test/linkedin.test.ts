@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { LinkedInClient } from "../src/linkedin/client";
-import { getLinkedInConfig } from "../src/linkedin/config";
+import { getLinkedInConfig, getLinkedInPublishConfig } from "../src/linkedin/config";
 
 test("LinkedIn authorization URL requests publish scope and state", () => {
   const url = new LinkedInClient({
@@ -41,6 +41,12 @@ test("LinkedIn config normalizes YYYYMMDD version values", () => {
     LINKEDIN_REDIRECT_URI: "https://example.com/linkedin/oauth/callback",
     LINKEDIN_API_VERSION: "20260701"
   } as never);
+
+  assert.equal(config.apiVersion, "202607");
+});
+
+test("LinkedIn publish config does not require OAuth redirect URI", () => {
+  const config = getLinkedInPublishConfig({} as never);
 
   assert.equal(config.apiVersion, "202607");
 });

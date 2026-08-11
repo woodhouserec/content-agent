@@ -1,7 +1,7 @@
 import type { Env } from "../domain/runtime";
 import type { DraftRecord } from "../storage/drafts";
 import { createRepositories } from "../storage/repositories";
-import { getLinkedInConfig } from "./config";
+import { getLinkedInConfig, getLinkedInPublishConfig } from "./config";
 import { LinkedInClient } from "./client";
 
 export async function createLinkedInConnectUrl(env: Env, input: { telegramUserId: string; telegramChatId: string }): Promise<string> {
@@ -73,7 +73,7 @@ export async function publishDraftToLinkedIn(env: Env, input: { draftId: string;
   });
 
   try {
-    const postUrn = await new LinkedInClient(getLinkedInConfig(env)).publishTextPost({
+    const postUrn = await new LinkedInClient(getLinkedInPublishConfig(env)).publishTextPost({
       accessToken: connection.access_token,
       authorUrn: connection.author_urn,
       text: draft.content
