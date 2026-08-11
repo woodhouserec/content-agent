@@ -223,6 +223,27 @@ test("topic formation varies recruiter value by material signal", async () => {
   assert.equal(bettingTopics[0].whyItMattersRu.includes("превращается не в пересказ ссылки"), false);
 });
 
+test("topic formation does not classify research materials as service discovery", async () => {
+  const item = {
+    id: "item_alpha_inflation",
+    source_id: "src_research",
+    title: "Understanding Alpha Inflation",
+    summary: "A research article about statistical tests, sample size, evidence quality, and stakeholder buy-in for quantitative UX research.",
+    normalized_content: "UX research teams need to understand evidence quality, alpha inflation, statistical significance, and risk in research decisions.",
+    final_score: 48,
+    rule_score: 48,
+    scoring_breakdown_json: JSON.stringify({ factors: { freshness: 8 } })
+  } as CollectedItemRecord;
+
+  const topics = await formTopics([item], [], { minFinalScoreForTopic: 70 });
+
+  assert.equal(topics.length, 1);
+  assert.match(topics[0].whyItMattersRu, /исследовательской зрелости|evidence|приоритизац|риски/i);
+  assert.match(topics[0].suggestedAngleRu, /research|evidence|решения|риск/i);
+  assert.equal(topics[0].whyItMattersRu.includes("service-design"), false);
+  assert.equal(topics[0].whyItMattersRu.includes("discovery-продукты"), false);
+});
+
 test("formatTopicSources renders clickable source links", () => {
   const topic = {
     id: "topic_1",

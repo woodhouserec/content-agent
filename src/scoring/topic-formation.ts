@@ -398,25 +398,47 @@ interface HiringSignal {
   enFallback: (title: string) => string;
   ruWithThesis: (title: string) => string;
   ruFallback: (title: string) => string;
+  angleEn: (title: string) => string;
+  angleRu: (title: string) => string;
 }
 
 function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
   const text = `${item.title} ${item.summary ?? ""} ${item.normalized_content ?? ""}`.toLowerCase();
+  const isServiceDiscovery = (
+    text.includes("restaurant") ||
+    text.includes("booking") ||
+    text.includes("ecommerce") ||
+    text.includes("commerce") ||
+    text.includes("retail") ||
+    text.includes("shopper") ||
+    text.includes("service")
+  ) && (
+    text.includes("discovery") ||
+    text.includes("app") ||
+    text.includes("journey") ||
+    text.includes("experience") ||
+    text.includes("time") ||
+    text.includes("intent")
+  );
 
-  if ((text.includes("restaurant") || text.includes("discovery") || text.includes("app")) && (text.includes("time") || text.includes("service") || text.includes("experience"))) {
-    return {
-      enWithThesis: (title) => `it shows service-design thinking: the ability to connect discovery, timing, and user intent in a real product context, using "${title}" as evidence.`,
-      enFallback: (title) => `A recruiter would see service-design judgment here: the post can use "${title}" to discuss how discovery products win when they respect user timing, context, and intent.`,
-      ruWithThesis: (title) => `он показывает service-design мышление: умение связывать discovery, момент использования и пользовательское намерение в реальном продуктовом контексте на примере "${title}".`,
-      ruFallback: (title) => `рекрутер увидит здесь зрелое service-design мышление: пост может разобрать "${title}" через то, как discovery-продукты выигрывают за счёт контекста, timing и намерения пользователя.`
-    };
-  }
   if (text.includes("betting") || text.includes("finance") || text.includes("trust") || text.includes("regulated")) {
     return {
       enWithThesis: (title) => `it signals judgment about trust-heavy products: how identity, clarity, and interaction choices shape confidence in a sensitive category like "${title}".`,
       enFallback: (title) => `For hiring, "${title}" can demonstrate that the author thinks beyond aesthetics and can reason about trust, risk perception, and clarity in complex product categories.`,
       ruWithThesis: (title) => `он сигнализирует зрелое мышление о trust-heavy продуктах: как identity, ясность и interaction-решения формируют доверие в чувствительной категории на примере "${title}".`,
-      ruFallback: (title) => `для hiring-аудитории "${title}" может показать, что автор мыслит не только эстетикой, но и доверием, восприятием риска и ясностью в сложных продуктовых категориях.`
+      ruFallback: (title) => `для hiring-аудитории "${title}" может показать, что автор мыслит не только эстетикой, но и доверием, восприятием риска и ясностью в сложных продуктовых категориях.`,
+      angleEn: (title) => `Use "${title}" to discuss how design choices create or reduce trust in categories where risk, clarity, and confidence matter.`,
+      angleRu: (title) => `Разобрать "${title}" через доверие, восприятие риска и ясность решений в продуктовой категории, где ошибка особенно заметна пользователю.`
+    };
+  }
+  if (text.includes("research") || text.includes("study") || text.includes("insight") || text.includes("survey") || text.includes("interview") || text.includes("evidence")) {
+    return {
+      enWithThesis: (title) => `it highlights research maturity: the ability to turn evidence from "${title}" into product decisions rather than simply reporting findings.`,
+      enFallback: (title) => `Recruiters can read this as a signal of research maturity: "${title}" becomes a way to show how evidence informs prioritization, risk, and product judgment.`,
+      ruWithThesis: (title) => `он подсвечивает исследовательскую зрелость: умение превращать evidence из "${title}" в продуктовые решения, а не просто пересказывать findings.`,
+      ruFallback: (title) => `для рекрутера это сигнал исследовательской зрелости: "${title}" становится способом показать, как evidence влияет на приоритизацию, риски и продуктовые решения.`,
+      angleEn: (title) => `Use "${title}" to show how research evidence should change decisions, prioritization, or risk thinking, not just fill a report.`,
+      angleRu: (title) => `Разобрать "${title}" как пример того, как research evidence должен менять решения, приоритеты или понимание риска, а не просто пополнять отчёт.`
     };
   }
   if (text.includes("tourism") || text.includes("destination") || text.includes("place") || text.includes("visit")) {
@@ -424,7 +446,19 @@ function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
       enWithThesis: (title) => `it shows strategic experience thinking: the ability to translate perception, place, and motivation into a clearer product or brand experience through "${title}".`,
       enFallback: (title) => `A hiring manager would see that the author can connect brand strategy with user motivation, using "${title}" to reason about how perception becomes action.`,
       ruWithThesis: (title) => `он показывает стратегическое мышление об опыте: умение переводить восприятие, место и мотивацию в более ясный продуктовый или брендовый опыт через "${title}".`,
-      ruFallback: (title) => `нанимающий менеджер увидит, что автор умеет связывать brand strategy с мотивацией пользователя на примере "${title}" и рассуждать о том, как восприятие превращается в действие.`
+      ruFallback: (title) => `нанимающий менеджер увидит, что автор умеет связывать brand strategy с мотивацией пользователя на примере "${title}" и рассуждать о том, как восприятие превращается в действие.`,
+      angleEn: (title) => `Use "${title}" to explain how brand and experience design can move people from passive admiration to active intent.`,
+      angleRu: (title) => `Показать на примере "${title}", как бренд и experience design переводят пассивное восхищение в намерение действовать.`
+    };
+  }
+  if (isServiceDiscovery) {
+    return {
+      enWithThesis: (title) => `it shows service-design thinking: the ability to connect discovery, timing, and user intent in a real product context, using "${title}" as evidence.`,
+      enFallback: (title) => `A recruiter would see service-design judgment here: the post can use "${title}" to discuss how service and discovery products win when they respect user timing, context, and intent.`,
+      ruWithThesis: (title) => `он показывает service-design мышление: умение связывать discovery, момент использования и пользовательское намерение в реальном продуктовом контексте на примере "${title}".`,
+      ruFallback: (title) => `рекрутер увидит здесь зрелое service-design мышление: пост может разобрать "${title}" через то, как сервисные и discovery-продукты выигрывают за счёт контекста, timing и намерения пользователя.`,
+      angleEn: (title) => `Use "${title}" to discuss how service and discovery products can reduce friction by matching timing, context, and intent.`,
+      angleRu: (title) => `Разобрать "${title}" через то, как сервисные и discovery-продукты снижают фрикцию, когда попадают в timing, контекст и намерение пользователя.`
     };
   }
   if (text.includes("brand") || text.includes("story") || text.includes("identity") || text.includes("communication") || text.includes("wordmark") || text.includes("typeface")) {
@@ -432,15 +466,9 @@ function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
       enWithThesis: (title) => `it demonstrates brand-to-product reasoning: how visual identity and narrative choices can support comprehension, differentiation, and user memory in "${title}".`,
       enFallback: (title) => `This can signal strategic communication skill: the post can unpack "${title}" as a case of making a product easier to understand, remember, and trust.`,
       ruWithThesis: (title) => `он демонстрирует brand-to-product reasoning: как visual identity и narrative-решения поддерживают понимание, дифференциацию и запоминание продукта в "${title}".`,
-      ruFallback: (title) => `это может показать навык стратегической коммуникации: пост разбирает "${title}" как пример того, как сделать продукт понятнее, запоминаемее и убедительнее.`
-    };
-  }
-  if (text.includes("research") || text.includes("study") || text.includes("insight") || text.includes("survey")) {
-    return {
-      enWithThesis: (title) => `it highlights research maturity: the ability to turn evidence from "${title}" into product decisions rather than simply reporting findings.`,
-      enFallback: (title) => `Recruiters can read this as a signal of research maturity: "${title}" becomes a way to show how evidence informs prioritization, risk, and product judgment.`,
-      ruWithThesis: (title) => `он подсвечивает исследовательскую зрелость: умение превращать evidence из "${title}" в продуктовые решения, а не просто пересказывать findings.`,
-      ruFallback: (title) => `для рекрутера это сигнал исследовательской зрелости: "${title}" становится способом показать, как evidence влияет на приоритизацию, риски и продуктовые решения.`
+      ruFallback: (title) => `это может показать навык стратегической коммуникации: пост разбирает "${title}" как пример того, как сделать продукт понятнее, запоминаемее и убедительнее.`,
+      angleEn: (title) => `Use "${title}" to connect identity, narrative, and product comprehension instead of treating branding as decoration.`,
+      angleRu: (title) => `Разобрать "${title}" через связь айдентики, нарратива и понимания продукта, а не как декоративный branding-кейс.`
     };
   }
   if (text.includes("system") || text.includes("component") || text.includes("pattern") || text.includes("governance")) {
@@ -448,7 +476,9 @@ function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
       enWithThesis: (title) => `it demonstrates systems thinking: the ability to use "${title}" to reason about consistency, scale, and decision quality.`,
       enFallback: (title) => `For hiring, "${title}" can show that the author thinks in systems: patterns, governance, consistency, and product decisions at scale.`,
       ruWithThesis: (title) => `он демонстрирует системное мышление: умение использовать "${title}" для разговора о консистентности, масштабе и качестве решений.`,
-      ruFallback: (title) => `для hiring-аудитории "${title}" может показать, что автор мыслит системами: паттернами, governance, консистентностью и продуктовым масштабом.`
+      ruFallback: (title) => `для hiring-аудитории "${title}" может показать, что автор мыслит системами: паттернами, governance, консистентностью и продуктовым масштабом.`,
+      angleEn: (title) => `Use "${title}" to discuss how systems, patterns, and governance improve product decisions at scale.`,
+      angleRu: (title) => `Разобрать "${title}" как пример того, как системы, паттерны и governance улучшают продуктовые решения на масштабе.`
     };
   }
   if (text.includes("startup") || text.includes("founder") || text.includes("market") || text.includes("strategy")) {
@@ -456,7 +486,9 @@ function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
       enWithThesis: (title) => `it signals business awareness: the ability to connect design choices with market learning, positioning, and product strategy through "${title}".`,
       enFallback: (title) => `A recruiter would see business context here: "${title}" can become a post about how design supports positioning, learning speed, and product focus.`,
       ruWithThesis: (title) => `он сигнализирует бизнес-контекст: умение связывать дизайн-решения с рынком, позиционированием и продуктовой стратегией через "${title}".`,
-      ruFallback: (title) => `рекрутер увидит здесь бизнес-контекст: "${title}" можно превратить в пост о том, как дизайн поддерживает позиционирование, скорость обучения и продуктовый фокус.`
+      ruFallback: (title) => `рекрутер увидит здесь бизнес-контекст: "${title}" можно превратить в пост о том, как дизайн поддерживает позиционирование, скорость обучения и продуктовый фокус.`,
+      angleEn: (title) => `Use "${title}" to connect design decisions with positioning, market learning, and product focus.`,
+      angleRu: (title) => `Связать "${title}" с тем, как дизайн помогает позиционированию, обучению на рынке и продуктовому фокусу.`
     };
   }
   if (text.includes("digital") || text.includes("interaction") || text.includes("interface") || text.includes("experience")) {
@@ -464,7 +496,9 @@ function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
       enWithThesis: (title) => `it shows interaction thinking: the ability to connect digital execution with user understanding, flow, and product clarity in "${title}".`,
       enFallback: (title) => `This can signal interaction-design judgment: "${title}" becomes a way to discuss how digital products shape understanding, flow, and confidence.`,
       ruWithThesis: (title) => `он показывает interaction thinking: умение связывать digital execution с пониманием пользователя, flow и ясностью продукта в "${title}".`,
-      ruFallback: (title) => `это может показать зрелость в interaction design: "${title}" становится поводом обсудить, как цифровые продукты формируют понимание, flow и уверенность пользователя.`
+      ruFallback: (title) => `это может показать зрелость в interaction design: "${title}" становится поводом обсудить, как цифровые продукты формируют понимание, flow и уверенность пользователя.`,
+      angleEn: (title) => `Use "${title}" to explain how interaction choices shape understanding, flow, and confidence in a digital product.`,
+      angleRu: (title) => `Разобрать "${title}" через то, как interaction-решения формируют понимание, flow и уверенность в цифровом продукте.`
     };
   }
 
@@ -472,7 +506,9 @@ function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
     enWithThesis: (title) => `it shows structured product judgment: the ability to extract a usable design point of view from "${title}" without reducing it to a news repost.`,
     enFallback: (title) => `A recruiter would see structured thinking here: the author can turn "${title}" into a focused design argument with a clear professional point.`,
     ruWithThesis: (title) => `он показывает структурное продуктовое суждение: умение извлекать полезную дизайн-позицию из "${title}", не сводя материал к пересказу новости.`,
-    ruFallback: (title) => `рекрутер увидит здесь структурное мышление: автор умеет превратить "${title}" в сфокусированный дизайн-аргумент с ясной профессиональной позицией.`
+    ruFallback: (title) => `рекрутер увидит здесь структурное мышление: автор умеет превратить "${title}" в сфокусированный дизайн-аргумент с ясной профессиональной позицией.`,
+    angleEn: (title) => `Use "${title}" to extract a focused product-design argument from the source instead of summarizing the article.`,
+    angleRu: (title) => `Извлечь из "${title}" сфокусированный product-design аргумент, а не пересказывать материал.`
   };
 }
 
@@ -482,7 +518,7 @@ function sourceBasedAngle(items: CollectedItemRecord[], fallback = "Use the sour
     return fallback;
   }
 
-  return `Use "${cleanTitle(primary.title)}" as a practitioner reflection on what this material reveals about product design decisions, user friction, and team judgment.`;
+  return inferHiringSignal(primary).angleEn(cleanTitle(primary.title));
 }
 
 function sourceBasedAngleRu(items: CollectedItemRecord[], fallback = "Разобрать материал как практическое наблюдение о продуктовых дизайн-решениях."): string {
@@ -491,7 +527,7 @@ function sourceBasedAngleRu(items: CollectedItemRecord[], fallback = "Разоб
     return fallback;
   }
 
-  return `Разобрать "${cleanTitle(primary.title)}" как практическое наблюдение о продуктовых дизайн-решениях, пользовательском усилии и профессиональном суждении команды.`;
+  return inferHiringSignal(primary).angleRu(cleanTitle(primary.title));
 }
 
 function firstUsefulText(...values: Array<string | null>): string | null {

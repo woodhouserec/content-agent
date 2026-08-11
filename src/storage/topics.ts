@@ -63,6 +63,10 @@ export class TopicsRepository {
       .first<{ id: string; status: string }>();
 
     if (existing) {
+      if (existing.status !== "selected") {
+        await this.refreshExisting(existing.id, input);
+      }
+
       return {
         inserted: false,
         id: existing.id,
@@ -113,6 +117,48 @@ export class TopicsRepository {
       id,
       status: "candidate"
     };
+  }
+
+  private async refreshExisting(id: string, input: CreateTopicInput): Promise<void> {
+    await this.db
+      .prepare(
+        `UPDATE topics
+         SET title = ?,
+             title_ru = ?,
+             angle = ?,
+             summary = ?,
+             summary_ru = ?,
+             source_item_ids_json = ?,
+             relevance_score = ?,
+             why_it_matters = ?,
+             why_it_matters_ru = ?,
+             suggested_angle = ?,
+             suggested_angle_ru = ?,
+             target_audience = ?,
+             novelty_score = ?,
+             ai_reasoning_summary = ?,
+             updated_at = ?
+         WHERE id = ?`
+      )
+      .bind(
+        input.title,
+        input.titleRu ?? null,
+        input.suggestedAngle,
+        input.summary,
+        input.summaryRu ?? null,
+        JSON.stringify(input.sourceItemIds),
+        input.relevanceScore,
+        input.whyItMatters,
+        input.whyItMattersRu ?? null,
+        input.suggestedAngle,
+        input.suggestedAngleRu ?? null,
+        input.targetAudience,
+        input.noveltyScore,
+        input.aiReasoningSummary,
+        nowIso(),
+        id
+      )
+      .run();
   }
 
   async listAvailable(limit: number): Promise<TopicRecord[]> {
