@@ -148,9 +148,19 @@ export async function formTopics(
   options: { minFinalScoreForTopic?: number } = {}
 ): Promise<Array<TopicCandidate & { fingerprint: string }>> {
   const aiByItemId = new Map(aiResults.map((result) => [result.itemId, result]));
-  const eligible = items
+  let eligible = items
     .filter((item) => (item.final_score ?? 0) >= (options.minFinalScoreForTopic ?? scoringConfig.minFinalScoreForTopic))
     .sort((a, b) => (b.final_score ?? 0) - (a.final_score ?? 0));
+
+  if (eligible.length === 0 && aiResults.length > 0) {
+    eligible = items
+      .filter((item) => {
+        const ai = aiByItemId.get(item.id);
+        return Boolean(ai && isUsefulAiMaterial(ai, item));
+      })
+      .sort((a, b) => aiMaterialScore(aiByItemId.get(b.id), b) - aiMaterialScore(aiByItemId.get(a.id), a))
+      .slice(0, scoringConfig.maxTopicsPerRun);
+  }
 
   const aiCandidates = await formAiPostIdeas(eligible, aiResults);
   if (aiCandidates.length > 0) {
@@ -398,6 +408,20 @@ function extractNovelty(item: CollectedItemRecord, ai: AiScoringResult | undefin
   const breakdown = item.scoring_breakdown_json ? JSON.parse(item.scoring_breakdown_json) as { factors?: { freshness?: number } } : null;
   const freshness = breakdown?.factors?.freshness ?? 10;
   return Math.max(40, Math.min(80, 50 + freshness));
+}
+
+function isUsefulAiMaterial(ai: AiScoringResult, item: CollectedItemRecord): boolean {
+  const professionalSignal = (ai.aiRelevanceScore * 0.45) + (ai.professionalValue * 0.45) + (ai.noveltyScore * 0.1);
+  const ruleSignal = item.rule_score ?? item.final_score ?? 0;
+  return professionalSignal >= 62 && ruleSignal >= 50;
+}
+
+function aiMaterialScore(ai: AiScoringResult | undefined, item: CollectedItemRecord): number {
+  if (!ai) {
+    return item.final_score ?? item.rule_score ?? 0;
+  }
+
+  return (ai.aiRelevanceScore * 0.4) + (ai.professionalValue * 0.4) + (ai.noveltyScore * 0.1) + ((item.rule_score ?? item.final_score ?? 0) * 0.1);
 }
 
 function keywordWeight(keyword: string): number {

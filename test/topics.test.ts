@@ -131,6 +131,40 @@ test("topic formation replaces generic AI post title with source-grounded title"
   assert.equal(topics[0].summaryRu.startsWith("Основано на"), false);
 });
 
+test("topic formation can use strong AI signal when final score is below hard threshold", async () => {
+  const item = {
+    id: "item_creativeboom",
+    source_id: "src_creativeboom",
+    title: "How to make people care about your startup",
+    summary: "A source about turning a founder story into a communication strategy.",
+    normalized_content: "Startup teams need clearer communication choices when presenting product value.",
+    final_score: 61,
+    rule_score: 60,
+    scoring_breakdown_json: JSON.stringify({ factors: { freshness: 8 } })
+  } as CollectedItemRecord;
+
+  const topics = await formTopics([item], [{
+    itemId: "item_creativeboom",
+    aiRelevanceScore: 72,
+    noveltyScore: 66,
+    professionalValue: 78,
+    possibleLinkedInAngle: "How startup storytelling can make product value easier to understand",
+    explanation: "The material can become a practical Product/Founder post about communication and product value.",
+    postTitle: "How startup storytelling can make product value easier to understand",
+    postTitleRu: "Как стартап-сторителлинг помогает понятнее показать продуктовую ценность",
+    shortDescription: "A post about using founder storytelling as a product communication tool, not just a marketing story.",
+    shortDescriptionRu: "Пост о том, как использовать историю фаундера как инструмент объяснения продуктовой ценности, а не просто маркетинговый рассказ.",
+    audienceValue: "Helps founders and product designers connect narrative with product clarity.",
+    audienceValueRu: "Помогает фаундерам и продуктовым дизайнерам связать нарратив с ясностью продукта.",
+    hrValue: "Shows strategic product communication thinking.",
+    hrValueRu: "Показывает стратегическое мышление о продуктовой коммуникации.",
+    suggestedAngleRu: "Разобрать историю стартапа как продуктовый инструмент объяснения ценности."
+  }], { minFinalScoreForTopic: 70 });
+
+  assert.equal(topics.length, 1);
+  assert.equal(topics[0].title, "How startup storytelling can make product value easier to understand");
+});
+
 test("formatTopicSources renders clickable source links", () => {
   const topic = {
     id: "topic_1",
