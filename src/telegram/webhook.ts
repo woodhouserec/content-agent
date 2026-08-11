@@ -25,6 +25,13 @@ import {
 import { getSourceMenuMode } from "./source-editor";
 import { handleProfileMessage, showMyProfiles, startCreateProfile } from "./profiles";
 import {
+  handleThesisFilterMessage,
+  requestThesisFilterValue,
+  showThesisFilterSettings,
+  softenThesisFilter,
+  tightenThesisFilter
+} from "./thesis-filter-settings";
+import {
   buildApprovedDraftKeyboard,
   buildUsageMessage,
   buildLinkedInConnectMessage,
@@ -142,6 +149,10 @@ async function processTelegramUpdate(
       return;
     }
 
+    if (message.text && await handleThesisFilterMessage(env, telegram, chatId, telegramUserId, message.text)) {
+      return;
+    }
+
     if (message.text && await handleAwaitingSourceUrl(env, telegram, chatId, telegramUserId, message.text)) {
       return;
     }
@@ -217,6 +228,31 @@ async function processTelegramUpdate(
             ? `Тезисы сброшены (${mode === "temporary" ? "временные источники" : "постоянные источники"}): ${resetCount}. Теперь нажмите «Сгенерировать тезисы».`
             : `Нет тезисов для сброса (${mode === "temporary" ? "временные источники" : "постоянные источники"}).`
         );
+        return;
+      }
+
+      if (menuAction.value === "show_thesis_filter") {
+        await showThesisFilterSettings(env, telegram, chatId);
+        return;
+      }
+
+      if (menuAction.value === "soften_thesis_filter") {
+        await softenThesisFilter(env, telegram, chatId);
+        return;
+      }
+
+      if (menuAction.value === "tighten_thesis_filter") {
+        await tightenThesisFilter(env, telegram, chatId);
+        return;
+      }
+
+      if (menuAction.value === "change_rule_score") {
+        await requestThesisFilterValue(env, telegram, chatId, telegramUserId, "minRuleScore");
+        return;
+      }
+
+      if (menuAction.value === "change_topic_score") {
+        await requestThesisFilterValue(env, telegram, chatId, telegramUserId, "minFinalScoreForTopic");
         return;
       }
 

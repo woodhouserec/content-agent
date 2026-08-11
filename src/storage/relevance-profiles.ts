@@ -151,6 +151,26 @@ export class RelevanceProfilesRepository {
       .run();
   }
 
+  async updateScoringThresholds(id: string, input: { minRuleScore: number; minFinalScoreForTopic: number }): Promise<RelevanceProfileRecord> {
+    await this.db
+      .prepare(
+        `UPDATE relevance_profiles
+         SET min_rule_score = ?,
+             min_final_score_for_topic = ?,
+             updated_at = ?
+         WHERE id = ? AND deleted_at IS NULL`
+      )
+      .bind(input.minRuleScore, input.minFinalScoreForTopic, nowIso(), id)
+      .run();
+
+    const profile = await this.getById(id);
+    if (!profile) {
+      throw new Error("Profile thresholds were not updated");
+    }
+
+    return profile;
+  }
+
   async softDelete(id: string): Promise<boolean> {
     const active = await this.getActive();
     if (active?.id === id) {

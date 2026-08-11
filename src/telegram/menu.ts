@@ -24,6 +24,11 @@ export const menuLabels = {
   showTopics: "Показать тезисы",
   score: "Сгенерировать тезисы",
   resetTopics: "Сбросить тезисы",
+  thesisFilter: "Фильтр тезисов",
+  softerFilter: "Мягче фильтр",
+  stricterFilter: "Строже фильтр",
+  changeRuleScore: "Изменить Rule Score",
+  changeTopicScore: "Изменить Topic Score",
   profile: "Профиль",
   currentProfile: "Текущий профиль",
   myProfiles: "Мои профили",
@@ -45,6 +50,7 @@ export type MenuScreen =
   | "permanentSources"
   | "sourceList"
   | "sourceEditor"
+  | "thesisFilter"
   | "profileRoot"
   | "myProfiles"
   | "profileWizard"
@@ -82,9 +88,18 @@ export function buildSectionMenu(screen: MenuScreen): ReplyKeyboardMarkup {
       [menuLabels.collect],
       [menuLabels.addUrlSource, menuLabels.showSources],
       [menuLabels.score],
-      [menuLabels.resetTopics],
+      [menuLabels.thesisFilter, menuLabels.resetTopics],
       [menuLabels.back]
     ], "Постоянные источники");
+  }
+
+  if (screen === "thesisFilter") {
+    return keyboard([
+      [menuLabels.softerFilter, menuLabels.stricterFilter],
+      [menuLabels.changeRuleScore],
+      [menuLabels.changeTopicScore],
+      [menuLabels.back]
+    ], "Фильтр тезисов");
   }
 
   if (screen === "sourceList") {
@@ -194,6 +209,26 @@ export function resolveMenuAction(text: string | undefined): MenuAction | null {
     return { kind: "instruction", value: "reset_topics" };
   }
 
+  if (normalized === menuLabels.thesisFilter) {
+    return { kind: "instruction", value: "show_thesis_filter" };
+  }
+
+  if (normalized === menuLabels.softerFilter) {
+    return { kind: "instruction", value: "soften_thesis_filter" };
+  }
+
+  if (normalized === menuLabels.stricterFilter) {
+    return { kind: "instruction", value: "tighten_thesis_filter" };
+  }
+
+  if (normalized === menuLabels.changeRuleScore) {
+    return { kind: "instruction", value: "change_rule_score" };
+  }
+
+  if (normalized === menuLabels.changeTopicScore) {
+    return { kind: "instruction", value: "change_topic_score" };
+  }
+
   if (normalized === menuLabels.connectLinkedIn) {
     return { kind: "instruction", value: "connect_linkedin" };
   }
@@ -216,6 +251,10 @@ export function buildMenuMessage(screen: MenuScreen): string {
 
   if (screen === "permanentSources") {
     return "Постоянные источники: RSS/Atom/Reddit или страницы-рубрики со статьями, которые собираются автоматически.";
+  }
+
+  if (screen === "thesisFilter") {
+    return "Фильтр отбора материалов в тезисы.";
   }
 
   if (screen === "sourceList") {
