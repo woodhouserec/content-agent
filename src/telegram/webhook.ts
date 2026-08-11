@@ -12,7 +12,7 @@ import type { TelegramUpdate } from "./types";
 import { runScheduledCollection } from "../scheduled/handler";
 import { resetTopicsForMode, runScoringAndSendTopics, sendLatestTopics } from "./topics";
 import { handleAddSource, handleSourceDisable, handleSources, handleSourceTest } from "./source-commands";
-import { extractUrl, handleAddUrl } from "./manual-url-commands";
+import { createDraftTopicFromManualUrl, extractUrl, handleAddUrl } from "./manual-url-commands";
 import { buildMainMenu, buildMenuMessage, buildSectionMenu, resolveMenuAction } from "./menu";
 import {
   handleAwaitingSourceUrl,
@@ -386,11 +386,28 @@ async function handleDraftCallback(
   const data = callback.data ?? "";
   const [targetType, action, targetId] = data.split(":");
 
-  if (!targetId || !((targetType === "topic" && action === "draft") || targetType === "draft" || targetType === "visual")) {
+  if (!targetId || !((targetType === "topic" && action === "draft") || (targetType === "manualurl" && action === "draft") || targetType === "draft" || targetType === "visual")) {
     return false;
   }
 
   await logCallbackAction(env, callback, chatId, targetType, action ?? data, targetId, data);
+
+  if (targetType === "manualurl" && action === "draft") {
+    await telegram.sendMessage(chatId, "AI-анализ материала запущен. Сначала разберу статью и создам направление поста, затем покажу кнопку «Создать черновик».");
+    dispatcher.dispatch("telegram_manual_url_direct_topic", async () => {
+      try {
+        const response = await createDraftTopicFromManualUrl(env, targetId);
+        await telegram.sendMessage(chatId, response.text, {
+          replyMarkup: response.replyMarkup
+        });
+      } catch (error: unknown) {
+        const message = formatSafeError(error);
+        logger.error("Manual URL direct topic failed", { event: "manual_url_direct_topic_failed", requestId, error: message });
+        await telegram.sendMessage(chatId, `Пост по материалу не создан: ${message}`);
+      }
+    });
+    return true;
+  }
 
   if (targetType === "topic" && action === "draft") {
     dispatcher.dispatch("telegram_draft_generation", async () => {
