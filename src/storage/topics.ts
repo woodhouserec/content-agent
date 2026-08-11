@@ -56,16 +56,17 @@ export class TopicsRepository {
     return row?.count ?? 0;
   }
 
-  async createIfNotExists(input: CreateTopicInput): Promise<{ inserted: boolean; id: string }> {
+  async createIfNotExists(input: CreateTopicInput): Promise<{ inserted: boolean; id: string; status: string | null }> {
     const existing = await this.db
-      .prepare("SELECT id FROM topics WHERE topic_fingerprint = ? LIMIT 1")
+      .prepare("SELECT id, status FROM topics WHERE topic_fingerprint = ? LIMIT 1")
       .bind(input.topicFingerprint)
-      .first<{ id: string }>();
+      .first<{ id: string; status: string }>();
 
     if (existing) {
       return {
         inserted: false,
-        id: existing.id
+        id: existing.id,
+        status: existing.status
       };
     }
 
@@ -109,7 +110,8 @@ export class TopicsRepository {
 
     return {
       inserted: true,
-      id
+      id,
+      status: "candidate"
     };
   }
 

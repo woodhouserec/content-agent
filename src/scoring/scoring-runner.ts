@@ -14,6 +14,7 @@ export interface ScoringRunResult {
   usedAiFallback: boolean;
   topicsCreated: number;
   topicsSkippedAsDuplicates: number;
+  topicsRestored: number;
 }
 
 export async function runScoring(env: Env, options: { mode?: CollectedItemMode } = {}): Promise<ScoringRunResult> {
@@ -102,6 +103,7 @@ export async function runScoring(env: Env, options: { mode?: CollectedItemMode }
   });
   let topicsCreated = 0;
   let topicsSkippedAsDuplicates = 0;
+  let topicsRestored = 0;
 
   for (const topic of topics) {
     const result = await repos.topics.createIfNotExists({
@@ -125,6 +127,11 @@ export async function runScoring(env: Env, options: { mode?: CollectedItemMode }
       topicsCreated += 1;
     } else {
       topicsSkippedAsDuplicates += 1;
+
+      if (options.mode && result.status !== "candidate" && result.status !== "sent" && result.status !== "selected") {
+        await repos.topics.resetToCandidate(result.id);
+        topicsRestored += 1;
+      }
     }
   }
 
@@ -134,7 +141,8 @@ export async function runScoring(env: Env, options: { mode?: CollectedItemMode }
     aiRequests,
     usedAiFallback,
     topicsCreated,
-    topicsSkippedAsDuplicates
+    topicsSkippedAsDuplicates,
+    topicsRestored
   };
 }
 import type { AiScoringResult } from "./openai";

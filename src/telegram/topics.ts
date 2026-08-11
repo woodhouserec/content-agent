@@ -16,7 +16,8 @@ export async function runScoringAndSendTopics(env: Env, telegram: TelegramClient
       `OpenAI-запросов: ${result.aiRequests}`,
       `Fallback без OpenAI: ${result.usedAiFallback ? "да" : "нет"}`,
       `Новых тем: ${result.topicsCreated}`,
-      `Дубликатов тем: ${result.topicsSkippedAsDuplicates}`
+      `Дубликатов тем: ${result.topicsSkippedAsDuplicates}`,
+      `Возвращено в доступные: ${result.topicsRestored}`
     ].join("\n")
   );
   await sendLatestTopics(env, telegram, chatId, mode);
