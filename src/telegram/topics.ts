@@ -24,7 +24,7 @@ export async function runScoringAndSendTopics(env: Env, telegram: TelegramClient
 
 export async function sendLatestTopics(env: Env, telegram: TelegramClient, chatId: string, mode?: CollectedItemMode): Promise<void> {
   const repos = createRepositories(env.DB);
-  const allTopics = await repos.topics.listAvailable(10);
+  const allTopics = await repos.topics.listAvailable(mode ? 100 : 10);
   const topics = mode ? await filterTopicsByMode(env, allTopics, mode, 5) : allTopics.slice(0, 5);
 
   if (topics.length === 0) {

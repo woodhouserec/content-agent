@@ -72,9 +72,13 @@ export class SourcesRepository {
   }
 
   async disable(id: string): Promise<boolean> {
+    return this.setEnabled(id, false);
+  }
+
+  async setEnabled(id: string, enabled: boolean): Promise<boolean> {
     const result = await this.db
-      .prepare("UPDATE sources SET enabled = 0, updated_at = ? WHERE id = ?")
-      .bind(nowIso(), id)
+      .prepare("UPDATE sources SET enabled = ?, updated_at = ? WHERE id = ?")
+      .bind(enabled ? 1 : 0, nowIso(), id)
       .run();
 
     return Boolean(result.meta?.changes);

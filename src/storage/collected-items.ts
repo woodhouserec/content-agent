@@ -148,12 +148,13 @@ export class CollectedItemsRepository {
     return result.results ?? [];
   }
 
-  async listManualUrlItems(limit: number): Promise<CollectedItemRecord[]> {
+  async listManualUrlItems(limit: number, includeArchived = false): Promise<CollectedItemRecord[]> {
+    const statusFilter = includeArchived ? "" : "status != 'archived' AND";
     const result = await this.db
       .prepare(
         `SELECT * FROM collected_items
-         WHERE status != 'archived'
-           AND (
+         WHERE ${statusFilter}
+           (
              source_id = 'src_manual_urls'
              OR metadata_json LIKE '%"ingestion_method":"manual_url"%'
              OR metadata_json LIKE '%"ingestionMethod":"manual_url"%'
@@ -172,9 +173,17 @@ export class CollectedItemsRepository {
   }
 
   async archive(id: string): Promise<boolean> {
+    return this.setStatus(id, "archived");
+  }
+
+  async restore(id: string): Promise<boolean> {
+    return this.setStatus(id, "collected");
+  }
+
+  async setStatus(id: string, status: "archived" | "collected"): Promise<boolean> {
     const result = await this.db
-      .prepare("UPDATE collected_items SET status = 'archived', last_seen_at = ? WHERE id = ?")
-      .bind(nowIso(), id)
+      .prepare("UPDATE collected_items SET status = ?, last_seen_at = ? WHERE id = ?")
+      .bind(status, nowIso(), id)
       .run();
 
     return Boolean(result.meta?.changes);

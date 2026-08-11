@@ -6,7 +6,7 @@ import { ArticleFetcher } from "../manual-url/article-fetcher";
 import { ArticleExtractor } from "../manual-url/article-extractor";
 import type { TelegramClient } from "./client";
 import { buildSectionMenu, menuLabels } from "./menu";
-import { formatSourceLine, handleAddSource, handleSources } from "./source-commands";
+import { formatSourceLine, formatSourceStatus, handleAddSource, handleSources } from "./source-commands";
 
 interface SourceEditorPayload {
   itemType: "temporary" | "permanent";
@@ -95,7 +95,7 @@ export async function startSourceEditor(env: Env, telegram: TelegramClient, chat
   const mode = await getSourceMenuMode(env, telegramUserId);
 
   if (mode === "temporary") {
-    const items = await repos.collectedItems.listManualUrlItems(100);
+    const items = await repos.collectedItems.listManualUrlItems(100, true);
 
     if (items.length === 0) {
       await telegram.sendMessage(chatId, "Временных источников пока нет.", { replyMarkup: buildSectionMenu("sourceList") });
@@ -191,6 +191,32 @@ export async function handleSourceEditorMessage(env: Env, telegram: TelegramClie
     return true;
   }
 
+  if (text.trim() === menuLabels.enable || text.trim() === menuLabels.disable) {
+    const payload = parsePayload(editorState.payload_json);
+    const sourceId = payload.sourceIds[payload.index];
+
+    if (!sourceId) {
+      await telegram.sendMessage(chatId, "Источник не найден.");
+      return true;
+    }
+
+    if (payload.itemType === "temporary") {
+      const item = await repos.collectedItems.getById(sourceId);
+      const nextEnabled = item?.status === "archived";
+      await repos.collectedItems.setStatus(sourceId, nextEnabled ? "collected" : "archived");
+      await telegram.sendMessage(chatId, nextEnabled ? "Временный источник включён." : "Временный источник выключен.");
+      await sendCurrentSource(env, telegram, chatId, telegramUserId);
+      return true;
+    }
+
+    const source = await repos.sources.getById(sourceId);
+    const nextEnabled = !source?.enabled;
+    await repos.sources.setEnabled(sourceId, nextEnabled);
+    await telegram.sendMessage(chatId, nextEnabled ? "Источник включён." : "Источник выключен.");
+    await sendCurrentSource(env, telegram, chatId, telegramUserId);
+    return true;
+  }
+
   if (text.trim() === menuLabels.next) {
     await moveSourceIndex(env, telegram, chatId, telegramUserId, 1);
     return true;
@@ -236,8 +262,10 @@ async function sendCurrentSource(env: Env, telegram: TelegramClient, chatId: str
     return;
   }
 
+  const enabled = source ? Boolean(source.enabled) : item!.status !== "archived";
+
   await telegram.sendMessage(chatId, [`Источник ${payload.index + 1} из ${payload.sourceIds.length}:`, "", source ? formatSourceLine(source) : formatTemporarySourceLine(item!)].join("\n"), {
-    replyMarkup: buildSectionMenu("sourceEditor")
+    replyMarkup: buildSourceEditorMenu(enabled)
   });
 }
 
@@ -401,13 +429,27 @@ function formatTemporarySourceLine(item: { id: string; title: string; canonical_
   const date = item.published_at?.slice(0, 10) ?? item.collected_at.slice(0, 10);
 
   return [
-    `${item.status === "archived" ? "OFF" : "ON"} ${item.title}`,
+    `${item.title}`,
+    `Status: ${formatSourceStatus(item.status !== "archived")}`,
     `ID: ${item.id}`,
     `Type: manual_url`,
-    `Status: ${extractionStatus}`,
+    `Extraction: ${extractionStatus}`,
     `Date: ${date}`,
     item.canonical_url ?? item.url
   ].join("\n");
+}
+
+function buildSourceEditorMenu(enabled: boolean) {
+  return {
+    keyboard: [
+      [{ text: menuLabels.change }, { text: enabled ? menuLabels.disable : menuLabels.enable }],
+      [{ text: menuLabels.delete }],
+      [{ text: menuLabels.back }, { text: menuLabels.next }],
+      [{ text: menuLabels.saveList }, { text: menuLabels.exit }]
+    ],
+    resize_keyboard: true,
+    input_field_placeholder: "Редактирование источников"
+  };
 }
 
 function readMetadata(value: string | null): Record<string, unknown> {

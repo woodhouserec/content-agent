@@ -13,6 +13,8 @@ export const menuLabels = {
   editList: "Редактировать список",
   change: "Изменить",
   delete: "Удалить",
+  enable: "Включить",
+  disable: "Выключить",
   next: "Далее",
   startOver: "Начать сначала",
   saveList: "Сохранить список",

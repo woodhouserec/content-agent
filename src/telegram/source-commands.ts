@@ -21,7 +21,7 @@ export async function handleAddSource(env: Env, telegram: TelegramClient, chatId
     const duplicate = await repos.sources.findByUrl(validation.normalizedUrl);
 
     if (duplicate) {
-      await telegram.sendMessage(chatId, `Источник уже существует: ${duplicate.name}\nID: ${duplicate.id}\nEnabled: ${duplicate.enabled}`);
+      await telegram.sendMessage(chatId, `Источник уже существует: ${duplicate.name}\nID: ${duplicate.id}\nStatus: ${formatSourceStatus(duplicate.enabled)}`);
       return;
     }
   }
@@ -152,7 +152,7 @@ export async function confirmPendingSource(env: Env, pendingId: string): Promise
   });
   await repos.pendingSources.markConfirmed(pending.id);
 
-  return `Источник добавлен: ${source.name}\nID: ${source.id}\nEnabled: ${source.enabled}`;
+  return `Источник добавлен: ${source.name}\nID: ${source.id}\nStatus: ${formatSourceStatus(source.enabled)}`;
 }
 
 function formatSourcePreview(validation: Awaited<ReturnType<typeof validateRssSourceUrl>>): string {
@@ -181,11 +181,16 @@ export function formatSourceLine(source: SourceRecord): string {
   }
 
   return [
-    `${source.enabled ? "ON" : "OFF"} ${source.name}`,
+    `${source.name}`,
+    `Status: ${formatSourceStatus(source.enabled)}`,
     `ID: ${source.id}`,
     `Type: ${source.type}`,
     `Tier: ${config.source_tier ?? "unknown"}, Kind: ${config.content_kind ?? "unknown"}`,
     `Trust: ${config.trust_score ?? "n/a"}, Priority: ${config.editorial_priority ?? "n/a"}`,
     source.url
   ].join("\n");
+}
+
+export function formatSourceStatus(enabled: number | boolean): string {
+  return enabled ? "On 🟢" : "Off 🔴";
 }
