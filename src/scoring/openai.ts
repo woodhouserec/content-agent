@@ -31,7 +31,7 @@ export interface AiScoringResponse {
   usedFallback: boolean;
 }
 
-export async function scoreWithOpenAi(env: Env, items: CollectedItemRecord[]): Promise<AiScoringResponse> {
+export async function scoreWithOpenAi(env: Env, items: CollectedItemRecord[], options: { timeoutMs?: number } = {}): Promise<AiScoringResponse> {
   if (!env.OPENAI_API_KEY || items.length === 0) {
     return {
       results: [],
@@ -41,85 +41,99 @@ export async function scoreWithOpenAi(env: Env, items: CollectedItemRecord[]): P
   }
 
   const model = env.OPENAI_SCORING_MODEL ?? scoringConfig.defaultOpenAiModel;
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      "authorization": `Bearer ${env.OPENAI_API_KEY}`,
-      "content-type": "application/json"
-    },
-    body: JSON.stringify({
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? scoringConfig.openAiTimeoutMs);
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "authorization": `Bearer ${env.OPENAI_API_KEY}`,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        model,
+        input: [
+          {
+            role: "system",
+            content: scoringPrompt
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              expected_schema: {
+                results: [
+                  {
+                    itemId: "string",
+                    aiRelevanceScore: "0-100",
+                    noveltyScore: "0-100",
+                    professionalValue: "0-100",
+                    possibleLinkedInAngle: "string",
+                    explanation: "string",
+                    keyThesis: "one specific semantic thesis extracted from this material in English",
+                    keyThesisRu: "one specific semantic thesis extracted from this material in Russian",
+                    postTitle: "specific future LinkedIn post title in English, grounded in this exact material",
+                    postTitleRu: "specific future LinkedIn post title in Russian, grounded in this exact material",
+                    shortDescription: "brief descriptive preview of the possible post in English, not a source list",
+                    shortDescriptionRu: "brief descriptive preview of the possible post in Russian, not a source list",
+                    audienceValue: "value for Product/UX audience in English",
+                    audienceValueRu: "value for Product/UX audience in Russian",
+                    hrValue: "value for HR/hiring signal in English",
+                    hrValueRu: "value for HR/hiring signal in Russian",
+                    recruiterValue: "what this post would signal to recruiters or hiring managers evaluating a product designer in English",
+                    recruiterValueRu: "what this post would signal to recruiters or hiring managers evaluating a product designer in Russian",
+                    suggestedAngleRu: "suggested angle in Russian, grounded in this exact material"
+                  }
+                ]
+              },
+              items: items.map((item) => ({
+                itemId: item.id,
+                title: item.title,
+                canonicalUrl: item.canonical_url ?? item.url,
+                summary: trimText(item.summary ?? ""),
+                excerpt: trimText(item.normalized_content ?? item.raw_content ?? ""),
+                sourceId: item.source_id,
+                publishedAt: item.published_at,
+                ruleScore: item.rule_score,
+                metadata: compactMetadata(item.metadata_json)
+              }))
+            })
+          }
+        ],
+        text: {
+          format: {
+            type: "json_object"
+          }
+        }
+      }),
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI scoring failed: HTTP ${response.status}`);
+    }
+
+    const payload = await response.json() as { output_text?: string; output?: Array<{ content?: Array<{ text?: string }> }> };
+    const text = payload.output_text ?? payload.output?.flatMap((entry) => entry.content ?? []).find((content) => content.text)?.text;
+
+    if (!text) {
+      throw new Error("OpenAI scoring response did not include text.");
+    }
+
+    return {
+      results: validateAiResults(JSON.parse(text)),
       model,
-      input: [
-        {
-          role: "system",
-          content: scoringPrompt
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            expected_schema: {
-              results: [
-                {
-                  itemId: "string",
-                  aiRelevanceScore: "0-100",
-                  noveltyScore: "0-100",
-                  professionalValue: "0-100",
-                  possibleLinkedInAngle: "string",
-                  explanation: "string",
-                  keyThesis: "one specific semantic thesis extracted from this material in English",
-                  keyThesisRu: "one specific semantic thesis extracted from this material in Russian",
-                  postTitle: "specific future LinkedIn post title in English, grounded in this exact material",
-                  postTitleRu: "specific future LinkedIn post title in Russian, grounded in this exact material",
-                  shortDescription: "brief descriptive preview of the possible post in English, not a source list",
-                  shortDescriptionRu: "brief descriptive preview of the possible post in Russian, not a source list",
-                  audienceValue: "value for Product/UX audience in English",
-                  audienceValueRu: "value for Product/UX audience in Russian",
-                  hrValue: "value for HR/hiring signal in English",
-                  hrValueRu: "value for HR/hiring signal in Russian",
-                  recruiterValue: "what this post would signal to recruiters or hiring managers evaluating a product designer in English",
-                  recruiterValueRu: "what this post would signal to recruiters or hiring managers evaluating a product designer in Russian",
-                  suggestedAngleRu: "suggested angle in Russian, grounded in this exact material"
-                }
-              ]
-            },
-            items: items.map((item) => ({
-              itemId: item.id,
-              title: item.title,
-              canonicalUrl: item.canonical_url ?? item.url,
-              summary: trimText(item.summary ?? ""),
-              excerpt: trimText(item.normalized_content ?? item.raw_content ?? ""),
-              sourceId: item.source_id,
-              publishedAt: item.published_at,
-              ruleScore: item.rule_score,
-              metadata: compactMetadata(item.metadata_json)
-            }))
-          })
-        }
-      ],
-      text: {
-        format: {
-          type: "json_object"
-        }
-      }
-    })
-  });
+      usedFallback: false
+    };
+  } catch (error: unknown) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("OpenAI scoring timed out");
+    }
 
-  if (!response.ok) {
-    throw new Error(`OpenAI scoring failed: HTTP ${response.status}`);
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const payload = await response.json() as { output_text?: string; output?: Array<{ content?: Array<{ text?: string }> }> };
-  const text = payload.output_text ?? payload.output?.flatMap((entry) => entry.content ?? []).find((content) => content.text)?.text;
-
-  if (!text) {
-    throw new Error("OpenAI scoring response did not include text.");
-  }
-
-  return {
-    results: validateAiResults(JSON.parse(text)),
-    model,
-    usedFallback: false
-  };
 }
 
 export function validateAiResults(value: unknown): AiScoringResult[] {

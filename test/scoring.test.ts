@@ -76,6 +76,25 @@ test("OpenAI scoring falls back when API key is absent", async () => {
   assert.equal(result.results.length, 0);
 });
 
+test("OpenAI scoring times out instead of hanging", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = ((...args: Parameters<typeof fetch>) => {
+    const signal = args[1]?.signal;
+    return new Promise<Response>((_resolve, reject) => {
+      signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true });
+    });
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () => scoreWithOpenAi({ OPENAI_API_KEY: "test" } as Env, [makeItem({})], { timeoutMs: 5 }),
+      /OpenAI scoring timed out/
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("permanent scoring candidates require enabled permanent sources", () => {
   const filter = modeFilterSql("permanent");
 
