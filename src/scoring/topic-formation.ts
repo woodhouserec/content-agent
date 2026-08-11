@@ -203,8 +203,8 @@ export async function formTopics(
       titleRu,
       summary: describePostFromSources(topItems),
       summaryRu: describePostFromSourcesRu(topItems),
-      whyItMatters: sourceBasedValue(topItems, template.whyItMatters),
-      whyItMattersRu: sourceBasedValueRu(topItems, template.whyItMattersRu),
+      whyItMatters: sourceBasedRecruiterValue(topItems, ai) ?? sourceBasedValue(topItems, template.whyItMatters),
+      whyItMattersRu: sourceBasedRecruiterValueRu(topItems, ai) ?? sourceBasedValueRu(topItems, template.whyItMattersRu),
       suggestedAngle,
       suggestedAngleRu,
       targetAudience: "Product Designers, Design Leads, Product Managers, Founders, SaaS teams",
@@ -241,12 +241,14 @@ async function formAiPostIdeas(
     const titleRu = usableAiTitle(ai.postTitleRu) ?? sourceBasedTitleRu([item]);
     const suggestedAngle = usableAiField(ai.possibleLinkedInAngle) ?? sourceBasedAngle([item]);
     const suggestedAngleRu = usableAiField(ai.suggestedAngleRu) ?? sourceBasedAngleRu([item]);
-    const summary = usableAiField(ai.shortDescription) ?? describePostFromSources([item]);
-    const summaryRu = usableAiField(ai.shortDescriptionRu) ?? describePostFromSourcesRu([item]);
+    const summary = usableAiField(ai.shortDescription) ?? usableAiField(ai.keyThesis) ?? describePostFromSources([item]);
+    const summaryRu = usableAiField(ai.shortDescriptionRu) ?? usableAiField(ai.keyThesisRu) ?? describePostFromSourcesRu([item]);
     const audienceValue = usableAiField(ai.audienceValue) ?? usableAiField(ai.explanation) ?? sourceBasedValue([item]);
     const hrValue = usableAiField(ai.hrValue) ?? "Shows how the author thinks about product quality, design judgment, and business context through a concrete source.";
     const audienceValueRu = usableAiField(ai.audienceValueRu) ?? sourceBasedValueRu([item]);
     const hrValueRu = usableAiField(ai.hrValueRu) ?? "Показывает профессиональное мышление автора через конкретный материал: продуктовый взгляд, дизайн-суждение и связь с бизнес-контекстом.";
+    const recruiterValue = usableAiField(ai.recruiterValue) ?? usableAiField(ai.hrValue) ?? sourceBasedRecruiterValue([item], ai);
+    const recruiterValueRu = usableAiField(ai.recruiterValueRu) ?? usableAiField(ai.hrValueRu) ?? sourceBasedRecruiterValueRu([item], ai);
     const sourceItemIds = [item.id];
     const combinedScore = Math.round(((item.final_score ?? item.rule_score ?? 70) * 0.35) + (ai.aiRelevanceScore * 0.35) + (ai.professionalValue * 0.3));
     const noveltyScore = ai.noveltyScore;
@@ -257,8 +259,8 @@ async function formAiPostIdeas(
       titleRu,
       summary,
       summaryRu,
-      whyItMatters: `Audience value: ${audienceValue} HR value: ${hrValue}`,
-      whyItMattersRu: `Ценность для аудитории: ${audienceValueRu} Ценность для HR: ${hrValueRu}`,
+      whyItMatters: formatHiringValue(ai.keyThesis, audienceValue, recruiterValue ?? hrValue),
+      whyItMattersRu: formatHiringValueRu(ai.keyThesisRu, audienceValueRu, recruiterValueRu ?? hrValueRu),
       suggestedAngle,
       suggestedAngleRu,
       targetAudience: "Product Designers, UI/UX Designers, Design Leads, Product Managers, Founders, HR",
@@ -345,6 +347,94 @@ function sourceBasedValueRu(items: CollectedItemRecord[], fallback = "Матер
   }
 
   return `Это полезно Product/UX-аудитории, потому что материал "${cleanTitle(primary.title)}" можно превратить в разговор о продуктовых решениях, усилии пользователя и качестве дизайна.`;
+}
+
+function sourceBasedRecruiterValue(items: CollectedItemRecord[], ai?: AiScoringResult): string | null {
+  const primary = items[0];
+  if (!primary) {
+    return null;
+  }
+
+  const thesis = usableAiField(ai?.keyThesis);
+  const skill = inferHiringSignal(primary);
+  const title = cleanTitle(primary.title);
+
+  return thesis
+    ? `Key thesis: ${thesis} Recruiter value: this post would show ${skill} through a concrete analysis of "${title}".`
+    : `Recruiter value: this post would show ${skill} by turning "${title}" into a clear professional point of view instead of a simple link repost.`;
+}
+
+function sourceBasedRecruiterValueRu(items: CollectedItemRecord[], ai?: AiScoringResult): string | null {
+  const primary = items[0];
+  if (!primary) {
+    return null;
+  }
+
+  const thesis = usableAiField(ai?.keyThesisRu);
+  const skill = inferHiringSignalRu(primary);
+  const title = cleanTitle(primary.title);
+
+  return thesis
+    ? `Ключевой смысловой тезис: ${thesis} Ценность для рекрутера: такой пост показывает ${skill} через конкретный разбор материала "${title}".`
+    : `Ценность для рекрутера: такой пост показывает ${skill}, потому что материал "${title}" превращается не в пересказ ссылки, а в ясную профессиональную позицию.`;
+}
+
+function formatHiringValue(keyThesis: string | undefined, audienceValue: string, recruiterValue: string): string {
+  const thesis = usableAiField(keyThesis);
+  return thesis
+    ? `Key thesis: ${thesis} Audience value: ${audienceValue} Recruiter value: ${recruiterValue}`
+    : `Audience value: ${audienceValue} Recruiter value: ${recruiterValue}`;
+}
+
+function formatHiringValueRu(keyThesis: string | undefined, audienceValue: string, recruiterValue: string): string {
+  const thesis = usableAiField(keyThesis);
+  return thesis
+    ? `Ключевой смысловой тезис: ${thesis} Ценность для аудитории: ${audienceValue} Ценность для рекрутера: ${recruiterValue}`
+    : `Ценность для аудитории: ${audienceValue} Ценность для рекрутера: ${recruiterValue}`;
+}
+
+function inferHiringSignal(item: CollectedItemRecord): string {
+  const text = `${item.title} ${item.summary ?? ""} ${item.normalized_content ?? ""}`.toLowerCase();
+
+  if (text.includes("brand") || text.includes("story") || text.includes("identity") || text.includes("communication")) {
+    return "strategic communication and the ability to connect brand perception with product experience";
+  }
+  if (text.includes("research") || text.includes("study") || text.includes("insight") || text.includes("survey")) {
+    return "research maturity and the ability to translate evidence into product decisions";
+  }
+  if (text.includes("system") || text.includes("component") || text.includes("pattern") || text.includes("governance")) {
+    return "systems thinking and judgment about scalable design decisions";
+  }
+  if (text.includes("startup") || text.includes("founder") || text.includes("market") || text.includes("strategy")) {
+    return "business awareness and the ability to connect design work with market and product strategy";
+  }
+  if (text.includes("digital") || text.includes("interaction") || text.includes("interface") || text.includes("experience")) {
+    return "interaction thinking and the ability to reason about digital product experience";
+  }
+
+  return "product judgment, structured thinking, and the ability to extract a useful design perspective from source material";
+}
+
+function inferHiringSignalRu(item: CollectedItemRecord): string {
+  const text = `${item.title} ${item.summary ?? ""} ${item.normalized_content ?? ""}`.toLowerCase();
+
+  if (text.includes("brand") || text.includes("story") || text.includes("identity") || text.includes("communication")) {
+    return "стратегическое мышление в коммуникации и умение связывать восприятие бренда с продуктовым опытом";
+  }
+  if (text.includes("research") || text.includes("study") || text.includes("insight") || text.includes("survey")) {
+    return "исследовательскую зрелость и умение переводить evidence в продуктовые решения";
+  }
+  if (text.includes("system") || text.includes("component") || text.includes("pattern") || text.includes("governance")) {
+    return "системное мышление и зрелое суждение о масштабируемых дизайн-решениях";
+  }
+  if (text.includes("startup") || text.includes("founder") || text.includes("market") || text.includes("strategy")) {
+    return "бизнес-контекст и умение связывать дизайн с рынком и продуктовой стратегией";
+  }
+  if (text.includes("digital") || text.includes("interaction") || text.includes("interface") || text.includes("experience")) {
+    return "мышление об interaction design и способность рассуждать о цифровом продуктовом опыте";
+  }
+
+  return "продуктовое суждение, структурное мышление и умение извлекать полезную дизайн-позицию из внешнего материала";
 }
 
 function sourceBasedAngle(items: CollectedItemRecord[], fallback = "Use the source as a practitioner reflection on product design decisions."): string {

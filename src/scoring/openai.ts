@@ -10,6 +10,8 @@ export interface AiScoringResult {
   professionalValue: number;
   possibleLinkedInAngle: string;
   explanation: string;
+  keyThesis?: string;
+  keyThesisRu?: string;
   postTitle?: string;
   postTitleRu?: string;
   shortDescription?: string;
@@ -18,6 +20,8 @@ export interface AiScoringResult {
   audienceValueRu?: string;
   hrValue?: string;
   hrValueRu?: string;
+  recruiterValue?: string;
+  recruiterValueRu?: string;
   suggestedAngleRu?: string;
 }
 
@@ -62,6 +66,8 @@ export async function scoreWithOpenAi(env: Env, items: CollectedItemRecord[]): P
                   professionalValue: "0-100",
                   possibleLinkedInAngle: "string",
                   explanation: "string",
+                  keyThesis: "one specific semantic thesis extracted from this material in English",
+                  keyThesisRu: "one specific semantic thesis extracted from this material in Russian",
                   postTitle: "specific future LinkedIn post title in English, grounded in this exact material",
                   postTitleRu: "specific future LinkedIn post title in Russian, grounded in this exact material",
                   shortDescription: "brief descriptive preview of the possible post in English, not a source list",
@@ -70,6 +76,8 @@ export async function scoreWithOpenAi(env: Env, items: CollectedItemRecord[]): P
                   audienceValueRu: "value for Product/UX audience in Russian",
                   hrValue: "value for HR/hiring signal in English",
                   hrValueRu: "value for HR/hiring signal in Russian",
+                  recruiterValue: "what this post would signal to recruiters or hiring managers evaluating a product designer in English",
+                  recruiterValueRu: "what this post would signal to recruiters or hiring managers evaluating a product designer in Russian",
                   suggestedAngleRu: "suggested angle in Russian, grounded in this exact material"
                 }
               ]
@@ -131,6 +139,8 @@ export function validateAiResults(value: unknown): AiScoringResult[] {
       professionalValue: requireScore(result.professionalValue, "professionalValue"),
       possibleLinkedInAngle: requireString(result.possibleLinkedInAngle, "possibleLinkedInAngle"),
       explanation: requireString(result.explanation, "explanation"),
+      keyThesis: optionalString(result.keyThesis),
+      keyThesisRu: optionalString(result.keyThesisRu),
       postTitle: optionalString(result.postTitle),
       postTitleRu: optionalString(result.postTitleRu),
       shortDescription: optionalString(result.shortDescription),
@@ -139,6 +149,8 @@ export function validateAiResults(value: unknown): AiScoringResult[] {
       audienceValueRu: optionalString(result.audienceValueRu),
       hrValue: optionalString(result.hrValue),
       hrValueRu: optionalString(result.hrValueRu),
+      recruiterValue: optionalString(result.recruiterValue),
+      recruiterValueRu: optionalString(result.recruiterValueRu),
       suggestedAngleRu: optionalString(result.suggestedAngleRu)
     };
   });

@@ -103,7 +103,7 @@ test("topic formation prefers AI post ideas over generic clusters", async () => 
   assert.equal(topics[0].title, "What AI onboarding in design tools reveals about trust and control");
   assert.equal(topics[0].titleRu.includes("AI-onboarding"), true);
   assert.deepEqual(topics[0].sourceItemIds, ["item_ai_ux"]);
-  assert.equal(topics[0].whyItMattersRu.includes("Ценность для аудитории"), true);
+  assert.equal(topics[0].whyItMattersRu.includes("Ценность для рекрутера"), true);
 });
 
 test("topic formation replaces generic AI post title with source-grounded title", async () => {
@@ -158,11 +158,15 @@ test("topic formation can use strong AI signal when final score is below hard th
     audienceValueRu: "Помогает фаундерам и продуктовым дизайнерам связать нарратив с ясностью продукта.",
     hrValue: "Shows strategic product communication thinking.",
     hrValueRu: "Показывает стратегическое мышление о продуктовой коммуникации.",
+    recruiterValue: "Signals strategic communication and the ability to connect story with product value.",
+    recruiterValueRu: "Показывает стратегическую коммуникацию и умение связывать историю с продуктовой ценностью.",
     suggestedAngleRu: "Разобрать историю стартапа как продуктовый инструмент объяснения ценности."
   }], { minFinalScoreForTopic: 70 });
 
   assert.equal(topics.length, 1);
   assert.equal(topics[0].title, "How startup storytelling can make product value easier to understand");
+  assert.equal(topics[0].whyItMattersRu.includes("Ценность для рекрутера"), true);
+  assert.equal(topics[0].whyItMattersRu.includes("продуктовой ценностью"), true);
 });
 
 test("topic formation creates source-grounded fallback when current source items are below threshold", async () => {
@@ -182,6 +186,7 @@ test("topic formation creates source-grounded fallback when current source items
   assert.equal(topics.length, 1);
   assert.equal(topics[0].title.includes(item.title), true);
   assert.deepEqual(topics[0].sourceItemIds, [item.id]);
+  assert.equal(topics[0].whyItMattersRu.includes("Ценность для рекрутера"), true);
 });
 
 test("formatTopicSources renders clickable source links", () => {
