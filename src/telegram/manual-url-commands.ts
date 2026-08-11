@@ -3,6 +3,8 @@ import { ManualUrlIngestionService } from "../manual-url/manual-url-ingestion-se
 import type { ManualUrlPreview } from "../manual-url/types";
 import type { TelegramClient } from "./client";
 import { createRepositories } from "../storage/repositories";
+import { createTopicFingerprint } from "../scoring/topic-fingerprint";
+import { buildCreateDraftButton } from "./drafts";
 
 const service = new ManualUrlIngestionService();
 
@@ -19,6 +21,7 @@ export async function handleAddUrl(env: Env, telegram: TelegramClient, chatId: s
   await telegram.sendMessage(chatId, formatManualUrlPreview(preview), {
     replyMarkup: {
       inline_keyboard: [
+        [{ text: "Создать пост по материалу", callback_data: `manualurl:draft:${preview.pendingId}` }],
         [{ text: "Добавить материал", callback_data: `manualurl:add:${preview.pendingId}` }],
         [
           { text: "Отклонить", callback_data: `manualurl:reject:${preview.pendingId}` },
@@ -34,6 +37,48 @@ export async function confirmManualUrl(env: Env, pendingId: string): Promise<str
   return result.inserted
     ? `Материал добавлен: ${result.title}\nТеперь можно нажать «Создать темы».`
     : `Материал уже был в базе, дубль не создан: ${result.title}`;
+}
+
+export async function createDraftTopicFromManualUrl(env: Env, pendingId: string): Promise<{
+  text: string;
+  replyMarkup: ReturnType<typeof buildCreateDraftButton>;
+}> {
+  const result = await service.confirm(env, pendingId);
+  const repos = createRepositories(env.DB);
+  const item = await repos.collectedItems.getById(result.itemId);
+
+  if (!item) {
+    throw new Error("Saved manual URL item was not found.");
+  }
+
+  const title = directTopicTitle(item.title);
+  const summary = item.summary ?? item.normalized_content?.slice(0, 300) ?? item.title;
+  const fingerprint = await createTopicFingerprint(title, "direct_manual_url_post", [item.id]);
+  const topic = await repos.topics.createIfNotExists({
+    title,
+    titleRu: `Пост по материалу: ${item.title}`,
+    summary: `Direct post topic based on manually submitted source: ${item.title}.`,
+    summaryRu: `Тема создана напрямую по вручную добавленному материалу: ${item.title}.`,
+    whyItMatters: summary,
+    whyItMattersRu: "Вы выбрали этот материал вручную, поэтому бот подготовит пост вокруг этой конкретной статьи, без общего подбора тем.",
+    suggestedAngle: "Turn this specific source into a practitioner LinkedIn post with a clear Product/UX perspective.",
+    suggestedAngleRu: "Сделать пост именно по этому материалу: не пересказ, а профессиональный вывод с Product/UX-углом.",
+    targetAudience: "Product Designers, UI/UX Designers, Design Leads, Product Managers, SaaS founders",
+    sourceItemIds: [item.id],
+    relevanceScore: Math.max(80, item.final_score ?? item.rule_score ?? 80),
+    noveltyScore: 70,
+    topicFingerprint: fingerprint,
+    aiReasoningSummary: "Direct manual URL post requested by the user."
+  });
+
+  await repos.topics.updateStatus(topic.id, "selected");
+
+  return {
+    text: result.inserted
+      ? `Материал добавлен: ${result.title}\nСоздана выбранная тема для поста именно по этому материалу. Когда будете готовы, нажмите «Создать черновик».`
+      : `Материал уже был в базе: ${result.title}\nЯ всё равно создал/нашёл выбранную тему для поста по этому материалу. Когда будете готовы, нажмите «Создать черновик».`,
+    replyMarkup: buildCreateDraftButton(topic.id)
+  };
 }
 
 export async function rejectManualUrl(env: Env, pendingId: string): Promise<string> {
@@ -68,6 +113,10 @@ function formatManualUrlPreview(preview: ManualUrlPreview & { pendingId: string 
     "Warnings:",
     warnings,
     "",
-    "Добавить материал?"
+    "Что сделать с материалом?"
   ].join("\n");
+}
+
+function directTopicTitle(sourceTitle: string): string {
+  return `A Product/UX perspective on ${sourceTitle}`.slice(0, 180);
 }

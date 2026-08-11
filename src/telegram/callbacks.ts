@@ -5,7 +5,7 @@ import { nowIso } from "../utils/time";
 import type { TelegramCallbackQuery } from "./types";
 import { formatTopicEnglish, formatTopicSources, formatTopicWhy, getTopicSources } from "./topics";
 import { confirmPendingSource } from "./source-commands";
-import { confirmManualUrl, rejectManualUrl } from "./manual-url-commands";
+import { confirmManualUrl, createDraftTopicFromManualUrl, rejectManualUrl } from "./manual-url-commands";
 import { buildCreateDraftButton } from "./drafts";
 
 export interface CallbackResponse {
@@ -73,6 +73,10 @@ export async function handleCallback(env: Env, callback: TelegramCallbackQuery):
   }
 
   if (targetType === "manualurl" && targetId) {
+    if (action === "draft") {
+      return createDraftTopicFromManualUrl(env, targetId);
+    }
+
     if (action === "add") {
       return { text: await confirmManualUrl(env, targetId) };
     }
