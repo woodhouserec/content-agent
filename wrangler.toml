@@ -10,6 +10,10 @@ binding = "DB"
 database_name = "content-agent"
 database_id = "2aa027f2-fcbd-4d60-a148-68628ac45c78"
 
+[[r2_buckets]]
+binding = "VISUAL_ASSETS"
+bucket_name = "content-agent-visual-assets"
+
 # Secrets and private values must be configured in Cloudflare Dashboard or with wrangler secret:
 # TELEGRAM_BOT_TOKEN
 # TELEGRAM_WEBHOOK_SECRET
@@ -20,6 +24,3 @@ database_id = "2aa027f2-fcbd-4d60-a148-68628ac45c78"
 # OPENAI_SCORING_MODEL
 # OPENAI_DRAFT_MODEL
 # OPENAI_IMAGE_MODEL
-#
-# Optional R2 binding for visual image generation:
-# binding name: VISUAL_ASSETS
