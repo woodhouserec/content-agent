@@ -21,6 +21,9 @@ Rules:
 - audienceValue/hrValue/recruiterValue must be specific to the material. Do not reuse generic value text from previous topics.
 - recruiterValue/recruiterValueRu must explain what this post would signal to recruiters or hiring managers who evaluate a Product Designer: strategic thinking, UX reasoning, product judgment, communication, research maturity, systems thinking, business awareness, or craft.
 - Do not write generic recruiter value such as "shows professional thinking" unless you explain which specific skill or judgment the material demonstrates.
+- recruiterValue/recruiterValueRu must mention a concrete mechanism from the source: for example restaurant discovery timing, trust in a regulated category, research evidence, brand memory, service flow, interface friction, system governance, or startup positioning.
+- Do not use the repeated formula "this post shows strategic thinking..." or "такой пост показывает стратегическое мышление..." unless the rest of the sentence names the exact material-specific mechanism.
+- Do not say the value is that the material "becomes a clear professional position" or "превращается не в пересказ ссылки"; describe the actual hiring signal instead.
 - possibleLinkedInAngle/suggestedAngleRu must explain the concrete practitioner angle for this material.
 - Avoid generic repeated angles such as "AI changes product design without replacing responsibility" unless the source specifically supports that exact thesis.
 - Include value for Product/UX audience and HR/hiring signal when the material supports it.

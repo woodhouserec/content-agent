@@ -239,16 +239,16 @@ async function formAiPostIdeas(
 
     const title = usableAiTitle(ai.postTitle) ?? usableAiTitle(ai.possibleLinkedInAngle) ?? sourceBasedTitle([item]);
     const titleRu = usableAiTitle(ai.postTitleRu) ?? sourceBasedTitleRu([item]);
-    const suggestedAngle = usableAiField(ai.possibleLinkedInAngle) ?? sourceBasedAngle([item]);
-    const suggestedAngleRu = usableAiField(ai.suggestedAngleRu) ?? sourceBasedAngleRu([item]);
-    const summary = usableAiField(ai.shortDescription) ?? usableAiField(ai.keyThesis) ?? describePostFromSources([item]);
-    const summaryRu = usableAiField(ai.shortDescriptionRu) ?? usableAiField(ai.keyThesisRu) ?? describePostFromSourcesRu([item]);
-    const audienceValue = usableAiField(ai.audienceValue) ?? usableAiField(ai.explanation) ?? sourceBasedValue([item]);
-    const hrValue = usableAiField(ai.hrValue) ?? "Shows how the author thinks about product quality, design judgment, and business context through a concrete source.";
-    const audienceValueRu = usableAiField(ai.audienceValueRu) ?? sourceBasedValueRu([item]);
-    const hrValueRu = usableAiField(ai.hrValueRu) ?? "Показывает профессиональное мышление автора через конкретный материал: продуктовый взгляд, дизайн-суждение и связь с бизнес-контекстом.";
-    const recruiterValue = usableAiField(ai.recruiterValue) ?? usableAiField(ai.hrValue) ?? sourceBasedRecruiterValue([item], ai);
-    const recruiterValueRu = usableAiField(ai.recruiterValueRu) ?? usableAiField(ai.hrValueRu) ?? sourceBasedRecruiterValueRu([item], ai);
+    const suggestedAngle = usableAiMaterialField(ai.possibleLinkedInAngle, item) ?? sourceBasedAngle([item]);
+    const suggestedAngleRu = usableAiMaterialField(ai.suggestedAngleRu, item) ?? sourceBasedAngleRu([item]);
+    const summary = usableAiMaterialField(ai.shortDescription, item) ?? usableAiMaterialField(ai.keyThesis, item) ?? describePostFromSources([item]);
+    const summaryRu = usableAiMaterialField(ai.shortDescriptionRu, item) ?? usableAiMaterialField(ai.keyThesisRu, item) ?? describePostFromSourcesRu([item]);
+    const audienceValue = usableAiMaterialField(ai.audienceValue, item) ?? usableAiMaterialField(ai.explanation, item) ?? sourceBasedValue([item]);
+    const hrValue = usableAiMaterialField(ai.hrValue, item) ?? "Shows how the author thinks about product quality, design judgment, and business context through a concrete source.";
+    const audienceValueRu = usableAiMaterialField(ai.audienceValueRu, item) ?? sourceBasedValueRu([item]);
+    const hrValueRu = usableAiMaterialField(ai.hrValueRu, item) ?? "Показывает профессиональное мышление автора через конкретный материал: продуктовый взгляд, дизайн-суждение и связь с бизнес-контекстом.";
+    const recruiterValue = usableAiMaterialField(ai.recruiterValue, item) ?? usableAiMaterialField(ai.hrValue, item) ?? sourceBasedRecruiterValue([item], ai);
+    const recruiterValueRu = usableAiMaterialField(ai.recruiterValueRu, item) ?? usableAiMaterialField(ai.hrValueRu, item) ?? sourceBasedRecruiterValueRu([item], ai);
     const sourceItemIds = [item.id];
     const combinedScore = Math.round(((item.final_score ?? item.rule_score ?? 70) * 0.35) + (ai.aiRelevanceScore * 0.35) + (ai.professionalValue * 0.3));
     const noveltyScore = ai.noveltyScore;
@@ -356,12 +356,12 @@ function sourceBasedRecruiterValue(items: CollectedItemRecord[], ai?: AiScoringR
   }
 
   const thesis = usableAiField(ai?.keyThesis);
-  const skill = inferHiringSignal(primary);
+  const signal = inferHiringSignal(primary);
   const title = cleanTitle(primary.title);
 
   return thesis
-    ? `Key thesis: ${thesis} Recruiter value: this post would show ${skill} through a concrete analysis of "${title}".`
-    : `Recruiter value: this post would show ${skill} by turning "${title}" into a clear professional point of view instead of a simple link repost.`;
+    ? `Key thesis: ${thesis} Recruiter value: ${signal.enWithThesis(title)}`
+    : `Recruiter value: ${signal.enFallback(title)}`;
 }
 
 function sourceBasedRecruiterValueRu(items: CollectedItemRecord[], ai?: AiScoringResult): string | null {
@@ -371,12 +371,12 @@ function sourceBasedRecruiterValueRu(items: CollectedItemRecord[], ai?: AiScorin
   }
 
   const thesis = usableAiField(ai?.keyThesisRu);
-  const skill = inferHiringSignalRu(primary);
+  const signal = inferHiringSignal(primary);
   const title = cleanTitle(primary.title);
 
   return thesis
-    ? `Ключевой смысловой тезис: ${thesis} Ценность для рекрутера: такой пост показывает ${skill} через конкретный разбор материала "${title}".`
-    : `Ценность для рекрутера: такой пост показывает ${skill}, потому что материал "${title}" превращается не в пересказ ссылки, а в ясную профессиональную позицию.`;
+    ? `Ключевой смысловой тезис: ${thesis} Ценность для рекрутера: ${signal.ruWithThesis(title)}`
+    : `Ценность для рекрутера: ${signal.ruFallback(title)}`;
 }
 
 function formatHiringValue(keyThesis: string | undefined, audienceValue: string, recruiterValue: string): string {
@@ -393,48 +393,87 @@ function formatHiringValueRu(keyThesis: string | undefined, audienceValue: strin
     : `Ценность для аудитории: ${audienceValue} Ценность для рекрутера: ${recruiterValue}`;
 }
 
-function inferHiringSignal(item: CollectedItemRecord): string {
-  const text = `${item.title} ${item.summary ?? ""} ${item.normalized_content ?? ""}`.toLowerCase();
-
-  if (text.includes("brand") || text.includes("story") || text.includes("identity") || text.includes("communication")) {
-    return "strategic communication and the ability to connect brand perception with product experience";
-  }
-  if (text.includes("research") || text.includes("study") || text.includes("insight") || text.includes("survey")) {
-    return "research maturity and the ability to translate evidence into product decisions";
-  }
-  if (text.includes("system") || text.includes("component") || text.includes("pattern") || text.includes("governance")) {
-    return "systems thinking and judgment about scalable design decisions";
-  }
-  if (text.includes("startup") || text.includes("founder") || text.includes("market") || text.includes("strategy")) {
-    return "business awareness and the ability to connect design work with market and product strategy";
-  }
-  if (text.includes("digital") || text.includes("interaction") || text.includes("interface") || text.includes("experience")) {
-    return "interaction thinking and the ability to reason about digital product experience";
-  }
-
-  return "product judgment, structured thinking, and the ability to extract a useful design perspective from source material";
+interface HiringSignal {
+  enWithThesis: (title: string) => string;
+  enFallback: (title: string) => string;
+  ruWithThesis: (title: string) => string;
+  ruFallback: (title: string) => string;
 }
 
-function inferHiringSignalRu(item: CollectedItemRecord): string {
+function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
   const text = `${item.title} ${item.summary ?? ""} ${item.normalized_content ?? ""}`.toLowerCase();
 
-  if (text.includes("brand") || text.includes("story") || text.includes("identity") || text.includes("communication")) {
-    return "стратегическое мышление в коммуникации и умение связывать восприятие бренда с продуктовым опытом";
+  if ((text.includes("restaurant") || text.includes("discovery") || text.includes("app")) && (text.includes("time") || text.includes("service") || text.includes("experience"))) {
+    return {
+      enWithThesis: (title) => `it shows service-design thinking: the ability to connect discovery, timing, and user intent in a real product context, using "${title}" as evidence.`,
+      enFallback: (title) => `A recruiter would see service-design judgment here: the post can use "${title}" to discuss how discovery products win when they respect user timing, context, and intent.`,
+      ruWithThesis: (title) => `он показывает service-design мышление: умение связывать discovery, момент использования и пользовательское намерение в реальном продуктовом контексте на примере "${title}".`,
+      ruFallback: (title) => `рекрутер увидит здесь зрелое service-design мышление: пост может разобрать "${title}" через то, как discovery-продукты выигрывают за счёт контекста, timing и намерения пользователя.`
+    };
+  }
+  if (text.includes("betting") || text.includes("finance") || text.includes("trust") || text.includes("regulated")) {
+    return {
+      enWithThesis: (title) => `it signals judgment about trust-heavy products: how identity, clarity, and interaction choices shape confidence in a sensitive category like "${title}".`,
+      enFallback: (title) => `For hiring, "${title}" can demonstrate that the author thinks beyond aesthetics and can reason about trust, risk perception, and clarity in complex product categories.`,
+      ruWithThesis: (title) => `он сигнализирует зрелое мышление о trust-heavy продуктах: как identity, ясность и interaction-решения формируют доверие в чувствительной категории на примере "${title}".`,
+      ruFallback: (title) => `для hiring-аудитории "${title}" может показать, что автор мыслит не только эстетикой, но и доверием, восприятием риска и ясностью в сложных продуктовых категориях.`
+    };
+  }
+  if (text.includes("tourism") || text.includes("destination") || text.includes("place") || text.includes("visit")) {
+    return {
+      enWithThesis: (title) => `it shows strategic experience thinking: the ability to translate perception, place, and motivation into a clearer product or brand experience through "${title}".`,
+      enFallback: (title) => `A hiring manager would see that the author can connect brand strategy with user motivation, using "${title}" to reason about how perception becomes action.`,
+      ruWithThesis: (title) => `он показывает стратегическое мышление об опыте: умение переводить восприятие, место и мотивацию в более ясный продуктовый или брендовый опыт через "${title}".`,
+      ruFallback: (title) => `нанимающий менеджер увидит, что автор умеет связывать brand strategy с мотивацией пользователя на примере "${title}" и рассуждать о том, как восприятие превращается в действие.`
+    };
+  }
+  if (text.includes("brand") || text.includes("story") || text.includes("identity") || text.includes("communication") || text.includes("wordmark") || text.includes("typeface")) {
+    return {
+      enWithThesis: (title) => `it demonstrates brand-to-product reasoning: how visual identity and narrative choices can support comprehension, differentiation, and user memory in "${title}".`,
+      enFallback: (title) => `This can signal strategic communication skill: the post can unpack "${title}" as a case of making a product easier to understand, remember, and trust.`,
+      ruWithThesis: (title) => `он демонстрирует brand-to-product reasoning: как visual identity и narrative-решения поддерживают понимание, дифференциацию и запоминание продукта в "${title}".`,
+      ruFallback: (title) => `это может показать навык стратегической коммуникации: пост разбирает "${title}" как пример того, как сделать продукт понятнее, запоминаемее и убедительнее.`
+    };
   }
   if (text.includes("research") || text.includes("study") || text.includes("insight") || text.includes("survey")) {
-    return "исследовательскую зрелость и умение переводить evidence в продуктовые решения";
+    return {
+      enWithThesis: (title) => `it highlights research maturity: the ability to turn evidence from "${title}" into product decisions rather than simply reporting findings.`,
+      enFallback: (title) => `Recruiters can read this as a signal of research maturity: "${title}" becomes a way to show how evidence informs prioritization, risk, and product judgment.`,
+      ruWithThesis: (title) => `он подсвечивает исследовательскую зрелость: умение превращать evidence из "${title}" в продуктовые решения, а не просто пересказывать findings.`,
+      ruFallback: (title) => `для рекрутера это сигнал исследовательской зрелости: "${title}" становится способом показать, как evidence влияет на приоритизацию, риски и продуктовые решения.`
+    };
   }
   if (text.includes("system") || text.includes("component") || text.includes("pattern") || text.includes("governance")) {
-    return "системное мышление и зрелое суждение о масштабируемых дизайн-решениях";
+    return {
+      enWithThesis: (title) => `it demonstrates systems thinking: the ability to use "${title}" to reason about consistency, scale, and decision quality.`,
+      enFallback: (title) => `For hiring, "${title}" can show that the author thinks in systems: patterns, governance, consistency, and product decisions at scale.`,
+      ruWithThesis: (title) => `он демонстрирует системное мышление: умение использовать "${title}" для разговора о консистентности, масштабе и качестве решений.`,
+      ruFallback: (title) => `для hiring-аудитории "${title}" может показать, что автор мыслит системами: паттернами, governance, консистентностью и продуктовым масштабом.`
+    };
   }
   if (text.includes("startup") || text.includes("founder") || text.includes("market") || text.includes("strategy")) {
-    return "бизнес-контекст и умение связывать дизайн с рынком и продуктовой стратегией";
+    return {
+      enWithThesis: (title) => `it signals business awareness: the ability to connect design choices with market learning, positioning, and product strategy through "${title}".`,
+      enFallback: (title) => `A recruiter would see business context here: "${title}" can become a post about how design supports positioning, learning speed, and product focus.`,
+      ruWithThesis: (title) => `он сигнализирует бизнес-контекст: умение связывать дизайн-решения с рынком, позиционированием и продуктовой стратегией через "${title}".`,
+      ruFallback: (title) => `рекрутер увидит здесь бизнес-контекст: "${title}" можно превратить в пост о том, как дизайн поддерживает позиционирование, скорость обучения и продуктовый фокус.`
+    };
   }
   if (text.includes("digital") || text.includes("interaction") || text.includes("interface") || text.includes("experience")) {
-    return "мышление об interaction design и способность рассуждать о цифровом продуктовом опыте";
+    return {
+      enWithThesis: (title) => `it shows interaction thinking: the ability to connect digital execution with user understanding, flow, and product clarity in "${title}".`,
+      enFallback: (title) => `This can signal interaction-design judgment: "${title}" becomes a way to discuss how digital products shape understanding, flow, and confidence.`,
+      ruWithThesis: (title) => `он показывает interaction thinking: умение связывать digital execution с пониманием пользователя, flow и ясностью продукта в "${title}".`,
+      ruFallback: (title) => `это может показать зрелость в interaction design: "${title}" становится поводом обсудить, как цифровые продукты формируют понимание, flow и уверенность пользователя.`
+    };
   }
 
-  return "продуктовое суждение, структурное мышление и умение извлекать полезную дизайн-позицию из внешнего материала";
+  return {
+    enWithThesis: (title) => `it shows structured product judgment: the ability to extract a usable design point of view from "${title}" without reducing it to a news repost.`,
+    enFallback: (title) => `A recruiter would see structured thinking here: the author can turn "${title}" into a focused design argument with a clear professional point.`,
+    ruWithThesis: (title) => `он показывает структурное продуктовое суждение: умение извлекать полезную дизайн-позицию из "${title}", не сводя материал к пересказу новости.`,
+    ruFallback: (title) => `рекрутер увидит здесь структурное мышление: автор умеет превратить "${title}" в сфокусированный дизайн-аргумент с ясной профессиональной позицией.`
+  };
 }
 
 function sourceBasedAngle(items: CollectedItemRecord[], fallback = "Use the source as a practitioner reflection on product design decisions."): string {
@@ -496,6 +535,112 @@ function usableAiField(value: string | undefined): string | undefined {
 
   return value;
 }
+
+function usableAiMaterialField(value: string | undefined, item: CollectedItemRecord): string | undefined {
+  const candidate = usableAiField(value);
+  if (!candidate || isGenericMaterialField(candidate)) {
+    return undefined;
+  }
+
+  const lower = candidate.toLowerCase();
+  const terms = materialSpecificTerms(item);
+  const hasSpecificTerm = terms.some((term) => lower.includes(term));
+
+  return hasSpecificTerm ? candidate : undefined;
+}
+
+function isGenericMaterialField(value: string): boolean {
+  const normalized = value.toLowerCase();
+  const genericPatterns = [
+    "turns the material into",
+    "turning the material into",
+    "clear professional point of view",
+    "simple link repost",
+    "product decisions, user effort, and design quality",
+    "shows strategic thinking in communication",
+    "shows professional thinking",
+    "превращается не в пересказ ссылки",
+    "ясную профессиональную позицию",
+    "такой пост показывает стратегическое мышление",
+    "показывает профессиональное мышление автора",
+    "продуктовый взгляд, дизайн-суждение и связь с бизнес-контекстом",
+    "разговор о продуктовых решениях, усилии пользователя и качестве дизайна"
+  ];
+
+  return genericPatterns.some((pattern) => normalized.includes(pattern));
+}
+
+function materialSpecificTerms(item: CollectedItemRecord): string[] {
+  const text = `${item.title} ${item.summary ?? ""} ${item.normalized_content ?? ""}`.toLowerCase();
+  const words = text
+    .replace(/&[#a-z0-9]+;/gi, " ")
+    .replace(/[^a-zа-яё0-9\s-]/gi, " ")
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter((word) => word.length >= 5 && !materialStopWords.has(word));
+
+  const semanticTerms: string[] = [];
+  if (text.includes("restaurant") || text.includes("discovery") || text.includes("service")) {
+    semanticTerms.push("service", "timing", "intent", "context", "сервис", "контекст", "намерени", "момент");
+  }
+  if (text.includes("betting") || text.includes("finance") || text.includes("trust") || text.includes("regulated")) {
+    semanticTerms.push("trust", "risk", "confidence", "regulated", "довер", "риск", "уверен", "категори");
+  }
+  if (text.includes("tourism") || text.includes("destination") || text.includes("place") || text.includes("visit")) {
+    semanticTerms.push("tourism", "destination", "place", "motivation", "туризм", "место", "мотивац", "восприяти");
+  }
+  if (text.includes("brand") || text.includes("story") || text.includes("identity") || text.includes("communication") || text.includes("wordmark") || text.includes("typeface")) {
+    semanticTerms.push("brand", "story", "identity", "communication", "memory", "бренд", "истори", "коммуникац", "айдентик", "запомин");
+  }
+  if (text.includes("research") || text.includes("study") || text.includes("insight") || text.includes("survey")) {
+    semanticTerms.push("research", "evidence", "study", "insight", "исслед", "данн", "вывод", "доказ");
+  }
+  if (text.includes("system") || text.includes("component") || text.includes("pattern") || text.includes("governance")) {
+    semanticTerms.push("system", "component", "pattern", "governance", "систем", "паттерн", "компонент", "масштаб");
+  }
+  if (text.includes("startup") || text.includes("founder") || text.includes("market") || text.includes("strategy")) {
+    semanticTerms.push("startup", "founder", "market", "strategy", "positioning", "стартап", "фаундер", "рын", "стратег", "позиционир", "ценност");
+  }
+  if (text.includes("digital") || text.includes("interaction") || text.includes("interface") || text.includes("experience")) {
+    semanticTerms.push("digital", "interaction", "interface", "flow", "цифров", "интерфейс", "flow", "взаимод");
+  }
+
+  return Array.from(new Set([...words, ...semanticTerms])).slice(0, 56);
+}
+
+const materialStopWords = new Set([
+  "about",
+  "after",
+  "again",
+  "article",
+  "based",
+  "biggest",
+  "brand",
+  "could",
+  "design",
+  "digital",
+  "experience",
+  "helps",
+  "material",
+  "people",
+  "product",
+  "shows",
+  "source",
+  "story",
+  "their",
+  "there",
+  "through",
+  "using",
+  "would",
+  "аудитории",
+  "дизайн",
+  "материал",
+  "показывает",
+  "пост",
+  "продукт",
+  "рекрутера",
+  "ценность"
+]);
 
 function extractNovelty(item: CollectedItemRecord, ai: AiScoringResult | undefined): number | null {
   if (ai) {

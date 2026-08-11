@@ -189,6 +189,40 @@ test("topic formation creates source-grounded fallback when current source items
   assert.equal(topics[0].whyItMattersRu.includes("Ценность для рекрутера"), true);
 });
 
+test("topic formation varies recruiter value by material signal", async () => {
+  const restaurantItem = {
+    id: "item_restaurant",
+    source_id: "src_creativeboom",
+    title: "Koto helps restaurant-discovery app Franki make time dance",
+    summary: "A restaurant discovery app uses brand, timing, service experience, and user context to shape how people choose where to go.",
+    normalized_content: "Restaurant discovery, timing, user intent, service experience, and mobile app context.",
+    final_score: 48,
+    rule_score: 48,
+    scoring_breakdown_json: JSON.stringify({ factors: { freshness: 8 } })
+  } as CollectedItemRecord;
+  const bettingItem = {
+    id: "item_betting",
+    source_id: "src_creativeboom",
+    title: "How Nomad reimagined Stoiximan, the homegrown brand that became Greece's biggest name in betting",
+    summary: "A betting brand identity with a custom wordmark, trust signals, category risk, and product confidence cues.",
+    normalized_content: "Betting, trust, risk perception, brand identity, wordmark, and regulated category cues.",
+    final_score: 48,
+    rule_score: 48,
+    scoring_breakdown_json: JSON.stringify({ factors: { freshness: 8 } })
+  } as CollectedItemRecord;
+
+  const restaurantTopics = await formTopics([restaurantItem], [], { minFinalScoreForTopic: 70 });
+  const bettingTopics = await formTopics([bettingItem], [], { minFinalScoreForTopic: 70 });
+
+  assert.equal(restaurantTopics.length, 1);
+  assert.equal(bettingTopics.length, 1);
+  assert.notEqual(restaurantTopics[0].whyItMattersRu, bettingTopics[0].whyItMattersRu);
+  assert.match(restaurantTopics[0].whyItMattersRu, /service-design|timing|намерени|контекст/i);
+  assert.match(bettingTopics[0].whyItMattersRu, /довер|риск|trust-heavy|чувствительной категории/i);
+  assert.equal(restaurantTopics[0].whyItMattersRu.includes("превращается не в пересказ ссылки"), false);
+  assert.equal(bettingTopics[0].whyItMattersRu.includes("превращается не в пересказ ссылки"), false);
+});
+
 test("formatTopicSources renders clickable source links", () => {
   const topic = {
     id: "topic_1",
