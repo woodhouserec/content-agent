@@ -2,7 +2,7 @@ import type { D1Database } from "../domain/runtime";
 import { createId } from "../utils/ids";
 import { nowIso } from "../utils/time";
 
-export type SourceType = "rss" | "reddit";
+export type SourceType = "rss" | "reddit" | "discovery_page";
 
 export interface SourceRecord {
   id: string;

@@ -215,7 +215,7 @@ export function buildMenuMessage(screen: MenuScreen): string {
   }
 
   if (screen === "permanentSources") {
-    return "Постоянные источники: RSS/Atom/Reddit, которые собираются автоматически.";
+    return "Постоянные источники: RSS/Atom/Reddit или страницы-рубрики со статьями, которые собираются автоматически.";
   }
 
   if (screen === "sourceList") {

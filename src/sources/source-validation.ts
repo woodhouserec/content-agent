@@ -1,11 +1,12 @@
 import { detectFeedType, parseFeedEntries, parseFeedTitle } from "../collectors/xml";
 import { fetchTextWithRetry } from "../collectors/http";
 import { canonicalizeUrl } from "../utils/url";
+import { extractDiscoveryPagePreview } from "./discovery-page";
 
 export interface SourceValidationResult {
   ok: boolean;
   normalizedUrl: string;
-  detectedType: "rss" | "atom" | "unsupported";
+  detectedType: "rss" | "atom" | "discovery_page" | "unsupported";
   feedTitle: string | null;
   sampleItems: Array<{ title: string | null; url: string | null }>;
   errorMessage: string | null;
@@ -34,7 +35,20 @@ export async function validateRssSourceUrl(rawUrl: string): Promise<SourceValida
     const detectedType = detectFeedType(xml);
 
     if (detectedType === "unsupported") {
-      return unsupported(normalizedUrl, "The URL is reachable, but it does not look like RSS or Atom. HTML scraping is not enabled.");
+      const discovery = extractDiscoveryPagePreview(normalizedUrl, xml, 8);
+
+      if (discovery.links.length > 0) {
+        return {
+          ok: true,
+          normalizedUrl,
+          detectedType: "discovery_page",
+          feedTitle: discovery.title ?? discovery.siteName,
+          sampleItems: discovery.links.slice(0, 5).map((link) => ({ title: link.title, url: link.url })),
+          errorMessage: null
+        };
+      }
+
+      return unsupported(normalizedUrl, "The URL is reachable, but it does not look like RSS, Atom, or a static discovery page with article links.");
     }
 
     const entries = parseFeedEntries(xml);

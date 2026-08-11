@@ -56,4 +56,5 @@ export interface SourceConfig {
   listing?: "hot" | "new" | "top";
   timeframe?: "hour" | "day" | "week" | "month" | "year" | "all";
   allowedSubreddits?: string[];
+  article_link_limit?: number;
 }

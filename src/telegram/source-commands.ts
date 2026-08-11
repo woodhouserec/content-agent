@@ -4,13 +4,13 @@ import type { SourceRecord } from "../storage/sources";
 import { canonicalizeUrl } from "../utils/url";
 import { validateRssSourceUrl } from "../sources/source-validation";
 import type { TelegramClient } from "./client";
-import { RssCollector } from "../collectors/rss";
+import { getCollectorForSource } from "../collectors";
 
 export async function handleAddSource(env: Env, telegram: TelegramClient, chatId: string, telegramUserId: string, text: string | undefined): Promise<void> {
   const url = text?.trim().split(/\s+/)[1];
 
   if (!url) {
-    await telegram.sendMessage(chatId, "Используйте: /addsource https://example.com/feed.xml");
+    await telegram.sendMessage(chatId, "Используйте: /addsource https://example.com/feed.xml или /addsource https://example.com/design/");
     return;
   }
 
@@ -43,7 +43,7 @@ export async function handleAddSource(env: Env, telegram: TelegramClient, chatId
       `URL: ${validation.normalizedUrl}`,
       `Статус: unsupported`,
       `Причина: ${validation.errorMessage}`,
-      "Автоматический HTML scraping не используется. Возможные варианты: найти RSS/Atom, официальный API или добавить ручной интеграционный план."
+      "Полный scraping, JavaScript и обход ограничений не используются. Возможные варианты: найти RSS/Atom, официальный API или добавить ручной интеграционный план."
     ].join("\n"));
     return;
   }
@@ -98,7 +98,13 @@ export async function handleSourceTest(env: Env, telegram: TelegramClient, chatI
     return;
   }
 
-  const collector = new RssCollector();
+  const collector = getCollectorForSource(source);
+
+  if (!collector) {
+    await telegram.sendMessage(chatId, `Для типа источника пока нет collector: ${source.type}`);
+    return;
+  }
+
   const result = await collector.collect(source, {
     maxItemsPerSource: 3,
     timeoutMs: 6000,
@@ -134,8 +140,9 @@ export async function confirmPendingSource(env: Env, pendingId: string): Promise
     return `Источник уже есть: ${duplicate.name}`;
   }
 
+  const sourceType = pending.detected_type === "discovery_page" ? "discovery_page" : "rss";
   const source = await repos.sources.create({
-    type: "rss",
+    type: sourceType,
     name: pending.feed_title ?? new URL(pending.normalized_url).hostname,
     url: pending.normalized_url,
     enabled: true,
@@ -149,7 +156,10 @@ export async function confirmPendingSource(env: Env, pendingId: string): Promise
       editorial_priority: 2,
       max_content_age_days: 14,
       allow_full_text: false,
-      license_notes: "Added via Telegram after RSS/Atom validation. Use excerpts and metadata only.",
+      license_notes: sourceType === "discovery_page"
+        ? "Added via Telegram as static discovery page. Fetch linked article pages with excerpts and metadata only."
+        : "Added via Telegram after RSS/Atom validation. Use excerpts and metadata only.",
+      ...(sourceType === "discovery_page" ? { article_link_limit: 5 } : {}),
       max_items_per_run: 5
     }
   });
@@ -163,7 +173,7 @@ function formatSourcePreview(validation: Awaited<ReturnType<typeof validateRssSo
 
   return [
     "Источник проверен.",
-    `Feed title: ${validation.feedTitle ?? "unknown"}`,
+    `Title: ${validation.feedTitle ?? "unknown"}`,
     `Type: ${validation.detectedType}`,
     `URL: ${validation.normalizedUrl}`,
     "",

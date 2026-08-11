@@ -7,7 +7,7 @@ export interface PendingSourceRecord {
   url: string;
   normalized_url: string;
   status: "pending" | "confirmed" | "unsupported" | "expired";
-  detected_type: "rss" | "atom" | "unsupported" | null;
+  detected_type: "rss" | "atom" | "discovery_page" | "unsupported" | null;
   feed_title: string | null;
   preview_json: string | null;
   error_message: string | null;

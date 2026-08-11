@@ -3,6 +3,7 @@ import { createRepositories } from "../storage/repositories";
 import type { CollectedItemMode } from "../storage/collected-items";
 import { logger } from "../utils/logger";
 import { scoringConfig } from "./config";
+import type { AiScoringResult } from "./openai";
 import { scoreWithOpenAi } from "./openai";
 import { scoreCollectedItem } from "./rule-based";
 import { formTopics } from "./topic-formation";
@@ -15,6 +16,7 @@ export interface ScoringRunResult {
   topicsCreated: number;
   topicsSkippedAsDuplicates: number;
   topicsRestored: number;
+  topicIds: string[];
 }
 
 export async function runScoring(env: Env, options: { mode?: CollectedItemMode } = {}): Promise<ScoringRunResult> {
@@ -104,6 +106,7 @@ export async function runScoring(env: Env, options: { mode?: CollectedItemMode }
   let topicsCreated = 0;
   let topicsSkippedAsDuplicates = 0;
   let topicsRestored = 0;
+  const topicIds: string[] = [];
 
   for (const topic of topics) {
     const result = await repos.topics.createIfNotExists({
@@ -125,12 +128,16 @@ export async function runScoring(env: Env, options: { mode?: CollectedItemMode }
 
     if (result.inserted) {
       topicsCreated += 1;
+      topicIds.push(result.id);
     } else {
       topicsSkippedAsDuplicates += 1;
 
       if (options.mode && result.status !== "candidate" && result.status !== "sent" && result.status !== "selected") {
         await repos.topics.resetToCandidate(result.id);
         topicsRestored += 1;
+        topicIds.push(result.id);
+      } else if (result.status === "candidate" || result.status === "sent") {
+        topicIds.push(result.id);
       }
     }
   }
@@ -142,7 +149,7 @@ export async function runScoring(env: Env, options: { mode?: CollectedItemMode }
     usedAiFallback,
     topicsCreated,
     topicsSkippedAsDuplicates,
-    topicsRestored
+    topicsRestored,
+    topicIds
   };
 }
-import type { AiScoringResult } from "./openai";

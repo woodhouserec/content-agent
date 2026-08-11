@@ -45,7 +45,7 @@ export async function promptForSourceUrl(env: Env, telegram: TelegramClient, cha
     chatId,
     mode === "temporary"
       ? "Отправьте ссылку на статью одним сообщением. Команду /addurl писать не нужно."
-      : "Отправьте ссылку на RSS/Atom feed одним сообщением. Команду /addsource писать не нужно.",
+      : "Отправьте ссылку на RSS/Atom feed или страницу-рубрику со статьями одним сообщением. Команду /addsource писать не нужно.",
     { replyMarkup: buildSectionMenu(mode === "temporary" ? "temporarySources" : "permanentSources") }
   );
 }

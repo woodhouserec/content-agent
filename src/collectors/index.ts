@@ -1,10 +1,12 @@
 import type { SourceRecord } from "../storage/sources";
 import type { Collector } from "./types";
+import { DiscoveryPageCollector } from "./discovery-page";
 import { RedditCollector } from "./reddit";
 import { RssCollector } from "./rss";
 
 const collectors: Collector[] = [
   new RssCollector(),
+  new DiscoveryPageCollector(),
   new RedditCollector()
 ];
 

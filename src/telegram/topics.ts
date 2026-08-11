@@ -22,6 +22,12 @@ export async function runScoringAndSendTopics(env: Env, telegram: TelegramClient
     lines.push("", sourceIssues);
   }
   await telegram.sendMessage(chatId, lines.join("\n"));
+
+  if (result.topicIds.length > 0) {
+    await sendTopicsByIds(env, telegram, chatId, result.topicIds);
+    return;
+  }
+
   await sendLatestTopics(env, telegram, chatId, mode);
 }
 
@@ -29,6 +35,39 @@ export async function sendLatestTopics(env: Env, telegram: TelegramClient, chatI
   const repos = createRepositories(env.DB);
   const allTopics = await repos.topics.listAvailable(mode ? 100 : 10);
   const topics = mode ? await filterTopicsByMode(env, allTopics, mode, 5) : allTopics.slice(0, 5);
+
+  if (topics.length === 0) {
+    await telegram.sendMessage(chatId, "Пока нет доступных тезисов. Сначала нажмите «Сгенерировать тезисы» после сбора материалов.");
+    return;
+  }
+
+  for (const topic of topics) {
+    const sources = await getTopicSources(env, topic);
+    await telegram.sendMessage(chatId, formatTopicMessage(topic, sources), {
+      replyMarkup: {
+        inline_keyboard: [
+          [{ text: "Создать черновик", callback_data: `topic:draft:${topic.id}` }],
+          [
+            { text: "Пропустить", callback_data: `topic:skip:${topic.id}` },
+            { text: "Показать источники", callback_data: `topic:sources:${topic.id}` }
+          ],
+          [
+            { text: "Почему выбрано", callback_data: `topic:why:${topic.id}` },
+            { text: "English", callback_data: `topic:english:${topic.id}` }
+          ]
+        ]
+      }
+    });
+    await repos.topics.markSent(topic.id);
+  }
+}
+
+async function sendTopicsByIds(env: Env, telegram: TelegramClient, chatId: string, topicIds: string[]): Promise<void> {
+  const repos = createRepositories(env.DB);
+  const uniqueIds = [...new Set(topicIds)].slice(0, 5);
+  const topics = (await Promise.all(uniqueIds.map((id) => repos.topics.getById(id))))
+    .filter((topic): topic is TopicRecord => topic !== null)
+    .filter((topic) => topic.status !== "selected" && topic.status !== "skipped" && topic.status !== "archived");
 
   if (topics.length === 0) {
     await telegram.sendMessage(chatId, "Пока нет доступных тезисов. Сначала нажмите «Сгенерировать тезисы» после сбора материалов.");
