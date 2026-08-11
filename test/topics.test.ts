@@ -165,6 +165,25 @@ test("topic formation can use strong AI signal when final score is below hard th
   assert.equal(topics[0].title, "How startup storytelling can make product value easier to understand");
 });
 
+test("topic formation creates source-grounded fallback when current source items are below threshold", async () => {
+  const item = {
+    id: "item_creativeboom_low",
+    source_id: "src_creativeboom",
+    title: "A creative digital design article from the current source",
+    summary: "The article gives enough context for a practical Product/UX post preview.",
+    normalized_content: "The source discusses digital design work and product communication in a concrete way.",
+    final_score: 48,
+    rule_score: 48,
+    scoring_breakdown_json: JSON.stringify({ factors: { freshness: 8 } })
+  } as CollectedItemRecord;
+
+  const topics = await formTopics([item], [], { minFinalScoreForTopic: 70 });
+
+  assert.equal(topics.length, 1);
+  assert.equal(topics[0].title.includes(item.title), true);
+  assert.deepEqual(topics[0].sourceItemIds, [item.id]);
+});
+
 test("formatTopicSources renders clickable source links", () => {
   const topic = {
     id: "topic_1",

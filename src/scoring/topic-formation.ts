@@ -162,6 +162,13 @@ export async function formTopics(
       .slice(0, scoringConfig.maxTopicsPerRun);
   }
 
+  if (eligible.length === 0 && items.length > 0) {
+    eligible = items
+      .filter((item) => (item.final_score ?? item.rule_score ?? 0) >= 35)
+      .sort((a, b) => (b.final_score ?? b.rule_score ?? 0) - (a.final_score ?? a.rule_score ?? 0))
+      .slice(0, Math.min(3, scoringConfig.maxTopicsPerRun));
+  }
+
   const aiCandidates = await formAiPostIdeas(eligible, aiResults);
   if (aiCandidates.length > 0) {
     return aiCandidates.slice(0, scoringConfig.maxTopicsPerRun);
