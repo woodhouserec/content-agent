@@ -64,7 +64,10 @@ export async function handleSources(env: Env, telegram: TelegramClient, chatId: 
     return;
   }
 
-  await telegram.sendMessage(chatId, sources.map(formatSourceLine).join("\n\n"));
+  const chunks = chunkSourceMessages(sources.map((source, index) => `Источник ${index + 1} из ${sources.length}:\n${formatSourceLine(source)}`));
+  for (const chunk of chunks) {
+    await telegram.sendMessage(chatId, chunk);
+  }
 }
 
 export async function handleSourceDisable(env: Env, telegram: TelegramClient, chatId: string, text: string | undefined): Promise<void> {
@@ -193,4 +196,28 @@ export function formatSourceLine(source: SourceRecord): string {
 
 export function formatSourceStatus(enabled: number | boolean): string {
   return enabled ? "On 🟢" : "Off 🔴";
+}
+
+function chunkSourceMessages(sourceBlocks: string[]): string[] {
+  const maxLength = 3200;
+  const chunks: string[] = [];
+  let current = "Постоянные источники:\n\n";
+
+  for (const block of sourceBlocks) {
+    const next = current.trimEnd() + "\n\n" + block;
+
+    if (next.length > maxLength && current.trim().length > 0) {
+      chunks.push(current.trimEnd());
+      current = block;
+      continue;
+    }
+
+    current = next;
+  }
+
+  if (current.trim().length > 0) {
+    chunks.push(current.trimEnd());
+  }
+
+  return chunks;
 }
