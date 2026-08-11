@@ -111,6 +111,21 @@ export class VisualsRepository {
       .first<VisualAssetRecord>();
   }
 
+  async getAssetsForDraft(draftId: string): Promise<VisualAssetRecord[]> {
+    const result = await this.db
+      .prepare(
+        `SELECT a.*
+         FROM visual_assets a
+         INNER JOIN visual_briefs b ON b.id = a.visual_brief_id
+         WHERE b.draft_id = ?
+         ORDER BY a.version ASC, a.created_at ASC`
+      )
+      .bind(draftId)
+      .all<VisualAssetRecord>();
+
+    return result.results ?? [];
+  }
+
   async getLatestApprovedAssetForDraft(draftId: string): Promise<VisualAssetRecord | null> {
     return this.db
       .prepare(

@@ -22,6 +22,8 @@ test("LinkedIn authorization URL requests publish scope and state", () => {
 test("LinkedIn publish callback payload stays within Telegram callback_data limit", () => {
   const draftId = "draft_1234567890abcdef1234567890abcdef";
   assert.ok(`draft:publish:${draftId}`.length <= 64);
+  assert.ok(`draft:publish_force:${draftId}`.length <= 64);
+  assert.ok(`draft:publish_cancel:${draftId}`.length <= 64);
 });
 
 test("LinkedIn config uses current active API version by default", () => {

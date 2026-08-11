@@ -37,7 +37,7 @@ import {
   sendApprovedDraftMessages
 } from "./drafts";
 import { publishDraftToLinkedIn } from "../linkedin/service";
-import { approveVisualAsset, rejectVisualAsset, runVisualGeneration } from "./visuals";
+import { approveVisualAsset, rejectVisualAsset, runVisualGeneration, sendAdjacentVisualAsset } from "./visuals";
 
 export async function handleTelegramWebhook(
   request: Request,
@@ -380,26 +380,33 @@ async function handleDraftCallback(
       return true;
     }
 
-    if (action === "publish") {
+    if (action === "publish" || action === "publish_force") {
       dispatcher.dispatch("telegram_linkedin_publish", async () => {
         try {
           await telegram.sendMessage(chatId, "Публикация в LinkedIn запущена.");
           const result = await publishDraftToLinkedIn(env, {
             draftId: targetId,
-            telegramUserId: String(callback.from.id)
+            telegramUserId: String(callback.from.id),
+            force: action === "publish_force"
           });
-          await telegram.sendMessage(
-            chatId,
-            result.alreadyPublished
-              ? `Этот черновик уже был опубликован в LinkedIn: ${result.postUrn}`
-              : `Пост опубликован в LinkedIn: ${result.postUrn}`
-          );
+          if (result.alreadyPublished) {
+            await telegram.sendMessage(chatId, `Этот черновик уже был опубликован в LinkedIn: ${result.postUrn}`, {
+              replyMarkup: buildForcePublishKeyboard(targetId)
+            });
+          } else {
+            await telegram.sendMessage(chatId, `Пост опубликован в LinkedIn: ${result.postUrn}`);
+          }
         } catch (error: unknown) {
           const message = formatSafeError(error);
           logger.error("LinkedIn publish failed", { event: "linkedin_publish_failed", requestId, error: message });
           await telegram.sendMessage(chatId, `Публикация в LinkedIn не выполнена: ${message}`);
         }
       });
+      return true;
+    }
+
+    if (action === "publish_cancel") {
+      await telegram.sendMessage(chatId, "Повторная публикация отменена.");
       return true;
     }
 
@@ -446,6 +453,16 @@ async function handleDraftCallback(
   }
 
   if (targetType === "visual") {
+    if (action === "prev" || action === "next") {
+      await sendAdjacentVisualAsset(env, telegram, chatId, targetId, action);
+      return true;
+    }
+
+    if (action === "noop") {
+      await telegram.sendMessage(chatId, "Это номер текущей версии изображения.");
+      return true;
+    }
+
     if (action === "approve") {
       const result = await approveVisualAsset(env, targetId);
       await telegram.sendMessage(chatId, result.message, {
@@ -461,6 +478,15 @@ async function handleDraftCallback(
   }
 
   return false;
+}
+
+function buildForcePublishKeyboard(draftId: string) {
+  return {
+    inline_keyboard: [
+      [{ text: "Все равно опубликовать", callback_data: `draft:publish_force:${draftId}` }],
+      [{ text: "Отмена", callback_data: `draft:publish_cancel:${draftId}` }]
+    ]
+  };
 }
 
 async function logCallbackAction(

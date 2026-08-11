@@ -46,12 +46,12 @@ export async function completeLinkedInOAuth(env: Env, input: { code: string; sta
   };
 }
 
-export async function publishDraftToLinkedIn(env: Env, input: { draftId: string; telegramUserId: string }): Promise<{ postUrn: string; alreadyPublished: boolean }> {
+export async function publishDraftToLinkedIn(env: Env, input: { draftId: string; telegramUserId: string; force?: boolean }): Promise<{ postUrn: string; alreadyPublished: boolean }> {
   const repos = createRepositories(env.DB);
   const draft = await requireApprovedDraft(env, input.draftId);
   const existing = await repos.linkedin.getPublicationForDraft(draft.id);
 
-  if (existing?.linkedin_post_urn) {
+  if (existing?.linkedin_post_urn && !input.force) {
     return {
       postUrn: existing.linkedin_post_urn,
       alreadyPublished: true

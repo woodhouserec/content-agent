@@ -5,6 +5,6 @@ export const visualConfig = {
   defaultAspectRatio: "1:1",
   defaultSize: "1024x1024",
   defaultQuality: "medium",
-  maxImageVariantsPerDraft: 3,
+  maxImageVariantsPerDraft: 5,
   maxPromptLength: 1800
 } as const;
