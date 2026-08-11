@@ -111,6 +111,20 @@ export class VisualsRepository {
       .first<VisualAssetRecord>();
   }
 
+  async getLatestApprovedAssetForDraft(draftId: string): Promise<VisualAssetRecord | null> {
+    return this.db
+      .prepare(
+        `SELECT a.*
+         FROM visual_assets a
+         INNER JOIN visual_briefs b ON b.id = a.visual_brief_id
+         WHERE b.draft_id = ? AND a.status = 'approved'
+         ORDER BY a.version DESC, a.approved_at DESC, a.created_at DESC
+         LIMIT 1`
+      )
+      .bind(draftId)
+      .first<VisualAssetRecord>();
+  }
+
   async countAssetsForBrief(visualBriefId: string): Promise<number> {
     const row = await this.db
       .prepare("SELECT COUNT(*) AS count FROM visual_assets WHERE visual_brief_id = ?")

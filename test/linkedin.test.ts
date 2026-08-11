@@ -60,3 +60,55 @@ test("LinkedIn config creation is lenient but OAuth URL still requires redirect 
   assert.equal(config.redirectUri, "");
   assert.throws(() => new LinkedInClient(config).buildAuthorizationUrl("state123"), /LINKEDIN_REDIRECT_URI/);
 });
+
+test("LinkedIn image post sends media content", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ url: string; body: unknown }> = [];
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    requests.push({
+      url: String(input),
+      body: init?.body ? JSON.parse(String(init.body)) as unknown : null
+    });
+
+    return new Response("", {
+      status: 201,
+      headers: {
+        "x-restli-id": "urn:li:share:123"
+      }
+    });
+  }) as typeof fetch;
+
+  try {
+    const urn = await new LinkedInClient({ apiVersion: "202607" }).publishImagePost({
+      accessToken: "token",
+      authorUrn: "urn:li:person:abc",
+      text: "Post text",
+      imageUrn: "urn:li:image:image123",
+      altText: "An editorial illustration"
+    });
+
+    assert.equal(urn, "urn:li:share:123");
+    assert.equal(requests[0]?.url, "https://api.linkedin.com/rest/posts");
+    assert.deepEqual(requests[0]?.body, {
+      author: "urn:li:person:abc",
+      commentary: "Post text",
+      visibility: "PUBLIC",
+      distribution: {
+        feedDistribution: "MAIN_FEED",
+        targetEntities: [],
+        thirdPartyDistributionChannels: []
+      },
+      content: {
+        media: {
+          id: "urn:li:image:image123",
+          altText: "An editorial illustration"
+        }
+      },
+      lifecycleState: "PUBLISHED",
+      isReshareDisabledByAuthor: false
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

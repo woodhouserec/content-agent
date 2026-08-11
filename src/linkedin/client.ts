@@ -75,15 +75,9 @@ export class LinkedInClient {
   }
 
   async publishTextPost(input: { accessToken: string; authorUrn: string; text: string }): Promise<string> {
-    const response = await fetch("https://api.linkedin.com/rest/posts", {
-      method: "POST",
-      headers: {
-        "authorization": `Bearer ${input.accessToken}`,
-        "content-type": "application/json",
-        "Linkedin-Version": this.config.apiVersion,
-        "X-Restli-Protocol-Version": "2.0.0"
-      },
-      body: JSON.stringify({
+    return this.createPost({
+      accessToken: input.accessToken,
+      body: {
         author: input.authorUrn,
         commentary: input.text,
         visibility: "PUBLIC",
@@ -94,7 +88,104 @@ export class LinkedInClient {
         },
         lifecycleState: "PUBLISHED",
         isReshareDisabledByAuthor: false
+      }
+    });
+  }
+
+  async uploadImage(input: {
+    accessToken: string;
+    ownerUrn: string;
+    bytes: ArrayBuffer;
+    mimeType: string;
+  }): Promise<string> {
+    const initialized = await fetch("https://api.linkedin.com/rest/images?action=initializeUpload", {
+      method: "POST",
+      headers: {
+        "authorization": `Bearer ${input.accessToken}`,
+        "content-type": "application/json",
+        "Linkedin-Version": this.config.apiVersion,
+        "X-Restli-Protocol-Version": "2.0.0"
+      },
+      body: JSON.stringify({
+        initializeUploadRequest: {
+          owner: input.ownerUrn
+        }
       })
+    });
+
+    if (!initialized.ok) {
+      throw new Error(`LinkedIn image upload init failed: HTTP ${initialized.status} ${await initialized.text()}`);
+    }
+
+    const upload = await initialized.json() as {
+      value?: {
+        uploadUrl?: string;
+        image?: string;
+      };
+    };
+    const uploadUrl = upload.value?.uploadUrl;
+    const imageUrn = upload.value?.image;
+
+    if (!uploadUrl || !imageUrn) {
+      throw new Error("LinkedIn image upload init did not include uploadUrl and image URN.");
+    }
+
+    const uploaded = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "authorization": `Bearer ${input.accessToken}`,
+        "content-type": input.mimeType
+      },
+      body: input.bytes
+    });
+
+    if (!uploaded.ok) {
+      throw new Error(`LinkedIn image upload failed: HTTP ${uploaded.status} ${await uploaded.text()}`);
+    }
+
+    return imageUrn;
+  }
+
+  async publishImagePost(input: {
+    accessToken: string;
+    authorUrn: string;
+    text: string;
+    imageUrn: string;
+    altText: string;
+  }): Promise<string> {
+    return this.createPost({
+      accessToken: input.accessToken,
+      body: {
+        author: input.authorUrn,
+        commentary: input.text,
+        visibility: "PUBLIC",
+        distribution: {
+          feedDistribution: "MAIN_FEED",
+          targetEntities: [],
+          thirdPartyDistributionChannels: []
+        },
+        content: {
+          media: {
+            id: input.imageUrn,
+            altText: input.altText.slice(0, 4086)
+          }
+        },
+        lifecycleState: "PUBLISHED",
+        isReshareDisabledByAuthor: false
+      }
+    });
+  }
+
+  private async createPost(input: { accessToken: string; body: Record<string, unknown> }): Promise<string> {
+    const response = await fetch("https://api.linkedin.com/rest/posts", {
+      method: "POST",
+      headers: {
+        "authorization": `Bearer ${input.accessToken}`,
+        "content-type": "application/json",
+        "Linkedin-Version": this.config.apiVersion,
+        "X-Restli-Protocol-Version": "2.0.0"
+      },
+      body: JSON.stringify(input.body)
     });
 
     if (!response.ok) {

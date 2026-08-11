@@ -1,6 +1,7 @@
 import type { Env } from "../domain/runtime";
 import type { DraftRecord } from "../storage/drafts";
 import { createRepositories } from "../storage/repositories";
+import { R2AssetStorage } from "../visual/r2-storage";
 import { getLinkedInConfig, getLinkedInPublishConfig } from "./config";
 import { LinkedInClient } from "./client";
 
@@ -73,11 +74,21 @@ export async function publishDraftToLinkedIn(env: Env, input: { draftId: string;
   });
 
   try {
-    const postUrn = await new LinkedInClient(getLinkedInPublishConfig(env)).publishTextPost({
-      accessToken: connection.access_token,
-      authorUrn: connection.author_urn,
-      text: draft.content
-    });
+    const client = new LinkedInClient(getLinkedInPublishConfig(env));
+    const approvedImage = await repos.visuals.getLatestApprovedAssetForDraft(draft.id);
+    const postUrn = approvedImage
+      ? await publishDraftWithImage(env, client, {
+          accessToken: connection.access_token,
+          authorUrn: connection.author_urn,
+          text: draft.content,
+          storageKey: approvedImage.storage_key,
+          mimeType: approvedImage.mime_type
+        })
+      : await client.publishTextPost({
+          accessToken: connection.access_token,
+          authorUrn: connection.author_urn,
+          text: draft.content
+        });
 
     await repos.linkedin.markPublicationPublished(publication.id, postUrn);
 
@@ -89,6 +100,34 @@ export async function publishDraftToLinkedIn(env: Env, input: { draftId: string;
     await repos.linkedin.markPublicationFailed(publication.id, error instanceof Error ? error.message : String(error));
     throw error;
   }
+}
+
+async function publishDraftWithImage(
+  env: Env,
+  client: LinkedInClient,
+  input: {
+    accessToken: string;
+    authorUrn: string;
+    text: string;
+    storageKey: string;
+    mimeType: string;
+  }
+): Promise<string> {
+  const image = await new R2AssetStorage(env).get(input.storageKey);
+  const imageUrn = await client.uploadImage({
+    accessToken: input.accessToken,
+    ownerUrn: input.authorUrn,
+    bytes: image.bytes,
+    mimeType: image.mimeType || input.mimeType
+  });
+
+  return client.publishImagePost({
+    accessToken: input.accessToken,
+    authorUrn: input.authorUrn,
+    text: input.text,
+    imageUrn,
+    altText: "Editorial vector illustration accompanying this LinkedIn post."
+  });
 }
 
 async function requireApprovedDraft(env: Env, draftId: string): Promise<DraftRecord> {
