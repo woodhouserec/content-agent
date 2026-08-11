@@ -6,13 +6,13 @@ export function validateDraftBriefResponse(value: unknown): DraftBriefData {
   return {
     centralThesis: expectText(record.central_thesis, "central_thesis"),
     authorPosition: expectText(record.author_position, "author_position"),
-    supportingPoints: expectTextArray(record.supporting_points, "supporting_points"),
-    sourceFacts: expectTextArray(record.source_facts, "source_facts"),
+    supportingPoints: expectTextList(record.supporting_points, "supporting_points"),
+    sourceFacts: expectTextList(record.source_facts, "source_facts"),
     practicalTakeaway: expectText(record.practical_takeaway, "practical_takeaway"),
     targetAudience: expectTextOrArray(record.target_audience, "target_audience"),
     desiredLength: expectTextOrArray(record.desired_length, "desired_length"),
     tone: expectTextOrArray(record.tone, "tone"),
-    factualConstraints: expectOptionalTextArray(record.factual_constraints, "factual_constraints")
+    factualConstraints: expectTextList(record.factual_constraints, "factual_constraints", true)
   };
 }
 
@@ -82,16 +82,26 @@ function expectTextArray(value: unknown, field: string, allowEmpty = false): str
   return items;
 }
 
-function expectOptionalTextArray(value: unknown, field: string): string[] {
+function expectTextList(value: unknown, field: string, allowEmpty = false): string[] {
   if (value === undefined || value === null || value === "") {
-    return [];
+    if (allowEmpty) {
+      return [];
+    }
+    throw new Error(`Invalid ${field} in model response`);
   }
 
   if (typeof value === "string") {
-    return value.trim().length > 0 ? [value.trim()] : [];
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      if (allowEmpty) {
+        return [];
+      }
+      throw new Error(`Invalid ${field} in model response`);
+    }
+    return [trimmed];
   }
 
-  return expectTextArray(value, field, true);
+  return expectTextArray(value, field, allowEmpty);
 }
 
 function expectTextOrArray(value: unknown, field: string): string {

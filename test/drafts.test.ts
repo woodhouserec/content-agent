@@ -95,6 +95,23 @@ test("draft brief accepts factual constraints as string or empty", () => {
   assert.deepEqual(withEmpty.factualConstraints, []);
 });
 
+test("draft brief accepts source facts and supporting points as strings", () => {
+  const brief = validateDraftBriefResponse({
+    central_thesis: "Designers should use AI as support, not abdication.",
+    author_position: "Practitioner insight",
+    supporting_points: "AI can speed up exploration while designers keep product judgment.",
+    source_facts: "The source discusses AI design context and decision quality.",
+    practical_takeaway: "Use AI to improve decision quality.",
+    target_audience: "Product Designers",
+    desired_length: "default",
+    tone: "thoughtful and professional",
+    factual_constraints: null
+  });
+
+  assert.deepEqual(brief.supportingPoints, ["AI can speed up exploration while designers keep product judgment."]);
+  assert.deepEqual(brief.sourceFacts, ["The source discusses AI design context and decision quality."]);
+});
+
 test("draft brief rejects empty tone array", () => {
   assert.throws(() => validateDraftBriefResponse({
     central_thesis: "Designers should use AI as support, not abdication.",
