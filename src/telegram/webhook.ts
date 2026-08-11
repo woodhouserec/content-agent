@@ -26,6 +26,7 @@ import { getSourceMenuMode } from "./source-editor";
 import { handleProfileMessage, showMyProfiles, startCreateProfile } from "./profiles";
 import {
   buildUsageMessage,
+  buildLinkedInConnectMessage,
   formatDraftSources,
   handleCustomRevisionMessage,
   rejectDraft,
@@ -74,18 +75,29 @@ async function processTelegramUpdate(
   const callback = getCallbackQuery(update);
 
   if (callback) {
-    await telegram.answerCallbackQuery(callback.id, "Принято");
-
     const chatId = callback.message?.chat.id ?? callback.from.id;
-    const handledAsDraft = await handleDraftCallback(env, telegram, dispatcher, callback, String(chatId), requestId);
-    if (handledAsDraft) {
-      return;
-    }
+    try {
+      await telegram.answerCallbackQuery(callback.id, "Принято");
 
-    const response = await handleCallback(env, callback);
-    await telegram.sendMessage(String(chatId), response.text, {
-      replyMarkup: response.replyMarkup
-    });
+      const handledAsDraft = await handleDraftCallback(env, telegram, dispatcher, callback, String(chatId), requestId);
+      if (handledAsDraft) {
+        return;
+      }
+
+      const response = await handleCallback(env, callback);
+      await telegram.sendMessage(String(chatId), response.text, {
+        replyMarkup: response.replyMarkup
+      });
+    } catch (error: unknown) {
+      const message = formatSafeError(error);
+      logger.error("Telegram callback failed", {
+        event: "telegram_callback_failed",
+        requestId,
+        callbackData: callback.data,
+        error: message
+      });
+      await telegram.sendMessage(String(chatId), `Действие не выполнено: ${message}`);
+    }
     return;
   }
 
@@ -345,7 +357,24 @@ async function handleDraftCallback(
 
   if (targetType === "draft") {
     if (action === "approve") {
-      await sendApprovedDraftMessages(env, telegram, chatId, targetId, String(callback.from.id));
+      try {
+        await sendApprovedDraftMessages(env, telegram, chatId, targetId, String(callback.from.id));
+      } catch (error: unknown) {
+        const message = formatSafeError(error);
+        logger.error("Draft approval failed", { event: "draft_approval_failed", requestId, error: message });
+        await telegram.sendMessage(chatId, `Одобрение не выполнено: ${message}`);
+      }
+      return true;
+    }
+
+    if (action === "linkedin") {
+      try {
+        await telegram.sendMessage(chatId, await buildLinkedInConnectMessage(env, String(callback.from.id), chatId));
+      } catch (error: unknown) {
+        const message = formatSafeError(error);
+        logger.error("LinkedIn connect link failed", { event: "linkedin_connect_link_failed", requestId, error: message });
+        await telegram.sendMessage(chatId, `LinkedIn пока не подключается: ${message}`);
+      }
       return true;
     }
 

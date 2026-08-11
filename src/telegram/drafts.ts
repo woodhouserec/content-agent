@@ -125,15 +125,28 @@ export async function sendApprovedDraftMessages(
 }
 
 export async function buildApprovedDraftKeyboard(env: Env, draftId: string, telegramUserId: string, chatId: string) {
-  const connectUrl = await createLinkedInConnectUrl(env, { telegramUserId, telegramChatId: chatId });
+  const connectUrl = await tryCreateLinkedInConnectUrl(env, { telegramUserId, telegramChatId: chatId });
+  const linkedinRow = connectUrl
+    ? [{ text: "Подключить LinkedIn", url: connectUrl }]
+    : [{ text: "Подключить LinkedIn", callback_data: `draft:linkedin:${draftId}` }];
 
   return {
     inline_keyboard: [
       [{ text: "Опубликовать в LinkedIn", callback_data: `draft:publish:${draftId}` }],
-      [{ text: "Подключить LinkedIn", url: connectUrl }],
+      linkedinRow,
       [{ text: "Показать источники", callback_data: `draft:sources:${draftId}` }]
     ]
   };
+}
+
+export async function buildLinkedInConnectMessage(env: Env, telegramUserId: string, chatId: string): Promise<string> {
+  const connectUrl = await createLinkedInConnectUrl(env, { telegramUserId, telegramChatId: chatId });
+
+  return [
+    "Откройте эту ссылку, чтобы подключить LinkedIn:",
+    "",
+    escapeHtml(connectUrl)
+  ].join("\n");
 }
 
 export async function rejectDraft(env: Env, draftId: string): Promise<string> {
@@ -271,6 +284,17 @@ function extractRussianTranslation(metadataJson: string | null): string | null {
     return typeof metadata.russian_translation === "string" && metadata.russian_translation.trim().length > 0
       ? metadata.russian_translation.trim()
       : null;
+  } catch {
+    return null;
+  }
+}
+
+async function tryCreateLinkedInConnectUrl(
+  env: Env,
+  input: { telegramUserId: string; telegramChatId: string }
+): Promise<string | null> {
+  try {
+    return await createLinkedInConnectUrl(env, input);
   } catch {
     return null;
   }
