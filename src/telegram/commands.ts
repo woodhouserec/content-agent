@@ -81,7 +81,7 @@ export async function buildStatusMessage(env: Env): Promise<string> {
 }
 
 export function getCommand(text: string | undefined): string {
-  if (!text) {
+  if (!text || !text.trim().startsWith("/")) {
     return "";
   }
 

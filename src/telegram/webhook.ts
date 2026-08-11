@@ -130,6 +130,10 @@ async function processTelegramUpdate(
       return;
     }
 
+    if (message.text && await handleCustomRevisionMessage(env, telegram, chatId, telegramUserId, message.text)) {
+      return;
+    }
+
     if (menuAction?.kind === "screen") {
       const screen = menuAction.value as "main" | "sourcesRoot" | "temporarySources" | "permanentSources" | "topics" | "profileRoot" | "myProfiles" | "drafts" | "system";
       if (screen === "temporarySources" || screen === "permanentSources") {
@@ -179,13 +183,6 @@ async function processTelegramUpdate(
       }
 
       return;
-    }
-
-    if (!command && message.text) {
-      const handled = await handleCustomRevisionMessage(env, telegram, chatId, telegramUserId, message.text);
-      if (handled) {
-        return;
-      }
     }
 
     if (command === "/start") {

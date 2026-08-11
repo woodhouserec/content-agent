@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildHelpMessage, buildStartMessage } from "../src/telegram/commands";
+import { buildHelpMessage, buildStartMessage, getCommand } from "../src/telegram/commands";
 
 test("start and help messages do not contain unsupported Telegram HTML tags", async () => {
   const messages = [await buildStartMessage(), await buildHelpMessage()];
@@ -10,3 +10,7 @@ test("start and help messages do not contain unsupported Telegram HTML tags", as
   }
 });
 
+test("getCommand ignores ordinary text messages", () => {
+  assert.equal(getCommand("Сделай более авторским этот текст"), "");
+  assert.equal(getCommand("/start hello"), "/start");
+});
