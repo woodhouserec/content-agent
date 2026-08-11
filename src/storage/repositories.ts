@@ -12,6 +12,7 @@ import { LinkedInRepository } from "./linkedin";
 import { SourcesRepository } from "./sources";
 import { TelegramActionsRepository } from "./telegram-actions";
 import { TopicsRepository } from "./topics";
+import { VisualsRepository } from "./visuals";
 
 export function createRepositories(db: D1Database) {
   return {
@@ -27,6 +28,7 @@ export function createRepositories(db: D1Database) {
     pendingManualUrls: new PendingManualUrlsRepository(db),
     sources: new SourcesRepository(db),
     telegramActions: new TelegramActionsRepository(db),
-    topics: new TopicsRepository(db)
+    topics: new TopicsRepository(db),
+    visuals: new VisualsRepository(db)
   };
 }

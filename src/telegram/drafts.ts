@@ -133,6 +133,7 @@ export async function buildApprovedDraftKeyboard(env: Env, draftId: string, tele
   return {
     inline_keyboard: [
       [{ text: "Опубликовать в LinkedIn", callback_data: `draft:publish:${draftId}` }],
+      [{ text: "Создать иллюстрацию", callback_data: `draft:visual:${draftId}` }],
       linkedinRow,
       [{ text: "Показать источники", callback_data: `draft:sources:${draftId}` }]
     ]

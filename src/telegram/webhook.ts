@@ -36,6 +36,7 @@ import {
   sendApprovedDraftMessages
 } from "./drafts";
 import { publishDraftToLinkedIn } from "../linkedin/service";
+import { approveVisualAsset, rejectVisualAsset, runVisualGeneration } from "./visuals";
 
 export async function handleTelegramWebhook(
   request: Request,
@@ -336,7 +337,7 @@ async function handleDraftCallback(
   const data = callback.data ?? "";
   const [targetType, action, targetId] = data.split(":");
 
-  if (!targetId || !((targetType === "topic" && action === "draft") || targetType === "draft")) {
+  if (!targetId || !((targetType === "topic" && action === "draft") || targetType === "draft" || targetType === "visual")) {
     return false;
   }
 
@@ -401,6 +402,19 @@ async function handleDraftCallback(
       return true;
     }
 
+    if (action === "visual") {
+      dispatcher.dispatch("telegram_visual_generation", async () => {
+        try {
+          await runVisualGeneration(env, telegram, chatId, targetId);
+        } catch (error: unknown) {
+          const message = formatSafeError(error);
+          logger.error("Visual generation failed", { event: "visual_generation_failed", requestId, error: message });
+          await telegram.sendMessage(chatId, `Иллюстрация не создана: ${message}`);
+        }
+      });
+      return true;
+    }
+
     if (action === "reject") {
       await telegram.sendMessage(chatId, await rejectDraft(env, targetId));
       return true;
@@ -426,6 +440,18 @@ async function handleDraftCallback(
           await telegram.sendMessage(chatId, `Новая версия не создана: ${message}`);
         }
       });
+      return true;
+    }
+  }
+
+  if (targetType === "visual") {
+    if (action === "approve") {
+      await telegram.sendMessage(chatId, await approveVisualAsset(env, targetId));
+      return true;
+    }
+
+    if (action === "reject") {
+      await telegram.sendMessage(chatId, await rejectVisualAsset(env, targetId));
       return true;
     }
   }

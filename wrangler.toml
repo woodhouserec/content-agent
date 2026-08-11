@@ -19,3 +19,7 @@ database_id = "2aa027f2-fcbd-4d60-a148-68628ac45c78"
 # OPENAI_API_KEY
 # OPENAI_SCORING_MODEL
 # OPENAI_DRAFT_MODEL
+# OPENAI_IMAGE_MODEL
+#
+# Optional R2 binding for visual image generation:
+# binding name: VISUAL_ASSETS

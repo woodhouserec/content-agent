@@ -1,5 +1,6 @@
 export interface Env {
   DB: D1Database;
+  VISUAL_ASSETS?: R2Bucket;
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_WEBHOOK_SECRET: string;
   ALLOWED_TELEGRAM_USER_ID: string;
@@ -7,10 +8,35 @@ export interface Env {
   OPENAI_API_KEY?: string;
   OPENAI_SCORING_MODEL?: string;
   OPENAI_DRAFT_MODEL?: string;
+  OPENAI_IMAGE_MODEL?: string;
   LINKEDIN_CLIENT_ID?: string;
   LINKEDIN_CLIENT_SECRET?: string;
   LINKEDIN_REDIRECT_URI?: string;
   LINKEDIN_API_VERSION?: string;
+}
+
+export interface R2Bucket {
+  put(key: string, value: ArrayBuffer | ArrayBufferView | string | ReadableStream, options?: R2PutOptions): Promise<R2Object | null>;
+  get(key: string): Promise<R2ObjectBody | null>;
+  delete(key: string | string[]): Promise<void>;
+}
+
+export interface R2PutOptions {
+  httpMetadata?: {
+    contentType?: string;
+  };
+  customMetadata?: Record<string, string>;
+}
+
+export interface R2Object {
+  key: string;
+}
+
+export interface R2ObjectBody extends R2Object {
+  arrayBuffer(): Promise<ArrayBuffer>;
+  httpMetadata?: {
+    contentType?: string;
+  };
 }
 
 export interface ExecutionContext {

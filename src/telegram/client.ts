@@ -25,6 +25,21 @@ export class TelegramClient {
     });
   }
 
+  async sendPhoto(chatId: string, input: { bytes: ArrayBuffer; mimeType: string; filename: string; caption?: string; replyMarkup?: TelegramReplyMarkup }): Promise<void> {
+    const form = new FormData();
+    form.set("chat_id", chatId);
+    form.set("photo", new Blob([input.bytes], { type: input.mimeType }), input.filename);
+    if (input.caption) {
+      form.set("caption", input.caption);
+      form.set("parse_mode", "HTML");
+    }
+    if (input.replyMarkup) {
+      form.set("reply_markup", JSON.stringify(input.replyMarkup));
+    }
+
+    await this.callForm("sendPhoto", form);
+  }
+
   async answerCallbackQuery(callbackQueryId: string, text?: string): Promise<void> {
     await this.call("answerCallbackQuery", {
       callback_query_id: callbackQueryId,
@@ -43,6 +58,18 @@ export class TelegramClient {
         "content-type": "application/json"
       },
       body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Telegram API ${method} failed: ${response.status} ${errorText}`);
+    }
+  }
+
+  private async callForm(method: string, body: FormData): Promise<void> {
+    const response = await fetch(`https://api.telegram.org/bot${this.botToken}/${method}`, {
+      method: "POST",
+      body
     });
 
     if (!response.ok) {

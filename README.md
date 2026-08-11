@@ -31,14 +31,16 @@ It includes:
 - Telegram reply-keyboard navigation with nested Sources, Topics, Drafts, and System menus;
 - source URL intake without typing `/addurl` or `/addsource` after choosing the matching menu action;
 - relevance profile storage with an active profile and profile wizard;
-- `/usage` for monthly AI usage.
+- `/usage` for monthly AI usage;
+- LinkedIn text publishing after OAuth connection;
+- image generation with Telegram review, if `VISUAL_ASSETS` R2 binding is configured.
 
 It does not include:
 
-- image generation;
-- R2 storage;
-- LinkedIn API;
-- LinkedIn publishing.
+- LinkedIn publishing with an approved image attached;
+- automatic post scheduling;
+- LinkedIn analytics;
+- carousel generation.
 
 ## What You Will Deploy
 
@@ -65,6 +67,7 @@ You will need these four private values:
 | `OPENAI_API_KEY` | Required for draft generation; optional for scoring fallback |
 | `OPENAI_SCORING_MODEL` | Optional model override for scoring |
 | `OPENAI_DRAFT_MODEL` | Optional model override for draft generation |
+| `OPENAI_IMAGE_MODEL` | Optional model override for image generation |
 
 Never paste these values into GitHub files.
 If `OPENAI_API_KEY` is absent, `/score` still works with rule-based fallback, but draft generation stops with a clear error.
@@ -85,6 +88,14 @@ The D1 binding must be named exactly:
 ```text
 DB
 ```
+
+For image generation, add an R2 bucket binding named exactly:
+
+```text
+VISUAL_ASSETS
+```
+
+Images are stored in R2. D1 stores only metadata and `storage_key`.
 
 ## Safe Setup Page
 
