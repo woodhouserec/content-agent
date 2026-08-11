@@ -12,6 +12,8 @@ export interface ExtractedArticle {
   language: string | null;
   siteName: string | null;
   openGraph: Record<string, string>;
+  links: Array<{ text: string; url: string }>;
+  quotes: string[];
   extractionStatus: ExtractionStatus;
   extractionMethod: "static_html_metadata";
   extractionWarnings: string[];

@@ -43,6 +43,8 @@ export async function analyzeManualUrlForDirectTopic(env: Env, item: CollectedIt
           canonical_url: item.canonical_url ?? item.url,
           summary: item.summary,
           excerpt: trimForAi(item.normalized_content ?? item.raw_content ?? item.summary ?? ""),
+          important_quotes: metadataArray(item.metadata_json, "quotes", 5),
+          context_links: metadataArray(item.metadata_json, "links", 8),
           extraction_status: extractionStatus(item.metadata_json)
         },
         author_context: {
@@ -170,5 +172,18 @@ function extractionStatus(metadataJson: string | null): string | null {
     return typeof metadata.extraction_status === "string" ? metadata.extraction_status : null;
   } catch {
     return null;
+  }
+}
+
+function metadataArray(metadataJson: string | null, key: "quotes" | "links", limit: number): unknown[] {
+  if (!metadataJson) {
+    return [];
+  }
+
+  try {
+    const metadata = JSON.parse(metadataJson) as Record<string, unknown>;
+    return Array.isArray(metadata[key]) ? metadata[key].slice(0, limit) : [];
+  } catch {
+    return [];
   }
 }

@@ -7,6 +7,9 @@ export interface GroundedSource {
   summary: string | null;
   excerpt: string;
   extractionStatus: string | null;
+  importantQuotes?: string[];
+  contextLinks?: Array<{ text: string; url: string }>;
+  directAnalysis?: string | null;
 }
 
 export interface DraftBriefData {

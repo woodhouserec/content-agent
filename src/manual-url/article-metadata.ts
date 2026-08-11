@@ -16,6 +16,8 @@ export function articleToMetadata(article: ExtractedArticle, submittedBy: string
     language: article.language,
     site_name: article.siteName,
     open_graph: article.openGraph,
+    links: article.links,
+    quotes: article.quotes,
     sourceConfig: {
       author_name: article.siteName ?? new URL(article.finalUrl).hostname,
       source_tier: "discovery",

@@ -10,6 +10,7 @@ export class ArticleExtractor {
     const canonicalUrl = readLinkHref(html, "canonical") ?? openGraph["og:url"] ?? fetched.finalUrl;
     const description = readMeta(html, "description") ?? openGraph["og:description"] ?? null;
     const title = openGraph["og:title"] ?? readTitle(html);
+    const articleHtml = extractArticleHtml(html);
     const articleText = extractArticleText(html);
     const text = truncateText(articleText, 8000);
     const warnings: string[] = [];
@@ -38,6 +39,8 @@ export class ArticleExtractor {
       language: readHtmlLang(html),
       siteName: openGraph["og:site_name"] ?? new URL(fetched.finalUrl).hostname,
       openGraph,
+      links: extractLinks(articleHtml, fetched.finalUrl),
+      quotes: extractQuotes(articleHtml),
       extractionStatus,
       extractionMethod: "static_html_metadata",
       extractionWarnings: warnings,
@@ -92,10 +95,17 @@ function readLinkHref(html: string, rel: string): string | null {
 }
 
 function extractArticleText(html: string): string | null {
+  return normalizeWhitespace(stripHtml(cleanArticleHtml(extractArticleHtml(html))));
+}
+
+function extractArticleHtml(html: string): string {
   const articleMatch = /<article[^>]*>([\s\S]*?)<\/article>/i.exec(html);
   const mainMatch = /<main[^>]*>([\s\S]*?)<\/main>/i.exec(html);
-  const body = articleMatch?.[1] ?? mainMatch?.[1] ?? html;
-  const cleaned = body
+  return articleMatch?.[1] ?? mainMatch?.[1] ?? html;
+}
+
+function cleanArticleHtml(html: string): string {
+  return html
     .replace(/<nav[\s\S]*?<\/nav>/gi, " ")
     .replace(/<header[\s\S]*?<\/header>/gi, " ")
     .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
@@ -103,8 +113,54 @@ function extractArticleText(html: string): string | null {
     .replace(/<form[\s\S]*?<\/form>/gi, " ")
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ");
+}
 
-  return normalizeWhitespace(stripHtml(cleaned));
+function extractQuotes(html: string): string[] {
+  const quotes = [...cleanArticleHtml(html).matchAll(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi)]
+    .map((match) => normalizeWhitespace(stripHtml(match[1])))
+    .filter((quote): quote is string => Boolean(quote && quote.length >= 40))
+    .map((quote) => truncateText(quote, 420) ?? quote);
+
+  return unique(quotes).slice(0, 5);
+}
+
+function extractLinks(html: string, baseUrl: string): Array<{ text: string; url: string }> {
+  const links = [...cleanArticleHtml(html).matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)]
+    .map((match) => {
+      const href = match[1];
+      const text = normalizeWhitespace(stripHtml(match[2])) ?? "";
+      if (!href || !text || text.length < 3) {
+        return null;
+      }
+
+      try {
+        const url = new URL(href, baseUrl);
+        if (!["http:", "https:"].includes(url.protocol)) {
+          return null;
+        }
+        return {
+          text: truncateText(text, 120) ?? text,
+          url: canonicalizeUrl(url.toString())
+        };
+      } catch {
+        return null;
+      }
+    })
+    .filter((link): link is { text: string; url: string } => Boolean(link));
+
+  const seen = new Set<string>();
+  return links.filter((link) => {
+    const key = `${link.text}|${link.url}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  }).slice(0, 12);
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values)];
 }
 
 function readTimeDatetime(html: string): string | null {

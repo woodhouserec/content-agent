@@ -22,7 +22,10 @@ export async function buildGroundedSourceContext(env: Env, topic: TopicRecord): 
       canonicalUrl: item.canonical_url ?? item.url,
       summary: truncateText(normalizeWhitespace(stripHtml(item.summary ?? "") ?? "") ?? "", draftConfig.maxSourceSummaryLength) ?? null,
       excerpt: truncateText(text, draftConfig.maxSourceExcerptLength) ?? "",
-      extractionStatus: typeof metadata.extraction_status === "string" ? metadata.extraction_status : null
+      extractionStatus: typeof metadata.extraction_status === "string" ? metadata.extraction_status : null,
+      importantQuotes: extractStringArray(metadata.quotes, 5, 420),
+      contextLinks: extractLinks(metadata.links, 8),
+      directAnalysis: topic.ai_reasoning_summary
     };
   });
 
@@ -43,7 +46,9 @@ export async function buildGroundedSourceContext(env: Env, topic: TopicRecord): 
     return {
       ...source,
       summary: source.summary ? truncateText(source.summary, Math.min(source.summary.length, 360)) ?? "" : null,
-      excerpt: truncateText(source.excerpt, excerptLimit) ?? ""
+      excerpt: truncateText(source.excerpt, excerptLimit) ?? "",
+      importantQuotes: source.importantQuotes?.slice(0, 3).map((quote) => truncateText(quote, 280) ?? quote),
+      contextLinks: source.contextLinks?.slice(0, 5)
     };
   });
 }
@@ -67,4 +72,37 @@ function parseMetadata(value: string | null): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+function extractStringArray(value: unknown, limit: number, maxLength: number): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .map((item) => truncateText(normalizeWhitespace(item) ?? item, maxLength) ?? item)
+    .slice(0, limit);
+}
+
+function extractLinks(value: unknown, limit: number): Array<{ text: string; url: string }> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") {
+      return [];
+    }
+
+    const link = item as { text?: unknown; url?: unknown };
+    if (typeof link.text !== "string" || typeof link.url !== "string") {
+      return [];
+    }
+
+    return [{
+      text: truncateText(normalizeWhitespace(link.text) ?? link.text, 120) ?? link.text,
+      url: link.url
+    }];
+  }).slice(0, limit);
 }

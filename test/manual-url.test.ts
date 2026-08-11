@@ -31,7 +31,11 @@ test("article extractor reads static metadata and text", () => {
         </head>
         <body>
           <nav>Navigation</nav>
-          <article><p>${"Product design and UX research text. ".repeat(40)}</p></article>
+          <article>
+            <p>${"Product design and UX research text. ".repeat(40)}</p>
+            <blockquote>Teams should translate UX evidence into product decisions, not just reports.</blockquote>
+            <a href="/research">Related UX research resource</a>
+          </article>
         </body>
       </html>`
   });
@@ -43,6 +47,11 @@ test("article extractor reads static metadata and text", () => {
   assert.equal(article.extractionStatus, "accepted");
   assert.ok(article.text?.includes("Product design"));
   assert.ok(!article.text?.includes("Navigation"));
+  assert.equal(article.quotes[0], "Teams should translate UX evidence into product decisions, not just reports.");
+  assert.deepEqual(article.links[0], {
+    text: "Related UX research resource",
+    url: "https://example.com/research"
+  });
 });
 
 test("direct manual URL topic analysis accepts specific AI response", () => {
