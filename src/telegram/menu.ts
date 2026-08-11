@@ -30,6 +30,7 @@ export const menuLabels = {
   deleteProfile: "Удалить профиль",
   saveProfile: "Сохранить",
   usage: "Usage",
+  connectLinkedIn: "Подключить LinkedIn",
   status: "Статус",
   help: "Помощь",
   back: "Назад"
@@ -116,6 +117,7 @@ export function buildSectionMenu(screen: MenuScreen): ReplyKeyboardMarkup {
   if (screen === "system") {
     return keyboard([
       [menuLabels.status, menuLabels.usage],
+      [menuLabels.connectLinkedIn],
       [menuLabels.help],
       [menuLabels.back]
     ], "Система");
@@ -181,6 +183,10 @@ export function resolveMenuAction(text: string | undefined): MenuAction | null {
 
   if (normalized === menuLabels.resetTopics) {
     return { kind: "instruction", value: "reset_topics" };
+  }
+
+  if (normalized === menuLabels.connectLinkedIn) {
+    return { kind: "instruction", value: "connect_linkedin" };
   }
 
   return null;

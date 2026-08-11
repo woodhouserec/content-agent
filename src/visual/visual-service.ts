@@ -39,7 +39,7 @@ export class VisualService {
     const topic = await this.requireTopic(draft.topic_id);
     const preferenceMemory = await this.preferenceMemoryForPrompt();
     const brief = await this.getOrCreateBrief(topic, draft);
-    const existingAssets = await this.repos.visuals.countAssetsForTopic(topic.id);
+    const existingAssets = await this.repos.visuals.countActiveAssetsForTopic(topic.id);
 
     if (existingAssets >= visualConfig.maxImageVariantsPerDraft) {
       throw new Error(`Image variant limit reached for this topic (${visualConfig.maxImageVariantsPerDraft})`);
@@ -94,7 +94,7 @@ export class VisualService {
 
     const topic = await this.requireTopic(brief.topic_id);
     const draft = await this.requireApprovedDraft(brief.draft_id);
-    const existingAssets = await this.repos.visuals.countAssetsForTopic(topic.id);
+    const existingAssets = await this.repos.visuals.countActiveAssetsForTopic(topic.id);
     if (existingAssets >= visualConfig.maxImageVariantsPerDraft) {
       throw new Error(`Image variant limit reached for this topic (${visualConfig.maxImageVariantsPerDraft})`);
     }
@@ -148,6 +148,11 @@ export class VisualService {
     }
     await this.rememberVisualDecision(asset, "visual_approved");
     return asset;
+  }
+
+  async resetVariantLimitForDraft(draftId: string): Promise<number> {
+    const draft = await this.requireApprovedDraft(draftId);
+    return this.repos.visuals.archiveNonApprovedAssetsForTopic(draft.topic_id);
   }
 
   async rejectAsset(assetId: string): Promise<VisualAssetRecord> {

@@ -43,12 +43,36 @@ export async function runVisualGeneration(env: Env, telegram: TelegramClient, ch
   await sendGeneratedVisualReview(env, telegram, chatId, result, draftId);
 }
 
+export async function sendVisualLibraryForDraft(env: Env, telegram: TelegramClient, chatId: string, telegramUserId: string, draftId: string): Promise<void> {
+  const repos = createRepositories(env.DB);
+  const draft = await repos.drafts.getById(draftId);
+  if (!draft) {
+    throw new Error("Draft not found");
+  }
+
+  const assets = await repos.visuals.getAssetsForTopic(draft.topic_id);
+  if (assets.length === 0) {
+    await telegram.sendMessage(chatId, "Для этой темы пока нет сгенерированных изображений. Нажмите «Создать иллюстрацию».");
+    return;
+  }
+
+  await setVisualReviewDraft(env, telegramUserId, chatId, draftId);
+  await sendStoredVisualReview(env, telegram, chatId, telegramUserId, assets[assets.length - 1].id);
+}
+
 export async function runCustomVisualRevision(env: Env, telegram: TelegramClient, chatId: string, telegramUserId: string, assetId: string, instruction: string): Promise<void> {
   await telegram.sendMessage(chatId, "Принял инструкцию. Создаю новый вариант изображения.");
   const result = await new VisualService(env).generateCustomVariant(assetId, instruction);
   const draftId = await getVisualReviewDraftId(env, telegramUserId) ?? result.draft.id;
   await setVisualReviewDraft(env, telegramUserId, chatId, draftId);
   await sendGeneratedVisualReview(env, telegram, chatId, result, draftId);
+}
+
+export async function resetVisualLimitForDraft(env: Env, draftId: string): Promise<string> {
+  const archived = await new VisualService(env).resetVariantLimitForDraft(draftId);
+  return archived > 0
+    ? `Лимит изображений сброшен. Архивировано неутверждённых вариантов: ${archived}. Старые изображения по-прежнему можно выбрать через «Выбрать изображение».`
+    : "Нечего сбрасывать: неутверждённых вариантов для архивации нет.";
 }
 
 export async function approveVisualAsset(env: Env, telegramUserId: string, assetId: string): Promise<{ message: string; draftId: string }> {

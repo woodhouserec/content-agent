@@ -137,16 +137,13 @@ export async function sendApprovedDraftMessages(
 }
 
 export async function buildApprovedDraftKeyboard(env: Env, draftId: string, telegramUserId: string, chatId: string) {
-  const connectUrl = await tryCreateLinkedInConnectUrl(env, { telegramUserId, telegramChatId: chatId });
-  const linkedinRow = connectUrl
-    ? [{ text: "Подключить LinkedIn", url: connectUrl }]
-    : [{ text: "Подключить LinkedIn", callback_data: `draft:linkedin:${draftId}` }];
-
   return {
     inline_keyboard: [
       [{ text: "Опубликовать в LinkedIn", callback_data: `draft:publish:${draftId}` }],
-      [{ text: "Создать иллюстрацию", callback_data: `draft:visual:${draftId}` }],
-      linkedinRow,
+      [
+        { text: "Создать иллюстрацию", callback_data: `draft:visual:${draftId}` },
+        { text: "Выбрать изображение", callback_data: `draft:visual_select:${draftId}` }
+      ],
       [{ text: "Показать источники", callback_data: `draft:sources:${draftId}` }]
     ]
   };
@@ -297,17 +294,6 @@ function extractRussianTranslation(metadataJson: string | null): string | null {
     return typeof metadata.russian_translation === "string" && metadata.russian_translation.trim().length > 0
       ? metadata.russian_translation.trim()
       : null;
-  } catch {
-    return null;
-  }
-}
-
-async function tryCreateLinkedInConnectUrl(
-  env: Env,
-  input: { telegramUserId: string; telegramChatId: string }
-): Promise<string | null> {
-  try {
-    return await createLinkedInConnectUrl(env, input);
   } catch {
     return null;
   }

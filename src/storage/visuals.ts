@@ -199,6 +199,38 @@ export class VisualsRepository {
     return row?.count ?? 0;
   }
 
+  async countActiveAssetsForTopic(topicId: string): Promise<number> {
+    const row = await this.db
+      .prepare(
+        `SELECT COUNT(*) AS count
+         FROM visual_assets a
+         INNER JOIN visual_briefs b ON b.id = a.visual_brief_id
+         WHERE b.topic_id = ? AND a.status != 'archived'`
+      )
+      .bind(topicId)
+      .first<{ count: number }>();
+
+    return row?.count ?? 0;
+  }
+
+  async archiveNonApprovedAssetsForTopic(topicId: string): Promise<number> {
+    const result = await this.db
+      .prepare(
+        `UPDATE visual_assets
+         SET status = 'archived'
+         WHERE id IN (
+           SELECT a.id
+           FROM visual_assets a
+           INNER JOIN visual_briefs b ON b.id = a.visual_brief_id
+           WHERE b.topic_id = ? AND a.status != 'approved'
+         )`
+      )
+      .bind(topicId)
+      .run();
+
+    return Number(result.meta?.changes ?? 0);
+  }
+
   async createAsset(input: {
     visualBriefId: string;
     storageKey: string;

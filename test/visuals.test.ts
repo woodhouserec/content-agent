@@ -32,6 +32,9 @@ test("visual callback payloads stay within Telegram callback_data limit", () => 
   const assetId = "vasset_1234567890abcdef1234567890abcdef";
 
   assert.ok(`draft:visual:${draftId}`.length <= 64);
+  assert.ok(`draft:visual_select:${draftId}`.length <= 64);
+  assert.ok(`draft:visual_reset:${draftId}`.length <= 64);
+  assert.ok(`draft:visual_reset_cancel:${draftId}`.length <= 64);
   assert.ok(`visual:approve:${assetId}`.length <= 64);
   assert.ok(`visual:reject:${assetId}`.length <= 64);
   assert.ok(`visual:custom:${assetId}`.length <= 64);

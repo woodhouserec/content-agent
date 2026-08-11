@@ -42,9 +42,11 @@ import {
   consumeCustomVisualInstruction,
   rejectVisualAsset,
   requestCustomVisualRevision,
+  resetVisualLimitForDraft,
   runCustomVisualRevision,
   runVisualGeneration,
-  sendAdjacentVisualAsset
+  sendAdjacentVisualAsset,
+  sendVisualLibraryForDraft
 } from "./visuals";
 
 export async function handleTelegramWebhook(
@@ -211,6 +213,17 @@ async function processTelegramUpdate(
             ? `Темы сброшены (${mode === "temporary" ? "временные источники" : "постоянные источники"}): ${resetCount}. Теперь нажмите «Показать темы».`
             : `Нет тем для сброса (${mode === "temporary" ? "временные источники" : "постоянные источники"}).`
         );
+        return;
+      }
+
+      if (menuAction.value === "connect_linkedin") {
+        try {
+          await telegram.sendMessage(chatId, await buildLinkedInConnectMessage(env, telegramUserId, chatId));
+        } catch (error: unknown) {
+          const message = formatSafeError(error);
+          logger.error("LinkedIn connect link failed", { event: "linkedin_connect_link_failed", requestId, error: message });
+          await telegram.sendMessage(chatId, `LinkedIn пока не подключается: ${message}`);
+        }
         return;
       }
 
@@ -446,9 +459,30 @@ async function handleDraftCallback(
         } catch (error: unknown) {
           const message = formatSafeError(error);
           logger.error("Visual generation failed", { event: "visual_generation_failed", requestId, error: message });
-          await telegram.sendMessage(chatId, `Иллюстрация не создана: ${message}`);
+          await telegram.sendMessage(chatId, `Иллюстрация не создана: ${message}`, {
+            replyMarkup: isVisualLimitError(message) ? buildVisualLimitResetKeyboard(targetId) : undefined
+          });
         }
       });
+      return true;
+    }
+
+    if (action === "visual_select") {
+      await sendVisualLibraryForDraft(env, telegram, chatId, String(callback.from.id), targetId);
+      return true;
+    }
+
+    if (action === "visual_reset") {
+      await telegram.sendMessage(chatId, await resetVisualLimitForDraft(env, targetId), {
+        replyMarkup: {
+          inline_keyboard: [[{ text: "Создать иллюстрацию", callback_data: `draft:visual:${targetId}` }]]
+        }
+      });
+      return true;
+    }
+
+    if (action === "visual_reset_cancel") {
+      await telegram.sendMessage(chatId, "Сброс лимита отменён.");
       return true;
     }
 
@@ -521,6 +555,19 @@ function buildForcePublishKeyboard(draftId: string) {
       [{ text: "Отмена", callback_data: `draft:publish_cancel:${draftId}` }]
     ]
   };
+}
+
+function buildVisualLimitResetKeyboard(draftId: string) {
+  return {
+    inline_keyboard: [
+      [{ text: "Да, сбросить", callback_data: `draft:visual_reset:${draftId}` }],
+      [{ text: "Назад", callback_data: `draft:visual_reset_cancel:${draftId}` }]
+    ]
+  };
+}
+
+function isVisualLimitError(message: string): boolean {
+  return message.includes("Image variant limit reached");
 }
 
 async function logCallbackAction(
