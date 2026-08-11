@@ -70,14 +70,21 @@ export function buildSectionMenu(screen: MenuScreen): ReplyKeyboardMarkup {
     ], "Источники");
   }
 
-  if (screen === "temporarySources" || screen === "permanentSources") {
+  if (screen === "temporarySources") {
+    return keyboard([
+      [menuLabels.addUrlSource, menuLabels.showSources],
+      [menuLabels.back]
+    ], "Временные источники");
+  }
+
+  if (screen === "permanentSources") {
     return keyboard([
       [menuLabels.collect],
       [menuLabels.addUrlSource, menuLabels.showSources],
       [menuLabels.score, menuLabels.showTopics],
       [menuLabels.resetTopics],
       [menuLabels.back]
-    ], screen === "temporarySources" ? "Временные источники" : "Постоянные источники");
+    ], "Постоянные источники");
   }
 
   if (screen === "sourceList") {

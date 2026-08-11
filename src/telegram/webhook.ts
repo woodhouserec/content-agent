@@ -318,7 +318,7 @@ async function processTelegramUpdate(
       const mode = await getSourceMenuMode(env, telegramUserId);
 
       if (mode === "temporary") {
-        await telegram.sendMessage(chatId, "Для временных источников автоматический сбор не нужен: материалы добавляются ссылками. Добавьте URL источника, затем нажмите «Создать темы».");
+        await telegram.sendMessage(chatId, "Для временных источников автоматический сбор не нужен: материалы добавляются ссылками. Добавьте URL источника, затем выберите «Создать пост по материалу».");
         return;
       }
 
