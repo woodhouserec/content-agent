@@ -5,6 +5,7 @@ import type { Env } from "../src/domain/runtime";
 import { validateAiResults, scoreWithOpenAi } from "../src/scoring/openai";
 import { scoringConfig } from "../src/scoring/config";
 import { scoreCollectedItem } from "../src/scoring/rule-based";
+import { modeFilterSql } from "../src/storage/collected-items";
 
 test("rule-based scoring boosts relevant UX/Product material", () => {
   const score = scoreCollectedItem(makeItem({
@@ -73,6 +74,13 @@ test("OpenAI scoring falls back when API key is absent", async () => {
 
   assert.equal(result.usedFallback, true);
   assert.equal(result.results.length, 0);
+});
+
+test("permanent scoring candidates require enabled permanent sources", () => {
+  const filter = modeFilterSql("permanent");
+
+  assert.equal(filter.includes("sources.enabled = 1"), true);
+  assert.equal(filter.includes("sources.id = collected_items.source_id"), true);
 });
 
 function makeItem(overrides: Partial<CollectedItemRecord>): CollectedItemRecord {

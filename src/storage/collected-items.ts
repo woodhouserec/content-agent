@@ -389,7 +389,7 @@ export class CollectedItemsRepository {
   }
 }
 
-function modeFilterSql(mode?: CollectedItemMode): string {
+export function modeFilterSql(mode?: CollectedItemMode): string {
   if (mode === "temporary") {
     return `AND (
       source_id = 'src_manual_urls'
@@ -401,7 +401,13 @@ function modeFilterSql(mode?: CollectedItemMode): string {
   if (mode === "permanent") {
     return `AND source_id != 'src_manual_urls'
       AND COALESCE(metadata_json, '') NOT LIKE '%"ingestion_method":"manual_url"%'
-      AND COALESCE(metadata_json, '') NOT LIKE '%"ingestionMethod":"manual_url"%'`;
+      AND COALESCE(metadata_json, '') NOT LIKE '%"ingestionMethod":"manual_url"%'
+      AND EXISTS (
+        SELECT 1
+        FROM sources
+        WHERE sources.id = collected_items.source_id
+          AND sources.enabled = 1
+      )`;
   }
 
   return "";
