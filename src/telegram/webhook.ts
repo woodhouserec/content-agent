@@ -25,6 +25,7 @@ import {
 import { getSourceMenuMode } from "./source-editor";
 import { handleProfileMessage, showMyProfiles, startCreateProfile } from "./profiles";
 import {
+  buildApprovedDraftKeyboard,
   buildUsageMessage,
   buildLinkedInConnectMessage,
   formatDraftSources,
@@ -446,7 +447,10 @@ async function handleDraftCallback(
 
   if (targetType === "visual") {
     if (action === "approve") {
-      await telegram.sendMessage(chatId, await approveVisualAsset(env, targetId));
+      const result = await approveVisualAsset(env, targetId);
+      await telegram.sendMessage(chatId, result.message, {
+        replyMarkup: await buildApprovedDraftKeyboard(env, result.draftId, String(callback.from.id), chatId)
+      });
       return true;
     }
 

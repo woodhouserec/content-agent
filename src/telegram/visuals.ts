@@ -1,4 +1,5 @@
 import type { Env } from "../domain/runtime";
+import { createRepositories } from "../storage/repositories";
 import { VisualService, type VisualGenerationResult } from "../visual/visual-service";
 import type { TelegramClient } from "./client";
 import { escapeHtml } from "./html";
@@ -28,9 +29,18 @@ export async function runVisualGeneration(env: Env, telegram: TelegramClient, ch
   await sendVisualReview(telegram, chatId, result);
 }
 
-export async function approveVisualAsset(env: Env, assetId: string): Promise<string> {
+export async function approveVisualAsset(env: Env, assetId: string): Promise<{ message: string; draftId: string }> {
   const asset = await new VisualService(env).approveAsset(assetId);
-  return `Изображение одобрено: version ${asset.version}`;
+  const repos = createRepositories(env.DB);
+  const brief = await repos.visuals.getBriefById(asset.visual_brief_id);
+  if (!brief) {
+    throw new Error("Visual brief not found");
+  }
+
+  return {
+    message: `Изображение одобрено: version ${asset.version}. Теперь пост можно опубликовать в LinkedIn.`,
+    draftId: brief.draft_id
+  };
 }
 
 export async function rejectVisualAsset(env: Env, assetId: string): Promise<string> {
