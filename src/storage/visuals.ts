@@ -155,7 +155,7 @@ export class VisualsRepository {
          FROM visual_assets a
          INNER JOIN visual_briefs b ON b.id = a.visual_brief_id
          WHERE b.draft_id = ? AND a.status = 'approved'
-         ORDER BY a.version DESC, a.approved_at DESC, a.created_at DESC
+         ORDER BY a.approved_at DESC, a.version DESC, a.created_at DESC
          LIMIT 1`
       )
       .bind(draftId)
@@ -169,7 +169,7 @@ export class VisualsRepository {
          FROM visual_assets a
          INNER JOIN visual_briefs b ON b.id = a.visual_brief_id
          WHERE b.topic_id = ? AND a.status = 'approved'
-         ORDER BY a.version DESC, a.approved_at DESC, a.created_at DESC
+         ORDER BY a.approved_at DESC, a.version DESC, a.created_at DESC
          LIMIT 1`
       )
       .bind(topicId)

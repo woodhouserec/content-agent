@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { validateVisualBriefResponse } from "../src/visual/validation";
 
 test("visual brief validation accepts structured response", () => {
@@ -40,4 +41,9 @@ test("visual callback payloads stay within Telegram callback_data limit", () => 
   assert.ok(`visual:custom:${assetId}`.length <= 64);
   assert.ok(`visual:prev:${assetId}`.length <= 64);
   assert.ok(`visual:next:${assetId}`.length <= 64);
+});
+
+test("approved image lookup prefers latest approval over highest version", () => {
+  const source = readFileSync(new URL("../src/storage/visuals.ts", import.meta.url), "utf8");
+  assert.match(source, /ORDER BY a\.approved_at DESC, a\.version DESC, a\.created_at DESC/);
 });
