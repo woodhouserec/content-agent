@@ -12,6 +12,7 @@ export interface RelevanceProfileRecord {
   position: string;
   min_rule_score: number;
   min_final_score_for_topic: number;
+  memory_json: string;
   is_active: number;
   created_at: string;
   updated_at: string;
@@ -27,6 +28,15 @@ export interface RelevanceProfileInput {
   position: string;
   minRuleScore: number;
   minFinalScoreForTopic: number;
+  memory?: PreferenceMemory;
+}
+
+export interface PreferenceMemory {
+  writing_preferences: string[];
+  visual_preferences: string[];
+  topic_preferences: string[];
+  avoid: string[];
+  updated_at: string | null;
 }
 
 export class RelevanceProfilesRepository {
@@ -61,8 +71,8 @@ export class RelevanceProfilesRepository {
       .prepare(
         `INSERT INTO relevance_profiles (
           id, name, role, focus_json, audience_json, tone, position,
-          min_rule_score, min_final_score_for_topic, is_active, created_at, updated_at, deleted_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          min_rule_score, min_final_score_for_topic, memory_json, is_active, created_at, updated_at, deleted_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         id,
@@ -74,6 +84,7 @@ export class RelevanceProfilesRepository {
         input.position,
         input.minRuleScore,
         input.minFinalScoreForTopic,
+        JSON.stringify(input.memory ?? emptyPreferenceMemory()),
         activate ? 1 : 0,
         timestamp,
         timestamp,
@@ -94,7 +105,9 @@ export class RelevanceProfilesRepository {
       .prepare(
         `UPDATE relevance_profiles
          SET name = ?, role = ?, focus_json = ?, audience_json = ?, tone = ?,
-             position = ?, min_rule_score = ?, min_final_score_for_topic = ?, updated_at = ?
+             position = ?, min_rule_score = ?, min_final_score_for_topic = ?,
+             memory_json = COALESCE(?, memory_json),
+             updated_at = ?
          WHERE id = ? AND deleted_at IS NULL`
       )
       .bind(
@@ -106,6 +119,7 @@ export class RelevanceProfilesRepository {
         input.position,
         input.minRuleScore,
         input.minFinalScoreForTopic,
+        input.memory ? JSON.stringify(input.memory) : null,
         nowIso(),
         id
       )
@@ -130,6 +144,13 @@ export class RelevanceProfilesRepository {
     return true;
   }
 
+  async updateMemory(id: string, memory: PreferenceMemory): Promise<void> {
+    await this.db
+      .prepare("UPDATE relevance_profiles SET memory_json = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL")
+      .bind(JSON.stringify(memory), nowIso(), id)
+      .run();
+  }
+
   async softDelete(id: string): Promise<boolean> {
     const active = await this.getActive();
     if (active?.id === id) {
@@ -143,6 +164,41 @@ export class RelevanceProfilesRepository {
 
     return Boolean(result.meta?.changes);
   }
+}
+
+export function emptyPreferenceMemory(): PreferenceMemory {
+  return {
+    writing_preferences: [],
+    visual_preferences: [],
+    topic_preferences: [],
+    avoid: [],
+    updated_at: null
+  };
+}
+
+export function parsePreferenceMemory(value: string | null | undefined): PreferenceMemory {
+  if (!value) {
+    return emptyPreferenceMemory();
+  }
+
+  try {
+    const parsed = JSON.parse(value) as Partial<PreferenceMemory>;
+    return {
+      writing_preferences: normalizeMemoryList(parsed.writing_preferences),
+      visual_preferences: normalizeMemoryList(parsed.visual_preferences),
+      topic_preferences: normalizeMemoryList(parsed.topic_preferences),
+      avoid: normalizeMemoryList(parsed.avoid),
+      updated_at: typeof parsed.updated_at === "string" ? parsed.updated_at : null
+    };
+  } catch {
+    return emptyPreferenceMemory();
+  }
+}
+
+function normalizeMemoryList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0).slice(0, 10)
+    : [];
 }
 
 export function parseProfileArray(value: string): string[] {

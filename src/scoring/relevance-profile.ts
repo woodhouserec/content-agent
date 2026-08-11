@@ -1,7 +1,7 @@
 import type { Env } from "../domain/runtime";
 import { createRepositories } from "../storage/repositories";
 import type { RelevanceProfileRecord } from "../storage/relevance-profiles";
-import { parseProfileArray } from "../storage/relevance-profiles";
+import { parsePreferenceMemory, parseProfileArray } from "../storage/relevance-profiles";
 
 export const relevanceProfile = {
   profession: "UI/UX and Product Designer and Analyst, Startup Founder",
@@ -81,6 +81,7 @@ export async function buildActiveProfileSummary(env: Env): Promise<string> {
 }
 
 export function formatStoredProfile(profile: RelevanceProfileRecord): string {
+  const memory = parsePreferenceMemory(profile.memory_json);
   return [
     `Profile: ${profile.name}${profile.is_active ? " (active)" : ""}`,
     `Role: ${profile.role}`,
@@ -89,7 +90,14 @@ export function formatStoredProfile(profile: RelevanceProfileRecord): string {
     `Tone: ${profile.tone}`,
     `Position: ${profile.position}`,
     `Min rule score for AI: ${profile.min_rule_score}`,
-    `Min final score for topic: ${profile.min_final_score_for_topic}`
+    `Min final score for topic: ${profile.min_final_score_for_topic}`,
+    "",
+    "Preference memory:",
+    formatMemoryLine("Writing", memory.writing_preferences),
+    formatMemoryLine("Visual", memory.visual_preferences),
+    formatMemoryLine("Topics", memory.topic_preferences),
+    formatMemoryLine("Avoid", memory.avoid),
+    `Updated: ${memory.updated_at ?? "not yet"}`
   ].join("\n");
 }
 
@@ -97,4 +105,8 @@ export function profileFocusKeywords(profile: RelevanceProfileRecord | null): st
   const base = relevanceProfile.focusAreas;
   const stored = profile ? parseProfileArray(profile.focus_json) : [];
   return [...new Set([...base, ...stored].map((value) => value.toLowerCase()))];
+}
+
+function formatMemoryLine(label: string, items: string[]): string {
+  return `${label}: ${items.length > 0 ? items.slice(0, 5).join("; ") : "empty"}`;
 }

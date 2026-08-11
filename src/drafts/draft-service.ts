@@ -4,6 +4,7 @@ import type { DraftRecord } from "../storage/drafts";
 import type { createRepositories } from "../storage/repositories";
 import type { TopicRecord } from "../storage/topics";
 import { createRepositories as makeRepositories } from "../storage/repositories";
+import { formatPreferenceMemoryForPrompt, getActivePreferenceMemory, rememberPreference } from "../preferences/memory";
 import { nowIso } from "../utils/time";
 import { draftConfig } from "./config";
 import { buildGroundedSourceContext } from "./source-context";
@@ -83,8 +84,9 @@ export class DraftService {
     }
 
     const sources = await buildGroundedSourceContext(this.env, topic);
-    const brief = await this.getOrCreateBrief(topic, sources);
-    return this.createDraftFromBrief(topic, brief, sources, telegramChatId, null, null, null);
+    const preferenceMemory = await this.preferenceMemoryForPrompt();
+    const brief = await this.getOrCreateBrief(topic, sources, preferenceMemory);
+    return this.createDraftFromBrief(topic, brief, sources, telegramChatId, null, null, null, preferenceMemory);
   }
 
   async reviseDraft(draftId: string, revisionType: DraftRevisionType, telegramChatId: string, userInstruction?: string): Promise<DraftServiceResult> {
@@ -98,7 +100,7 @@ export class DraftService {
 
     const brief = await this.requireBrief(parentDraft.draft_brief_id);
     const sources = await buildGroundedSourceContext(this.env, topic);
-    return this.createRevision(topic, brief, sources, parentDraft, revisionType, telegramChatId, userInstruction ?? null);
+    return this.createRevision(topic, brief, sources, parentDraft, revisionType, telegramChatId, userInstruction ?? null, await this.preferenceMemoryForPrompt());
   }
 
   async approveDraft(draftId: string): Promise<DraftRecord> {
@@ -109,6 +111,7 @@ export class DraftService {
     }
 
     await this.repos.drafts.updateStatus(draft.id, "approved");
+    await this.rememberDraftApproval(draft);
     return this.requireDraft(draft.id);
   }
 
@@ -120,6 +123,7 @@ export class DraftService {
     }
 
     await this.repos.drafts.updateStatus(draft.id, "rejected");
+    await this.rememberDraftRejection(draft);
     return this.requireDraft(draft.id);
   }
 
@@ -141,7 +145,7 @@ export class DraftService {
     ].join("\n");
   }
 
-  private async getOrCreateBrief(topic: TopicRecord, sources: GroundedSource[]): Promise<DraftBriefRecord> {
+  private async getOrCreateBrief(topic: TopicRecord, sources: GroundedSource[], preferenceMemory: string): Promise<DraftBriefRecord> {
     const existing = await this.repos.draftBriefs.getLatestForTopic(topic.id);
     if (existing) {
       return existing;
@@ -153,7 +157,8 @@ export class DraftService {
       systemPrompt: draftBriefPrompt,
       payload: {
         topic: topicPayload(topic),
-        sources
+        sources,
+        preference_memory: preferenceMemory
       }
     });
     const brief = validateDraftBriefResponse(result.data);
@@ -187,10 +192,11 @@ export class DraftService {
     telegramChatId: string,
     parentDraft: DraftRecord | null,
     revisionType: DraftRevisionType | null,
-    userInstruction: string | null
+    userInstruction: string | null,
+    preferenceMemory: string
   ): Promise<DraftServiceResult> {
     if (parentDraft) {
-      return this.createRevision(topic, brief, sources, parentDraft, revisionType ?? "rewrite", telegramChatId, userInstruction);
+      return this.createRevision(topic, brief, sources, parentDraft, revisionType ?? "rewrite", telegramChatId, userInstruction, preferenceMemory);
     }
 
     const generated = await this.callAi<Record<string, unknown>>({
@@ -200,7 +206,8 @@ export class DraftService {
       payload: {
         topic: topicPayload(topic),
         brief: briefPayload(brief),
-        sources
+        sources,
+        preference_memory: preferenceMemory
       }
     });
     const draft = validateDraftGenerationResponse(generated.data);
@@ -236,7 +243,8 @@ export class DraftService {
     parentDraft: DraftRecord,
     revisionType: DraftRevisionType,
     telegramChatId: string,
-    userInstruction: string | null
+    userInstruction: string | null,
+    preferenceMemory: string
   ): Promise<DraftServiceResult> {
     const prompt = promptForRevision(revisionType);
     const promptVersion = promptVersionForRevision(revisionType);
@@ -249,7 +257,8 @@ export class DraftService {
         brief: briefPayload(brief),
         current_draft: parentDraft.content,
         user_instruction: userInstruction,
-        sources
+        sources,
+        preference_memory: preferenceMemory
       }
     });
     const draft = validateDraftGenerationResponse(generated.data);
@@ -269,6 +278,16 @@ export class DraftService {
       sourceSnapshot: sources,
       factualReview: factual
     });
+
+    if (revisionType === "custom" && userInstruction) {
+      await this.safeRemember({
+        eventType: "custom_revision_instruction",
+        targetType: "draft",
+        targetId: record.id,
+        section: "writing_preferences",
+        signal: `User requested this writing adjustment: ${userInstruction}`
+      });
+    }
 
     return {
       topic,
@@ -295,6 +314,40 @@ export class DraftService {
     });
 
     return validateFactualReviewResponse(review.data);
+  }
+
+  private async preferenceMemoryForPrompt(): Promise<string> {
+    return formatPreferenceMemoryForPrompt(await getActivePreferenceMemory(this.env));
+  }
+
+  private async rememberDraftApproval(draft: DraftRecord): Promise<void> {
+    const topic = await this.repos.topics.getById(draft.topic_id);
+    await this.safeRemember({
+      eventType: "draft_approved",
+      targetType: "draft",
+      targetId: draft.id,
+      section: "writing_preferences",
+      signal: `Approved draft style for topic: ${topic?.title_ru ?? topic?.title ?? draft.topic_id}`
+    });
+  }
+
+  private async rememberDraftRejection(draft: DraftRecord): Promise<void> {
+    const topic = await this.repos.topics.getById(draft.topic_id);
+    await this.safeRemember({
+      eventType: "draft_rejected",
+      targetType: "draft",
+      targetId: draft.id,
+      section: "avoid",
+      signal: `Avoid the rejected draft direction for topic: ${topic?.title_ru ?? topic?.title ?? draft.topic_id}`
+    });
+  }
+
+  private async safeRemember(input: Parameters<typeof rememberPreference>[1]): Promise<void> {
+    try {
+      await rememberPreference(this.env, input);
+    } catch {
+      // Preference memory should never block draft work.
+    }
   }
 
   private async resultFromExistingDraft(topic: TopicRecord, draft: DraftRecord): Promise<DraftServiceResult> {

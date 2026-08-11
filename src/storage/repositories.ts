@@ -5,6 +5,7 @@ import { ConversationStatesRepository } from "./conversation-states";
 import { DraftBriefsRepository } from "./draft-briefs";
 import { DraftsRepository } from "./drafts";
 import { ProcessingRunsRepository } from "./processing-runs";
+import { PreferenceEventsRepository } from "./preference-events";
 import { RelevanceProfilesRepository } from "./relevance-profiles";
 import { PendingSourcesRepository } from "./pending-sources";
 import { PendingManualUrlsRepository } from "./pending-manual-urls";
@@ -23,6 +24,7 @@ export function createRepositories(db: D1Database) {
     drafts: new DraftsRepository(db),
     linkedin: new LinkedInRepository(db),
     processingRuns: new ProcessingRunsRepository(db),
+    preferenceEvents: new PreferenceEventsRepository(db),
     relevanceProfiles: new RelevanceProfilesRepository(db),
     pendingSources: new PendingSourcesRepository(db),
     pendingManualUrls: new PendingManualUrlsRepository(db),

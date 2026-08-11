@@ -1,4 +1,5 @@
 import type { Env } from "../domain/runtime";
+import { rememberPreference } from "../preferences/memory";
 import { createRepositories } from "../storage/repositories";
 import { nowIso } from "../utils/time";
 import type { TelegramCallbackQuery } from "./types";
@@ -41,6 +42,7 @@ export async function handleCallback(env: Env, callback: TelegramCallbackQuery):
 
     if (action === "select") {
       await repos.topics.updateStatus(targetId, "selected");
+      await safeRememberTopic(env, "topic_selected", targetId, "topic_preferences", `Selected topic direction: ${topic.title_ru ?? topic.title}`);
       return {
         text: "Тема выбрана. Генерация поста не запускается автоматически. Когда будете готовы, нажмите «Создать черновик».",
         replyMarkup: buildCreateDraftButton(targetId)
@@ -49,6 +51,7 @@ export async function handleCallback(env: Env, callback: TelegramCallbackQuery):
 
     if (action === "skip") {
       await repos.topics.updateStatus(targetId, "skipped");
+      await safeRememberTopic(env, "topic_skipped", targetId, "avoid", `Avoid or de-prioritize topic direction: ${topic.title_ru ?? topic.title}`);
       return { text: "Тема пропущена." };
     }
 
@@ -80,4 +83,24 @@ export async function handleCallback(env: Env, callback: TelegramCallbackQuery):
   }
 
   return { text: "Действие распознано, но пока не поддерживается." };
+}
+
+async function safeRememberTopic(
+  env: Env,
+  eventType: string,
+  topicId: string,
+  section: "topic_preferences" | "avoid",
+  signal: string
+): Promise<void> {
+  try {
+    await rememberPreference(env, {
+      eventType,
+      targetType: "topic",
+      targetId: topicId,
+      section,
+      signal
+    });
+  } catch {
+    // Preference memory should never block Telegram callbacks.
+  }
 }

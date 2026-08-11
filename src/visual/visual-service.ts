@@ -5,6 +5,7 @@ import type { DraftRecord } from "../storage/drafts";
 import type { TopicRecord } from "../storage/topics";
 import type { VisualAssetRecord, VisualBriefRecord } from "../storage/visuals";
 import { createRepositories } from "../storage/repositories";
+import { formatPreferenceMemoryForPrompt, getActivePreferenceMemory, rememberPreference } from "../preferences/memory";
 import { buildImagePrompt, visualBriefPrompt } from "./prompts";
 import { visualConfig } from "./config";
 import { validateVisualBriefResponse } from "./validation";
@@ -36,6 +37,7 @@ export class VisualService {
   async generateForDraft(draftId: string): Promise<VisualGenerationResult> {
     const draft = await this.requireApprovedDraft(draftId);
     const topic = await this.requireTopic(draft.topic_id);
+    const preferenceMemory = await this.preferenceMemoryForPrompt();
     const brief = await this.getOrCreateBrief(topic, draft);
     const existingAssets = await this.repos.visuals.countAssetsForBrief(brief.id);
 
@@ -49,7 +51,8 @@ export class VisualService {
       composition: brief.composition,
       style: brief.style,
       colorDirection: brief.color_direction,
-      aspectRatio: brief.aspect_ratio
+      aspectRatio: brief.aspect_ratio,
+      preferenceMemory
     });
     const generated = await this.imageProvider.generate(prompt);
     const stored = await this.storage.put({
@@ -84,6 +87,7 @@ export class VisualService {
     if (!asset) {
       throw new Error("Visual asset not found");
     }
+    await this.rememberVisualDecision(asset, "visual_approved");
     return asset;
   }
 
@@ -93,6 +97,7 @@ export class VisualService {
     if (!asset) {
       throw new Error("Visual asset not found");
     }
+    await this.rememberVisualDecision(asset, "visual_rejected");
     return asset;
   }
 
@@ -120,7 +125,8 @@ export class VisualService {
           style: "editorial_vector_illustration",
           photorealism_allowed: false,
           text_in_image: "minimal"
-        }
+        },
+        preference_memory: await this.preferenceMemoryForPrompt()
       }
     });
     const brief = validateVisualBriefResponse(result.data);
@@ -157,5 +163,36 @@ export class VisualService {
     }
 
     return topic;
+  }
+
+  private async preferenceMemoryForPrompt(): Promise<string> {
+    return formatPreferenceMemoryForPrompt(await getActivePreferenceMemory(this.env));
+  }
+
+  private async rememberVisualDecision(asset: VisualAssetRecord, eventType: "visual_approved" | "visual_rejected"): Promise<void> {
+    const brief = await this.repos.visuals.getBriefById(asset.visual_brief_id);
+    if (!brief) {
+      return;
+    }
+
+    try {
+      await rememberPreference(this.env, {
+        eventType,
+        targetType: "visual_asset",
+        targetId: asset.id,
+        section: eventType === "visual_approved" ? "visual_preferences" : "avoid",
+        signal: eventType === "visual_approved"
+          ? `Approved visual direction: ${brief.concept}${brief.metaphor ? `; metaphor: ${brief.metaphor}` : ""}`
+          : `Avoid visual direction: ${brief.concept}${brief.metaphor ? `; metaphor: ${brief.metaphor}` : ""}`,
+        metadata: {
+          version: asset.version,
+          style: brief.style,
+          colorDirection: brief.color_direction,
+          aspectRatio: brief.aspect_ratio
+        }
+      });
+    } catch {
+      // Preference memory should never block visual review.
+    }
   }
 }
