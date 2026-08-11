@@ -10,7 +10,7 @@ export async function buildGroundedSourceContext(env: Env, topic: TopicRecord): 
   const ids = parseSourceIds(topic.source_item_ids_json);
   const items = await repos.collectedItems.getByIds(ids);
 
-  const sources = items.map((item): GroundedSource => {
+  const sources = items.slice(0, draftConfig.maxGroundedSources).map((item): GroundedSource => {
     const metadata = parseMetadata(item.metadata_json);
     const text = normalizeWhitespace(stripHtml(item.normalized_content ?? item.raw_content ?? item.summary ?? "") ?? "") ?? "";
 
@@ -20,8 +20,8 @@ export async function buildGroundedSourceContext(env: Env, topic: TopicRecord): 
       author: item.author,
       publishedAt: item.published_at,
       canonicalUrl: item.canonical_url ?? item.url,
-      summary: item.summary,
-      excerpt: truncateText(text, 1100) ?? "",
+      summary: truncateText(normalizeWhitespace(stripHtml(item.summary ?? "") ?? "") ?? "", draftConfig.maxSourceSummaryLength) ?? null,
+      excerpt: truncateText(text, draftConfig.maxSourceExcerptLength) ?? "",
       extractionStatus: typeof metadata.extraction_status === "string" ? metadata.extraction_status : null
     };
   });
@@ -36,11 +36,15 @@ export async function buildGroundedSourceContext(env: Env, topic: TopicRecord): 
     return usable;
   }
 
-  let remaining = draftConfig.maxSourceContextLength;
+  const sourceBudget = Math.max(300, Math.floor(draftConfig.maxSourceContextLength / usable.length));
   return usable.map((source) => {
-    const excerptLimit = Math.max(250, Math.floor((remaining - source.title.length - source.canonicalUrl.length) / usable.length));
-    remaining -= excerptLimit;
-    return { ...source, excerpt: truncateText(source.excerpt, excerptLimit) ?? "" };
+    const fixedFieldLength = source.title.length + source.canonicalUrl.length + (source.summary?.length ?? 0);
+    const excerptLimit = Math.max(180, sourceBudget - fixedFieldLength - 120);
+    return {
+      ...source,
+      summary: source.summary ? truncateText(source.summary, Math.min(source.summary.length, 360)) ?? "" : null,
+      excerpt: truncateText(source.excerpt, excerptLimit) ?? ""
+    };
   });
 }
 
@@ -64,4 +68,3 @@ function parseMetadata(value: string | null): Record<string, unknown> {
     return {};
   }
 }
-

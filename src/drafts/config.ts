@@ -1,9 +1,11 @@
 export const draftConfig = {
   maxDraftGenerationsPerTopic: 6,
   maxRevisionsPerDraft: 5,
-  maxSourceContextLength: 6500,
+  maxSourceContextLength: 4200,
+  maxGroundedSources: 3,
+  maxSourceSummaryLength: 550,
+  maxSourceExcerptLength: 750,
   defaultPostLength: "default",
-  openAiTimeoutMs: 25_000,
+  openAiTimeoutMs: 45_000,
   defaultOpenAiModel: "gpt-4.1-mini"
 } as const;
-
