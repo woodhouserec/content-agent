@@ -12,7 +12,7 @@ export function getLinkedInConfig(env: Env): LinkedInConfig {
     clientId: requireValue(env.LINKEDIN_CLIENT_ID, "LINKEDIN_CLIENT_ID"),
     clientSecret: requireValue(env.LINKEDIN_CLIENT_SECRET, "LINKEDIN_CLIENT_SECRET"),
     redirectUri: requireValue(env.LINKEDIN_REDIRECT_URI, "LINKEDIN_REDIRECT_URI"),
-    apiVersion: env.LINKEDIN_API_VERSION || "202401"
+    apiVersion: normalizeApiVersion(env.LINKEDIN_API_VERSION || "202607")
   };
 }
 
@@ -22,4 +22,14 @@ function requireValue(value: string | undefined, name: string): string {
   }
 
   return value;
+}
+
+function normalizeApiVersion(value: string): string {
+  const normalized = value.trim();
+
+  if (/^\d{8}$/.test(normalized)) {
+    return normalized.slice(0, 6);
+  }
+
+  return normalized;
 }
