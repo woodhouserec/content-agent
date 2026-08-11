@@ -25,15 +25,14 @@ import {
 import { getSourceMenuMode } from "./source-editor";
 import { handleProfileMessage, showMyProfiles, startCreateProfile } from "./profiles";
 import {
-  approveDraft,
-  buildApprovedDraftKeyboard,
   buildUsageMessage,
   formatDraftSources,
   handleCustomRevisionMessage,
   rejectDraft,
   requestCustomRevision,
   runDraftGeneration,
-  runDraftRevision
+  runDraftRevision,
+  sendApprovedDraftMessages
 } from "./drafts";
 import { publishDraftToLinkedIn } from "../linkedin/service";
 
@@ -346,10 +345,7 @@ async function handleDraftCallback(
 
   if (targetType === "draft") {
     if (action === "approve") {
-      await telegram.sendMessage(chatId, await approveDraft(env, targetId), {
-        replyMarkup: await buildApprovedDraftKeyboard(env, targetId, String(callback.from.id), chatId)
-      });
-      await telegram.sendMessage(chatId, await formatDraftSources(env, targetId));
+      await sendApprovedDraftMessages(env, telegram, chatId, targetId, String(callback.from.id));
       return true;
     }
 

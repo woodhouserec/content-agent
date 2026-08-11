@@ -6,7 +6,7 @@ import { createLinkedInConnectUrl } from "../linkedin/service";
 import type { TelegramClient } from "./client";
 import { escapeHtml } from "./html";
 
-const telegramSafeMessageLength = 3400;
+const telegramSafeMessageLength = 2800;
 
 export function buildCreateDraftButton(topicId: string) {
   return {
@@ -105,6 +105,23 @@ export async function approveDraft(env: Env, draftId: string): Promise<string> {
     "",
     escapeHtml(draft.content)
   ].join("\n");
+}
+
+export async function sendApprovedDraftMessages(
+  env: Env,
+  telegram: TelegramClient,
+  chatId: string,
+  draftId: string,
+  telegramUserId: string
+): Promise<void> {
+  const service = new DraftService(env);
+  const draft = await service.approveDraft(draftId);
+
+  await telegram.sendMessage(chatId, "Черновик одобрен. Ниже чистый английский текст для ручного копирования.", {
+    replyMarkup: await buildApprovedDraftKeyboard(env, draft.id, telegramUserId, chatId)
+  });
+  await sendLongSection(telegram, chatId, "English LinkedIn post", draft.content);
+  await telegram.sendMessage(chatId, await formatDraftSources(env, draft.id));
 }
 
 export async function buildApprovedDraftKeyboard(env: Env, draftId: string, telegramUserId: string, chatId: string) {
