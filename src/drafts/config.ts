@@ -7,5 +7,6 @@ export const draftConfig = {
   maxSourceExcerptLength: 750,
   defaultPostLength: "default",
   openAiTimeoutMs: 45_000,
+  revisionOpenAiTimeoutMs: 30_000,
   defaultOpenAiModel: "gpt-4.1-mini"
 } as const;

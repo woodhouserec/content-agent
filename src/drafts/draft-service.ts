@@ -50,6 +50,7 @@ export interface AiJsonClient {
     promptVersion: string;
     systemPrompt: string;
     payload: unknown;
+    timeoutMs?: number;
   }): Promise<OpenAiJsonResult<T>>;
 }
 
@@ -263,12 +264,13 @@ export class DraftService {
       requestType: `${revisionType}_revision`,
       promptVersion,
       systemPrompt: prompt,
+      timeoutMs: draftConfig.revisionOpenAiTimeoutMs,
       payload: {
         topic: topicPayload(topic),
         brief: briefPayload(brief),
         current_draft: parentDraft.content,
         user_instruction: userInstruction,
-        sources,
+        sources: compactSourcesForRevision(sources),
         preference_memory: preferenceMemory
       }
     });
@@ -398,6 +400,7 @@ export class DraftService {
     promptVersion: string;
     systemPrompt: string;
     payload: unknown;
+    timeoutMs?: number;
   }): Promise<OpenAiJsonResult<T>> {
     const started = Date.now();
 
@@ -482,6 +485,16 @@ function briefPayload(brief: DraftBriefRecord) {
     tone: brief.tone,
     factual_constraints: parseJsonArray(brief.factual_constraints_json)
   };
+}
+
+function compactSourcesForRevision(sources: GroundedSource[]): GroundedSource[] {
+  return sources.map((source) => ({
+    ...source,
+    excerpt: source.excerpt.slice(0, 360),
+    importantQuotes: source.importantQuotes?.slice(0, 2).map((quote) => quote.slice(0, 240)),
+    contextLinks: source.contextLinks?.slice(0, 3),
+    directAnalysis: source.directAnalysis ? source.directAnalysis.slice(0, 320) : source.directAnalysis
+  }));
 }
 
 function parseJsonArray(value: string): string[] {
