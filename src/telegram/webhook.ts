@@ -28,8 +28,8 @@ import {
   buildApprovedDraftKeyboard,
   buildUsageMessage,
   buildLinkedInConnectMessage,
+  consumeCustomRevisionInstruction,
   formatDraftSources,
-  handleCustomRevisionMessage,
   rejectDraft,
   requestCustomRevision,
   runDraftGeneration,
@@ -130,7 +130,17 @@ async function processTelegramUpdate(
       return;
     }
 
-    if (message.text && await handleCustomRevisionMessage(env, telegram, chatId, telegramUserId, message.text)) {
+    const customRevision = message.text ? await consumeCustomRevisionInstruction(env, telegramUserId, message.text) : null;
+    if (customRevision) {
+      dispatcher.dispatch("telegram_custom_draft_revision", async () => {
+        try {
+          await runDraftRevision(env, telegram, chatId, customRevision.draftId, "custom", customRevision.text);
+        } catch (error: unknown) {
+          const message = formatSafeError(error);
+          logger.error("Custom draft revision failed", { event: "custom_draft_revision_failed", requestId, error: message });
+          await telegram.sendMessage(chatId, `Новая версия не создана: ${message}`);
+        }
+      });
       return;
     }
 

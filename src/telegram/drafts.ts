@@ -85,16 +85,28 @@ export async function runDraftRevision(env: Env, telegram: TelegramClient, chatI
 }
 
 export async function handleCustomRevisionMessage(env: Env, telegram: TelegramClient, chatId: string, telegramUserId: string, text: string): Promise<boolean> {
+  const instruction = await consumeCustomRevisionInstruction(env, telegramUserId, text);
+  if (!instruction) {
+    return false;
+  }
+
+  await runDraftRevision(env, telegram, chatId, instruction.draftId, "custom", instruction.text);
+  return true;
+}
+
+export async function consumeCustomRevisionInstruction(env: Env, telegramUserId: string, text: string): Promise<{ draftId: string; text: string } | null> {
   const repos = createRepositories(env.DB);
   const state = await repos.conversationStates.getActive(telegramUserId, "custom_revision");
 
   if (!state) {
-    return false;
+    return null;
   }
 
   await repos.conversationStates.clear(telegramUserId, "custom_revision");
-  await runDraftRevision(env, telegram, chatId, state.target_id, "custom", text);
-  return true;
+  return {
+    draftId: state.target_id,
+    text
+  };
 }
 
 export async function approveDraft(env: Env, draftId: string): Promise<string> {
