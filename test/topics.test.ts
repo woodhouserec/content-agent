@@ -215,6 +215,8 @@ test("topic formation creates source-grounded fallback when current source items
   assert.equal(topics[0].title.includes(item.title), true);
   assert.deepEqual(topics[0].sourceItemIds, [item.id]);
   assert.equal(topics[0].whyItMattersRu.includes("Ценность для рекрутера"), true);
+  assert.equal(topics[0].summaryRu.includes("Возможный пост о"), false);
+  assert.equal(topics[0].summary.includes("A possible post about"), false);
 });
 
 test("topic formation varies recruiter value by material signal", async () => {

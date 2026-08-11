@@ -201,8 +201,8 @@ export async function formTopics(
     candidates.push({
       title,
       titleRu,
-      summary: describePostFromSources(topItems),
-      summaryRu: describePostFromSourcesRu(topItems),
+      summary: sourceBasedAiSummary(topItems),
+      summaryRu: sourceBasedAiSummaryRu(topItems),
       whyItMatters: sourceBasedRecruiterValue(topItems, ai) ?? sourceBasedValue(topItems, template.whyItMatters),
       whyItMattersRu: sourceBasedRecruiterValueRu(topItems, ai) ?? sourceBasedValueRu(topItems, template.whyItMattersRu),
       suggestedAngle,
@@ -305,30 +305,6 @@ function sourceBasedTitleRu(items: CollectedItemRecord[], fallback = "Профе
   }
 
   return `Профессиональный взгляд на материал: ${cleanTitle(primary.title)}`.slice(0, 220);
-}
-
-function describePostFromSources(items: CollectedItemRecord[]): string {
-  const primary = items[0];
-  if (!primary) {
-    return "A post preview grounded in the selected Product/UX source material.";
-  }
-
-  const summary = firstUsefulText(primary.summary, primary.normalized_content, primary.raw_content);
-  return summary
-    ? `A possible post about the design decisions behind "${cleanTitle(primary.title)}": ${summary}`
-    : `A possible post that turns "${cleanTitle(primary.title)}" into a practical Product/UX reflection.`;
-}
-
-function describePostFromSourcesRu(items: CollectedItemRecord[]): string {
-  const primary = items[0];
-  if (!primary) {
-    return "Короткое описание возможного поста на основе выбранного Product/UX-материала.";
-  }
-
-  const summary = firstUsefulText(primary.summary, primary.normalized_content, primary.raw_content);
-  return summary
-    ? `Возможный пост о продуктовых и UX-решениях в материале "${cleanTitle(primary.title)}": ${summary}`
-    : `Возможный пост, который превращает материал "${cleanTitle(primary.title)}" в практическое Product/UX-наблюдение.`;
 }
 
 function sourceBasedAiSummary(items: CollectedItemRecord[]): string {
