@@ -148,15 +148,13 @@ async function processTelegramUpdate(
 
     const customRevision = message.text ? await consumeCustomRevisionInstruction(env, telegramUserId, message.text) : null;
     if (customRevision) {
-      dispatcher.dispatch("telegram_custom_draft_revision", async () => {
-        try {
-          await runDraftRevision(env, telegram, chatId, customRevision.draftId, "custom", customRevision.text);
-        } catch (error: unknown) {
-          const message = formatSafeError(error);
-          logger.error("Custom draft revision failed", { event: "custom_draft_revision_failed", requestId, error: message });
-          await telegram.sendMessage(chatId, `Новая версия не создана: ${message}`);
-        }
-      });
+      try {
+        await runDraftRevision(env, telegram, chatId, customRevision.draftId, "custom", customRevision.text);
+      } catch (error: unknown) {
+        const message = formatSafeError(error);
+        logger.error("Custom draft revision failed", { event: "custom_draft_revision_failed", requestId, error: message });
+        await telegram.sendMessage(chatId, `Новая версия не создана: ${message}`);
+      }
       return;
     }
 
@@ -394,31 +392,27 @@ async function handleDraftCallback(
 
   if (targetType === "manualurl" && action === "draft") {
     await telegram.sendMessage(chatId, "Материал принят. Подготовлю его для черновика и покажу кнопку «Создать черновик».");
-    dispatcher.dispatch("telegram_manual_url_direct_topic", async () => {
-      try {
-        const response = await createDraftTopicFromManualUrl(env, targetId);
-        await telegram.sendMessage(chatId, response.text, {
-          replyMarkup: response.replyMarkup
-        });
-      } catch (error: unknown) {
-        const message = formatSafeError(error);
-        logger.error("Manual URL direct topic failed", { event: "manual_url_direct_topic_failed", requestId, error: message });
-        await telegram.sendMessage(chatId, `Пост по материалу не создан: ${message}`);
-      }
-    });
+    try {
+      const response = await createDraftTopicFromManualUrl(env, targetId);
+      await telegram.sendMessage(chatId, response.text, {
+        replyMarkup: response.replyMarkup
+      });
+    } catch (error: unknown) {
+      const message = formatSafeError(error);
+      logger.error("Manual URL direct topic failed", { event: "manual_url_direct_topic_failed", requestId, error: message });
+      await telegram.sendMessage(chatId, `Пост по материалу не создан: ${message}`);
+    }
     return true;
   }
 
   if (targetType === "topic" && action === "draft") {
-    dispatcher.dispatch("telegram_draft_generation", async () => {
-      try {
-        await runDraftGeneration(env, telegram, chatId, targetId);
-      } catch (error: unknown) {
-        const message = formatSafeError(error);
-        logger.error("Draft generation failed", { event: "draft_generation_failed", requestId, error: message });
-        await telegram.sendMessage(chatId, `Черновик не создан: ${message}`);
-      }
-    });
+    try {
+      await runDraftGeneration(env, telegram, chatId, targetId);
+    } catch (error: unknown) {
+      const message = formatSafeError(error);
+      logger.error("Draft generation failed", { event: "draft_generation_failed", requestId, error: message });
+      await telegram.sendMessage(chatId, `Черновик не создан: ${message}`);
+    }
     return true;
   }
 
@@ -530,15 +524,13 @@ async function handleDraftCallback(
     }
 
     if (action === "rewrite" || action === "shorten" || action === "expand" || action === "opening" || action === "tone") {
-      dispatcher.dispatch("telegram_draft_revision", async () => {
-        try {
-          await runDraftRevision(env, telegram, chatId, targetId, action);
-        } catch (error: unknown) {
-          const message = formatSafeError(error);
-          logger.error("Draft revision failed", { event: "draft_revision_failed", requestId, action, error: message });
-          await telegram.sendMessage(chatId, `Новая версия не создана: ${message}`);
-        }
-      });
+      try {
+        await runDraftRevision(env, telegram, chatId, targetId, action);
+      } catch (error: unknown) {
+        const message = formatSafeError(error);
+        logger.error("Draft revision failed", { event: "draft_revision_failed", requestId, action, error: message });
+        await telegram.sendMessage(chatId, `Новая версия не создана: ${message}`);
+      }
       return true;
     }
   }
@@ -623,5 +615,10 @@ async function logCallbackAction(
 
 function formatSafeError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
-  return message.replace(/(bot|Bearer)\s+[A-Za-z0-9:_-]+/gi, "$1 [hidden]").slice(0, 260);
+  return message
+    .replace(/(bot|Bearer)\s+[A-Za-z0-9:_-]+/gi, "$1 [hidden]")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .slice(0, 260);
 }
