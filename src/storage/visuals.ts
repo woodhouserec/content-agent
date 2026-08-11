@@ -45,6 +45,13 @@ export class VisualsRepository {
       .first<VisualBriefRecord>();
   }
 
+  async getLatestBriefForTopic(topicId: string): Promise<VisualBriefRecord | null> {
+    return this.db
+      .prepare("SELECT * FROM visual_briefs WHERE topic_id = ? ORDER BY created_at DESC LIMIT 1")
+      .bind(topicId)
+      .first<VisualBriefRecord>();
+  }
+
   async createBrief(input: {
     topicId: string;
     draftId: string;
@@ -126,6 +133,21 @@ export class VisualsRepository {
     return result.results ?? [];
   }
 
+  async getAssetsForTopic(topicId: string): Promise<VisualAssetRecord[]> {
+    const result = await this.db
+      .prepare(
+        `SELECT a.*
+         FROM visual_assets a
+         INNER JOIN visual_briefs b ON b.id = a.visual_brief_id
+         WHERE b.topic_id = ?
+         ORDER BY a.version ASC, a.created_at ASC`
+      )
+      .bind(topicId)
+      .all<VisualAssetRecord>();
+
+    return result.results ?? [];
+  }
+
   async getLatestApprovedAssetForDraft(draftId: string): Promise<VisualAssetRecord | null> {
     return this.db
       .prepare(
@@ -140,10 +162,38 @@ export class VisualsRepository {
       .first<VisualAssetRecord>();
   }
 
+  async getLatestApprovedAssetForTopic(topicId: string): Promise<VisualAssetRecord | null> {
+    return this.db
+      .prepare(
+        `SELECT a.*
+         FROM visual_assets a
+         INNER JOIN visual_briefs b ON b.id = a.visual_brief_id
+         WHERE b.topic_id = ? AND a.status = 'approved'
+         ORDER BY a.version DESC, a.approved_at DESC, a.created_at DESC
+         LIMIT 1`
+      )
+      .bind(topicId)
+      .first<VisualAssetRecord>();
+  }
+
   async countAssetsForBrief(visualBriefId: string): Promise<number> {
     const row = await this.db
       .prepare("SELECT COUNT(*) AS count FROM visual_assets WHERE visual_brief_id = ?")
       .bind(visualBriefId)
+      .first<{ count: number }>();
+
+    return row?.count ?? 0;
+  }
+
+  async countAssetsForTopic(topicId: string): Promise<number> {
+    const row = await this.db
+      .prepare(
+        `SELECT COUNT(*) AS count
+         FROM visual_assets a
+         INNER JOIN visual_briefs b ON b.id = a.visual_brief_id
+         WHERE b.topic_id = ?`
+      )
+      .bind(topicId)
       .first<{ count: number }>();
 
     return row?.count ?? 0;
@@ -162,7 +212,11 @@ export class VisualsRepository {
   }): Promise<VisualAssetRecord> {
     const id = createId("vasset");
     const timestamp = nowIso();
-    const version = await this.countAssetsForBrief(input.visualBriefId) + 1;
+    const brief = await this.getBriefById(input.visualBriefId);
+    if (!brief) {
+      throw new Error("Visual brief not found");
+    }
+    const version = await this.countAssetsForTopic(brief.topic_id) + 1;
 
     await this.db
       .prepare(

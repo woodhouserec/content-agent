@@ -39,10 +39,10 @@ export class VisualService {
     const topic = await this.requireTopic(draft.topic_id);
     const preferenceMemory = await this.preferenceMemoryForPrompt();
     const brief = await this.getOrCreateBrief(topic, draft);
-    const existingAssets = await this.repos.visuals.countAssetsForBrief(brief.id);
+    const existingAssets = await this.repos.visuals.countAssetsForTopic(topic.id);
 
     if (existingAssets >= visualConfig.maxImageVariantsPerDraft) {
-      throw new Error(`Image variant limit reached for this draft (${visualConfig.maxImageVariantsPerDraft})`);
+      throw new Error(`Image variant limit reached for this topic (${visualConfig.maxImageVariantsPerDraft})`);
     }
 
     const prompt = buildImagePrompt({
@@ -81,6 +81,65 @@ export class VisualService {
     };
   }
 
+  async generateCustomVariant(assetId: string, instruction: string): Promise<VisualGenerationResult> {
+    const asset = await this.repos.visuals.getAssetById(assetId);
+    if (!asset) {
+      throw new Error("Visual asset not found");
+    }
+
+    const brief = await this.repos.visuals.getBriefById(asset.visual_brief_id);
+    if (!brief) {
+      throw new Error("Visual brief not found");
+    }
+
+    const topic = await this.requireTopic(brief.topic_id);
+    const draft = await this.requireApprovedDraft(brief.draft_id);
+    const existingAssets = await this.repos.visuals.countAssetsForTopic(topic.id);
+    if (existingAssets >= visualConfig.maxImageVariantsPerDraft) {
+      throw new Error(`Image variant limit reached for this topic (${visualConfig.maxImageVariantsPerDraft})`);
+    }
+
+    const prompt = [
+      buildImagePrompt({
+        concept: brief.concept,
+        metaphor: brief.metaphor,
+        composition: brief.composition,
+        style: brief.style,
+        colorDirection: brief.color_direction,
+        aspectRatio: brief.aspect_ratio,
+        preferenceMemory: await this.preferenceMemoryForPrompt()
+      }),
+      "",
+      `User visual revision instruction: ${instruction.slice(0, 600)}`
+    ].join("\n");
+    const generated = await this.imageProvider.generate(prompt);
+    const stored = await this.storage.put({
+      bytes: generated.bytes,
+      mimeType: generated.mimeType,
+      keyHint: `${draft.id}-custom-v${existingAssets + 1}`
+    });
+    const nextAsset = await this.repos.visuals.createAsset({
+      visualBriefId: brief.id,
+      storageKey: stored.storageKey,
+      mimeType: generated.mimeType,
+      width: generated.width,
+      height: generated.height,
+      generationProvider: generated.generationProvider,
+      generationModel: generated.generationModel,
+      generationPrompt: generated.generationPrompt,
+      parentAssetId: asset.id
+    });
+
+    return {
+      draft,
+      topic,
+      brief,
+      asset: nextAsset,
+      imageBytes: generated.bytes,
+      mimeType: generated.mimeType
+    };
+  }
+
   async approveAsset(assetId: string): Promise<VisualAssetRecord> {
     await this.repos.visuals.updateAssetStatus(assetId, "approved");
     const asset = await this.repos.visuals.getAssetById(assetId);
@@ -102,7 +161,7 @@ export class VisualService {
   }
 
   private async getOrCreateBrief(topic: TopicRecord, draft: DraftRecord): Promise<VisualBriefRecord> {
-    const existing = await this.repos.visuals.getLatestBriefForDraft(draft.id);
+    const existing = await this.repos.visuals.getLatestBriefForDraft(draft.id) ?? await this.repos.visuals.getLatestBriefForTopic(topic.id);
     if (existing) {
       return existing;
     }

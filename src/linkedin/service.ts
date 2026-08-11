@@ -75,7 +75,7 @@ export async function publishDraftToLinkedIn(env: Env, input: { draftId: string;
 
   try {
     const client = new LinkedInClient(getLinkedInPublishConfig(env));
-    const approvedImage = await repos.visuals.getLatestApprovedAssetForDraft(draft.id);
+    const approvedImage = await repos.visuals.getLatestApprovedAssetForTopic(draft.topic_id) ?? await repos.visuals.getLatestApprovedAssetForDraft(draft.id);
     const postUrn = approvedImage
       ? await publishDraftWithImage(env, client, {
           accessToken: connection.access_token,

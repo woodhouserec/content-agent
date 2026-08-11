@@ -29,19 +29,29 @@ export function buildVisualReviewKeyboard(assetId: string, draftId: string, vers
       [
         { text: "Другой вариант", callback_data: `draft:visual:${draftId}` },
         { text: "Отклонить изображение", callback_data: `visual:reject:${assetId}` }
-      ]
+      ],
+      [{ text: "Своя правка", callback_data: `visual:custom:${assetId}` }]
     ]
   };
 }
 
-export async function runVisualGeneration(env: Env, telegram: TelegramClient, chatId: string, draftId: string): Promise<void> {
+export async function runVisualGeneration(env: Env, telegram: TelegramClient, chatId: string, telegramUserId: string, draftId: string): Promise<void> {
   const service = new VisualService(env);
   await telegram.sendMessage(chatId, "Генерация иллюстрации запущена. Сначала создам visual brief, затем изображение.");
   const result = await service.generateForDraft(draftId);
-  await sendGeneratedVisualReview(env, telegram, chatId, result);
+  await setVisualReviewDraft(env, telegramUserId, chatId, draftId);
+  await sendGeneratedVisualReview(env, telegram, chatId, result, draftId);
 }
 
-export async function approveVisualAsset(env: Env, assetId: string): Promise<{ message: string; draftId: string }> {
+export async function runCustomVisualRevision(env: Env, telegram: TelegramClient, chatId: string, telegramUserId: string, assetId: string, instruction: string): Promise<void> {
+  await telegram.sendMessage(chatId, "Принял инструкцию. Создаю новый вариант изображения.");
+  const result = await new VisualService(env).generateCustomVariant(assetId, instruction);
+  const draftId = await getVisualReviewDraftId(env, telegramUserId) ?? result.draft.id;
+  await setVisualReviewDraft(env, telegramUserId, chatId, draftId);
+  await sendGeneratedVisualReview(env, telegram, chatId, result, draftId);
+}
+
+export async function approveVisualAsset(env: Env, telegramUserId: string, assetId: string): Promise<{ message: string; draftId: string }> {
   const asset = await new VisualService(env).approveAsset(assetId);
   const repos = createRepositories(env.DB);
   const brief = await repos.visuals.getBriefById(asset.visual_brief_id);
@@ -51,7 +61,7 @@ export async function approveVisualAsset(env: Env, assetId: string): Promise<{ m
 
   return {
     message: `Изображение одобрено: version ${asset.version}. Теперь пост можно опубликовать в LinkedIn.`,
-    draftId: brief.draft_id
+    draftId: await getVisualReviewDraftId(env, telegramUserId) ?? brief.draft_id
   };
 }
 
@@ -60,7 +70,33 @@ export async function rejectVisualAsset(env: Env, assetId: string): Promise<stri
   return `Изображение отклонено: version ${asset.version}`;
 }
 
-export async function sendAdjacentVisualAsset(env: Env, telegram: TelegramClient, chatId: string, assetId: string, direction: "prev" | "next"): Promise<void> {
+export async function requestCustomVisualRevision(env: Env, telegramUserId: string, chatId: string, assetId: string): Promise<string> {
+  await createRepositories(env.DB).conversationStates.set({
+    telegramUserId,
+    telegramChatId: chatId,
+    stateType: "custom_visual_revision",
+    targetType: "visual_asset",
+    targetId: assetId,
+    ttlMinutes: 30
+  });
+  return "Напишите одним сообщением, что изменить в изображении. Например: меньше робота, больше продуктового контекста, чище композиция.";
+}
+
+export async function consumeCustomVisualInstruction(env: Env, telegramUserId: string, text: string): Promise<{ assetId: string; text: string } | null> {
+  const repos = createRepositories(env.DB);
+  const state = await repos.conversationStates.getActive(telegramUserId, "custom_visual_revision");
+  if (!state) {
+    return null;
+  }
+
+  await repos.conversationStates.clear(telegramUserId, "custom_visual_revision");
+  return {
+    assetId: state.target_id,
+    text
+  };
+}
+
+export async function sendAdjacentVisualAsset(env: Env, telegram: TelegramClient, chatId: string, telegramUserId: string, assetId: string, direction: "prev" | "next"): Promise<void> {
   const repos = createRepositories(env.DB);
   const current = await repos.visuals.getAssetById(assetId);
   if (!current) {
@@ -68,16 +104,16 @@ export async function sendAdjacentVisualAsset(env: Env, telegram: TelegramClient
   }
 
   const brief = await requireVisualBrief(env, current.visual_brief_id);
-  const assets = await repos.visuals.getAssetsForDraft(brief.draft_id);
+  const assets = await repos.visuals.getAssetsForTopic(brief.topic_id);
   const currentIndex = Math.max(0, assets.findIndex((asset) => asset.id === current.id));
   const nextIndex = direction === "next"
     ? Math.min(assets.length - 1, currentIndex + 1)
     : Math.max(0, currentIndex - 1);
 
-  await sendStoredVisualReview(env, telegram, chatId, assets[nextIndex]?.id ?? current.id);
+  await sendStoredVisualReview(env, telegram, chatId, telegramUserId, assets[nextIndex]?.id ?? current.id);
 }
 
-export async function sendStoredVisualReview(env: Env, telegram: TelegramClient, chatId: string, assetId: string): Promise<void> {
+export async function sendStoredVisualReview(env: Env, telegram: TelegramClient, chatId: string, telegramUserId: string, assetId: string): Promise<void> {
   const repos = createRepositories(env.DB);
   const asset = await repos.visuals.getAssetById(assetId);
   if (!asset) {
@@ -91,29 +127,50 @@ export async function sendStoredVisualReview(env: Env, telegram: TelegramClient,
   }
 
   const stored = await new R2AssetStorage(env).get(asset.storage_key);
-  const assets = await repos.visuals.getAssetsForDraft(brief.draft_id);
+  const assets = await repos.visuals.getAssetsForTopic(brief.topic_id);
+  const draftId = await getVisualReviewDraftId(env, telegramUserId) ?? brief.draft_id;
+  const displayIndex = Math.max(1, assets.findIndex((candidate) => candidate.id === asset.id) + 1);
   await sendVisualReviewPhoto(telegram, chatId, {
     asset,
     brief,
     topic,
-    draftId: brief.draft_id,
+    draftId,
     totalVersions: assets.length,
+    displayIndex,
     imageBytes: stored.bytes,
     mimeType: stored.mimeType
   });
 }
 
-async function sendGeneratedVisualReview(env: Env, telegram: TelegramClient, chatId: string, result: VisualGenerationResult): Promise<void> {
-  const assets = await createRepositories(env.DB).visuals.getAssetsForDraft(result.draft.id);
+async function sendGeneratedVisualReview(env: Env, telegram: TelegramClient, chatId: string, result: VisualGenerationResult, draftId: string): Promise<void> {
+  const assets = await createRepositories(env.DB).visuals.getAssetsForTopic(result.topic.id);
+  const displayIndex = Math.max(1, assets.findIndex((candidate) => candidate.id === result.asset.id) + 1);
   await sendVisualReviewPhoto(telegram, chatId, {
     asset: result.asset,
     brief: result.brief,
     topic: result.topic,
-    draftId: result.draft.id,
+    draftId,
     totalVersions: assets.length,
+    displayIndex,
     imageBytes: result.imageBytes,
     mimeType: result.mimeType
   });
+}
+
+async function setVisualReviewDraft(env: Env, telegramUserId: string, chatId: string, draftId: string): Promise<void> {
+  await createRepositories(env.DB).conversationStates.set({
+    telegramUserId,
+    telegramChatId: chatId,
+    stateType: "visual_review_draft",
+    targetType: "draft",
+    targetId: draftId,
+    ttlMinutes: 120
+  });
+}
+
+async function getVisualReviewDraftId(env: Env, telegramUserId: string): Promise<string | null> {
+  const state = await createRepositories(env.DB).conversationStates.getActive(telegramUserId, "visual_review_draft");
+  return state?.target_id ?? null;
 }
 
 async function sendVisualReviewPhoto(
@@ -125,6 +182,7 @@ async function sendVisualReviewPhoto(
     topic: TopicRecord;
     draftId: string;
     totalVersions: number;
+    displayIndex: number;
     imageBytes: ArrayBuffer;
     mimeType: string;
   }
@@ -141,7 +199,7 @@ async function sendVisualReviewPhoto(
       `<b>Status:</b> ${escapeHtml(input.asset.status)}`,
       `<b>Version:</b> ${input.asset.version}`
     ].filter(Boolean).join("\n"),
-    replyMarkup: buildVisualReviewKeyboard(input.asset.id, input.draftId, input.asset.version, Math.max(1, input.totalVersions))
+    replyMarkup: buildVisualReviewKeyboard(input.asset.id, input.draftId, input.displayIndex, Math.max(1, input.totalVersions))
   });
 }
 

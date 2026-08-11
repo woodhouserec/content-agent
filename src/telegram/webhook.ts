@@ -37,7 +37,15 @@ import {
   sendApprovedDraftMessages
 } from "./drafts";
 import { publishDraftToLinkedIn } from "../linkedin/service";
-import { approveVisualAsset, rejectVisualAsset, runVisualGeneration, sendAdjacentVisualAsset } from "./visuals";
+import {
+  approveVisualAsset,
+  consumeCustomVisualInstruction,
+  rejectVisualAsset,
+  requestCustomVisualRevision,
+  runCustomVisualRevision,
+  runVisualGeneration,
+  sendAdjacentVisualAsset
+} from "./visuals";
 
 export async function handleTelegramWebhook(
   request: Request,
@@ -144,8 +152,22 @@ async function processTelegramUpdate(
       return;
     }
 
+    const customVisual = message.text ? await consumeCustomVisualInstruction(env, telegramUserId, message.text) : null;
+    if (customVisual) {
+      dispatcher.dispatch("telegram_custom_visual_revision", async () => {
+        try {
+          await runCustomVisualRevision(env, telegram, chatId, telegramUserId, customVisual.assetId, customVisual.text);
+        } catch (error: unknown) {
+          const message = formatSafeError(error);
+          logger.error("Custom visual revision failed", { event: "custom_visual_revision_failed", requestId, error: message });
+          await telegram.sendMessage(chatId, `Новый вариант изображения не создан: ${message}`);
+        }
+      });
+      return;
+    }
+
     if (menuAction?.kind === "screen") {
-      const screen = menuAction.value as "main" | "sourcesRoot" | "temporarySources" | "permanentSources" | "topics" | "profileRoot" | "myProfiles" | "drafts" | "system";
+      const screen = menuAction.value as "main" | "sourcesRoot" | "temporarySources" | "permanentSources" | "profileRoot" | "myProfiles" | "system";
       if (screen === "temporarySources" || screen === "permanentSources") {
         await setSourceMenuContext(env, telegramUserId, chatId, screen === "temporarySources" ? "temporary" : "permanent");
       }
@@ -420,7 +442,7 @@ async function handleDraftCallback(
     if (action === "visual") {
       dispatcher.dispatch("telegram_visual_generation", async () => {
         try {
-          await runVisualGeneration(env, telegram, chatId, targetId);
+          await runVisualGeneration(env, telegram, chatId, String(callback.from.id), targetId);
         } catch (error: unknown) {
           const message = formatSafeError(error);
           logger.error("Visual generation failed", { event: "visual_generation_failed", requestId, error: message });
@@ -461,7 +483,7 @@ async function handleDraftCallback(
 
   if (targetType === "visual") {
     if (action === "prev" || action === "next") {
-      await sendAdjacentVisualAsset(env, telegram, chatId, targetId, action);
+      await sendAdjacentVisualAsset(env, telegram, chatId, String(callback.from.id), targetId, action);
       return true;
     }
 
@@ -470,8 +492,13 @@ async function handleDraftCallback(
       return true;
     }
 
+    if (action === "custom") {
+      await telegram.sendMessage(chatId, await requestCustomVisualRevision(env, String(callback.from.id), chatId, targetId));
+      return true;
+    }
+
     if (action === "approve") {
-      const result = await approveVisualAsset(env, targetId);
+      const result = await approveVisualAsset(env, String(callback.from.id), targetId);
       await telegram.sendMessage(chatId, result.message, {
         replyMarkup: await buildApprovedDraftKeyboard(env, result.draftId, String(callback.from.id), chatId)
       });

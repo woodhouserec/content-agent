@@ -5,8 +5,7 @@ export const menuLabels = {
   sourcesRoot: "Источники",
   temporarySources: "Временные источники",
   permanentSources: "Постоянные источники",
-  topics: "Темы",
-  drafts: "Черновики",
+  topics: "Профиль",
   system: "Система",
   collect: "Собрать материалы",
   showSources: "Показать источники",
@@ -43,11 +42,9 @@ export type MenuScreen =
   | "permanentSources"
   | "sourceList"
   | "sourceEditor"
-  | "topics"
   | "profileRoot"
   | "myProfiles"
   | "profileWizard"
-  | "drafts"
   | "system";
 
 export interface MenuAction {
@@ -58,7 +55,7 @@ export interface MenuAction {
 export function buildMainMenu(): ReplyKeyboardMarkup {
   return keyboard([
     [menuLabels.sourcesRoot, menuLabels.topics],
-    [menuLabels.drafts, menuLabels.system]
+    [menuLabels.system]
   ], "Выберите раздел");
 }
 
@@ -95,13 +92,6 @@ export function buildSectionMenu(screen: MenuScreen): ReplyKeyboardMarkup {
     ], "Редактирование источников");
   }
 
-  if (screen === "topics") {
-    return keyboard([
-      [menuLabels.profile],
-      [menuLabels.back]
-    ], "Темы");
-  }
-
   if (screen === "profileRoot") {
     return keyboard([
       [menuLabels.currentProfile, menuLabels.myProfiles],
@@ -123,16 +113,10 @@ export function buildSectionMenu(screen: MenuScreen): ReplyKeyboardMarkup {
     ], "Редактор профиля");
   }
 
-  if (screen === "drafts") {
-    return keyboard([
-      [menuLabels.usage],
-      [menuLabels.back]
-    ], "Черновики");
-  }
-
   if (screen === "system") {
     return keyboard([
-      [menuLabels.status, menuLabels.help],
+      [menuLabels.status, menuLabels.usage],
+      [menuLabels.help],
       [menuLabels.back]
     ], "Система");
   }
@@ -152,8 +136,7 @@ export function resolveMenuAction(text: string | undefined): MenuAction | null {
     [menuLabels.sourcesRoot]: "sourcesRoot",
     [menuLabels.temporarySources]: "temporarySources",
     [menuLabels.permanentSources]: "permanentSources",
-    [menuLabels.topics]: "topics",
-    [menuLabels.drafts]: "drafts",
+    [menuLabels.topics]: "profileRoot",
     [menuLabels.system]: "system",
     [menuLabels.back]: "main"
   };
@@ -174,10 +157,6 @@ export function resolveMenuAction(text: string | undefined): MenuAction | null {
 
   if (commandMap[normalized]) {
     return { kind: "command", value: commandMap[normalized] };
-  }
-
-  if (normalized === menuLabels.profile) {
-    return { kind: "screen", value: "profileRoot" };
   }
 
   if (normalized === menuLabels.myProfiles) {
@@ -228,10 +207,6 @@ export function buildMenuMessage(screen: MenuScreen): string {
     return "Список источников.";
   }
 
-  if (screen === "topics") {
-    return "Раздел тем: профиль релевантности и настройки повествования.";
-  }
-
   if (screen === "profileRoot") {
     return "Профиль релевантности.";
   }
@@ -240,11 +215,7 @@ export function buildMenuMessage(screen: MenuScreen): string {
     return "Мои профили. Выберите профиль или создайте новый.";
   }
 
-  if (screen === "drafts") {
-    return "Раздел черновиков: usage и действия с черновиками через кнопки под конкретным draft.";
-  }
-
-  return "Системный раздел: статус и помощь.";
+  return "Системный раздел: статус, usage и помощь.";
 }
 
 export const botCommands = [
