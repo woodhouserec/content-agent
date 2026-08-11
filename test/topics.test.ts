@@ -3,6 +3,8 @@ import test from "node:test";
 import type { CollectedItemRecord } from "../src/storage/collected-items";
 import { createTopicFingerprint, normalizeForFingerprint } from "../src/scoring/topic-fingerprint";
 import { classifyItem, formTopics } from "../src/scoring/topic-formation";
+import { formatTopicSources } from "../src/telegram/topics";
+import type { TopicRecord } from "../src/storage/topics";
 
 test("topic fingerprint normalizes similar title text", async () => {
   const first = await createTopicFingerprint(
@@ -62,7 +64,7 @@ test("topic formation includes Russian review fields for Telegram", async () => 
   const topics = await formTopics([item], [], { minFinalScoreForTopic: 70 });
 
   assert.equal(topics.length, 1);
-  assert.equal(topics[0].titleRu.includes("формах"), true);
+  assert.equal(topics[0].titleRu.includes(item.title), true);
   assert.equal(topics[0].whyItMattersRu.length > 20, true);
   assert.equal(topics[0].suggestedAngleRu.length > 20, true);
 });
@@ -102,4 +104,46 @@ test("topic formation prefers AI post ideas over generic clusters", async () => 
   assert.equal(topics[0].titleRu.includes("AI-onboarding"), true);
   assert.deepEqual(topics[0].sourceItemIds, ["item_ai_ux"]);
   assert.equal(topics[0].whyItMattersRu.includes("Ценность для аудитории"), true);
+});
+
+test("topic formation replaces generic AI post title with source-grounded title", async () => {
+  const item = {
+    id: "item_forms",
+    source_id: "src_test",
+    title: "Does Your Form Really Need a Dropdown List?",
+    summary: "The source explains when dropdowns create friction and when alternatives help users complete forms.",
+    normalized_content: "Dropdowns can increase user effort when options are predictable or few.",
+    final_score: 88,
+    rule_score: 84,
+    scoring_breakdown_json: JSON.stringify({ factors: { freshness: 18 } })
+  } as CollectedItemRecord;
+
+  const topics = await formTopics([item], [{
+    itemId: "item_forms",
+    aiRelevanceScore: 90,
+    noveltyScore: 70,
+    professionalValue: 88,
+    possibleLinkedInAngle: "Why small form decisions can create outsized product friction",
+    explanation: "This material has a practical UX angle for form design."
+  }], { minFinalScoreForTopic: 70 });
+
+  assert.equal(topics[0].title.includes("Does Your Form Really Need a Dropdown List?"), true);
+  assert.equal(topics[0].summaryRu.startsWith("Основано на"), false);
+});
+
+test("formatTopicSources renders clickable source links", () => {
+  const topic = {
+    id: "topic_1",
+    title: "Source topic",
+    title_ru: "Тезис по источнику",
+    source_item_ids_json: "[]"
+  } as TopicRecord;
+
+  const message = formatTopicSources(topic, [{
+    title: "Does Your Form Really Need a Dropdown List?",
+    canonical_url: "https://example.com/forms?utm_source=test",
+    published_at: "2026-08-12T00:00:00.000Z"
+  }]);
+
+  assert.equal(message.includes('<a href="https://example.com/forms?utm_source=test">Does Your Form Really Need a Dropdown List?</a>'), true);
 });

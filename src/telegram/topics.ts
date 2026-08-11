@@ -28,7 +28,7 @@ export async function runScoringAndSendTopics(env: Env, telegram: TelegramClient
     return;
   }
 
-  await sendLatestTopics(env, telegram, chatId, mode);
+  await telegram.sendMessage(chatId, "В этом запуске новые тезисы не появились. Попробуйте собрать свежие материалы или добавьте более содержательный источник.");
 }
 
 export async function sendLatestTopics(env: Env, telegram: TelegramClient, chatId: string, mode?: CollectedItemMode): Promise<void> {
@@ -147,13 +147,17 @@ export function parseSourceItemIds(topic: TopicRecord): string[] {
 function formatTopicMessage(topic: TopicRecord, sources: Array<{ title: string; canonical_url: string | null; published_at: string | null }>): string {
   const sourceLines = sources.slice(0, 3).map((source, index) => {
     const date = source.published_at ? source.published_at.slice(0, 10) : "no date";
-    return `${index + 1}. ${escapeHtml(source.title)} (${date})`;
+    return `${index + 1}. ${formatSourceLink(source)} (${date})`;
   });
 
   return [
     `<b>${escapeHtml(topic.title_ru ?? topic.title)}</b>`,
     "",
     `<b>Краткое описание:</b> ${escapeHtml(topic.summary_ru ?? topic.summary ?? "Нет описания")}`,
+    "",
+    "<b>Основано на материалах:</b>",
+    sourceLines.join("\n") || "No sources",
+    "",
     `<b>Ценность:</b> ${escapeHtml(topic.why_it_matters_ru ?? topic.why_it_matters ?? "Нет объяснения")}`,
     `<b>Угол:</b> ${escapeHtml(topic.suggested_angle_ru ?? topic.suggested_angle ?? topic.angle ?? "Нет угла")}`,
     "",
@@ -165,13 +169,17 @@ function formatTopicMessage(topic: TopicRecord, sources: Array<{ title: string; 
 export function formatTopicEnglish(topic: TopicRecord, sources: Array<{ title: string; canonical_url: string | null; published_at: string | null }>): string {
   const sourceLines = sources.slice(0, 3).map((source, index) => {
     const date = source.published_at ? source.published_at.slice(0, 10) : "no date";
-    return `${index + 1}. ${escapeHtml(source.title)} (${date})`;
+    return `${index + 1}. ${formatSourceLink(source)} (${date})`;
   });
 
   return [
     `<b>${escapeHtml(topic.title)}</b>`,
     "",
     `<b>Short description:</b> ${escapeHtml(topic.summary ?? "No description")}`,
+    "",
+    "<b>Based on materials:</b>",
+    sourceLines.join("\n") || "No sources",
+    "",
     `<b>Value:</b> ${escapeHtml(topic.why_it_matters ?? "No explanation")}`,
     `<b>Angle:</b> ${escapeHtml(topic.suggested_angle ?? topic.angle ?? "No angle")}`,
     "",
@@ -183,7 +191,7 @@ export function formatTopicEnglish(topic: TopicRecord, sources: Array<{ title: s
 export function formatTopicSources(topic: TopicRecord, sources: Array<{ title: string; canonical_url: string | null; published_at: string | null }>): string {
   const lines = sources.slice(0, 3).map((source, index) => {
     const date = source.published_at ? source.published_at.slice(0, 10) : "no date";
-    return `${index + 1}. ${escapeHtml(source.title)}\n${escapeHtml(source.canonical_url ?? "")}\n${date}`;
+    return `${index + 1}. ${formatSourceLink(source)}\n${date}`;
   });
 
   return [`Источники тезиса: ${escapeHtml(topic.title_ru ?? topic.title)}`, "", lines.join("\n\n") || "Источники не найдены."].join("\n");
@@ -249,4 +257,16 @@ function escapeHtml(value: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return escapeHtml(value).replace(/"/g, "&quot;");
+}
+
+function formatSourceLink(source: { title: string; canonical_url: string | null }): string {
+  if (!source.canonical_url) {
+    return escapeHtml(source.title);
+  }
+
+  return `<a href="${escapeHtmlAttribute(source.canonical_url)}">${escapeHtml(source.title)}</a>`;
 }

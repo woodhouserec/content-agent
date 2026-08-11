@@ -175,19 +175,21 @@ export async function formTopics(
     const noveltyScore = Math.round(topItems.reduce((sum, item) => sum + (extractNovelty(item, aiByItemId.get(item.id)) ?? 65), 0) / topItems.length);
     const title = ai?.possibleLinkedInAngle && isSpecificAiAngle(ai.possibleLinkedInAngle)
       ? ai.possibleLinkedInAngle
-      : template.title;
-    const suggestedAngle = template.angle;
+      : sourceBasedTitle(topItems);
+    const titleRu = sourceBasedTitleRu(topItems, template.titleRu);
+    const suggestedAngle = sourceBasedAngle(topItems, template.angle);
+    const suggestedAngleRu = sourceBasedAngleRu(topItems, template.angleRu);
     const fingerprint = await createTopicFingerprint(title, suggestedAngle, sourceItemIds);
 
     candidates.push({
       title,
-      titleRu: template.titleRu,
-      summary: summarizeGroup(topItems),
-      summaryRu: summarizeGroupRu(topItems),
-      whyItMatters: template.whyItMatters,
-      whyItMattersRu: template.whyItMattersRu,
+      titleRu,
+      summary: describePostFromSources(topItems),
+      summaryRu: describePostFromSourcesRu(topItems),
+      whyItMatters: sourceBasedValue(topItems, template.whyItMatters),
+      whyItMattersRu: sourceBasedValueRu(topItems, template.whyItMattersRu),
       suggestedAngle,
-      suggestedAngleRu: template.angleRu,
+      suggestedAngleRu,
       targetAudience: "Product Designers, Design Leads, Product Managers, Founders, SaaS teams",
       sourceItemIds,
       combinedScore,
@@ -218,16 +220,16 @@ async function formAiPostIdeas(
       continue;
     }
 
-    const title = ai.postTitle ?? ai.possibleLinkedInAngle;
-    const titleRu = ai.postTitleRu ?? `Тезис по материалу: ${item.title}`.slice(0, 220);
-    const suggestedAngle = ai.possibleLinkedInAngle;
-    const suggestedAngleRu = ai.suggestedAngleRu ?? ai.postTitleRu ?? "Создать авторский LinkedIn-пост на основе конкретного материала.";
-    const summary = ai.shortDescription ?? summarizeGroup([item]);
-    const summaryRu = ai.shortDescriptionRu ?? `Пост-превью по материалу: ${item.title}`;
-    const audienceValue = ai.audienceValue ?? ai.explanation;
-    const hrValue = ai.hrValue ?? "Shows how the author thinks about product quality, design judgment, and business context.";
-    const audienceValueRu = ai.audienceValueRu ?? ai.explanation;
-    const hrValueRu = ai.hrValueRu ?? "Показывает профессиональное мышление автора: продуктовый взгляд, дизайн-суждение и связь с бизнес-контекстом.";
+    const title = usableAiTitle(ai.postTitle) ?? usableAiTitle(ai.possibleLinkedInAngle) ?? sourceBasedTitle([item]);
+    const titleRu = usableAiTitle(ai.postTitleRu) ?? sourceBasedTitleRu([item]);
+    const suggestedAngle = usableAiField(ai.possibleLinkedInAngle) ?? sourceBasedAngle([item]);
+    const suggestedAngleRu = usableAiField(ai.suggestedAngleRu) ?? sourceBasedAngleRu([item]);
+    const summary = usableAiField(ai.shortDescription) ?? describePostFromSources([item]);
+    const summaryRu = usableAiField(ai.shortDescriptionRu) ?? describePostFromSourcesRu([item]);
+    const audienceValue = usableAiField(ai.audienceValue) ?? usableAiField(ai.explanation) ?? sourceBasedValue([item]);
+    const hrValue = usableAiField(ai.hrValue) ?? "Shows how the author thinks about product quality, design judgment, and business context through a concrete source.";
+    const audienceValueRu = usableAiField(ai.audienceValueRu) ?? sourceBasedValueRu([item]);
+    const hrValueRu = usableAiField(ai.hrValueRu) ?? "Показывает профессиональное мышление автора через конкретный материал: продуктовый взгляд, дизайн-суждение и связь с бизнес-контекстом.";
     const sourceItemIds = [item.id];
     const combinedScore = Math.round(((item.final_score ?? item.rule_score ?? 70) * 0.35) + (ai.aiRelevanceScore * 0.35) + (ai.professionalValue * 0.3));
     const noveltyScore = ai.noveltyScore;
@@ -268,14 +270,124 @@ export function classifyItem(item: CollectedItemRecord): string {
   return best.key;
 }
 
-function summarizeGroup(items: CollectedItemRecord[]): string {
-  const titles = items.map((item) => item.title).slice(0, 3);
-  return `Based on ${titles.length} recent source item${titles.length === 1 ? "" : "s"}: ${titles.join("; ")}.`;
+function sourceBasedTitle(items: CollectedItemRecord[]): string {
+  const primary = items[0];
+  if (!primary) {
+    return "A product design perspective on recent UX material";
+  }
+
+  return `A product design perspective on ${cleanTitle(primary.title)}`.slice(0, 220);
 }
 
-function summarizeGroupRu(items: CollectedItemRecord[]): string {
-  const titles = items.map((item) => item.title).slice(0, 3);
-  return `Основано на ${titles.length} материал${titles.length === 1 ? "е" : "ах"}: ${titles.join("; ")}.`;
+function sourceBasedTitleRu(items: CollectedItemRecord[], fallback = "Профессиональный взгляд на UX/Product материал"): string {
+  const primary = items[0];
+  if (!primary) {
+    return fallback;
+  }
+
+  return `Профессиональный взгляд на материал: ${cleanTitle(primary.title)}`.slice(0, 220);
+}
+
+function describePostFromSources(items: CollectedItemRecord[]): string {
+  const primary = items[0];
+  if (!primary) {
+    return "A post preview grounded in the selected Product/UX source material.";
+  }
+
+  const summary = firstUsefulText(primary.summary, primary.normalized_content, primary.raw_content);
+  return summary
+    ? `A possible post about the design decisions behind "${cleanTitle(primary.title)}": ${summary}`
+    : `A possible post that turns "${cleanTitle(primary.title)}" into a practical Product/UX reflection.`;
+}
+
+function describePostFromSourcesRu(items: CollectedItemRecord[]): string {
+  const primary = items[0];
+  if (!primary) {
+    return "Короткое описание возможного поста на основе выбранного Product/UX-материала.";
+  }
+
+  const summary = firstUsefulText(primary.summary, primary.normalized_content, primary.raw_content);
+  return summary
+    ? `Возможный пост о продуктовых и UX-решениях в материале "${cleanTitle(primary.title)}": ${summary}`
+    : `Возможный пост, который превращает материал "${cleanTitle(primary.title)}" в практическое Product/UX-наблюдение.`;
+}
+
+function sourceBasedValue(items: CollectedItemRecord[], fallback = "This material can help a Product/UX audience connect interface decisions with product quality."): string {
+  const primary = items[0];
+  if (!primary) {
+    return fallback;
+  }
+
+  return `This is useful for Product/UX readers because it turns a concrete material about "${cleanTitle(primary.title)}" into a discussion about product judgment, user effort, and design quality.`;
+}
+
+function sourceBasedValueRu(items: CollectedItemRecord[], fallback = "Материал помогает Product/UX-аудитории связать интерфейсные решения с качеством продукта."): string {
+  const primary = items[0];
+  if (!primary) {
+    return fallback;
+  }
+
+  return `Это полезно Product/UX-аудитории, потому что материал "${cleanTitle(primary.title)}" можно превратить в разговор о продуктовых решениях, усилии пользователя и качестве дизайна.`;
+}
+
+function sourceBasedAngle(items: CollectedItemRecord[], fallback = "Use the source as a practitioner reflection on product design decisions."): string {
+  const primary = items[0];
+  if (!primary) {
+    return fallback;
+  }
+
+  return `Use "${cleanTitle(primary.title)}" as a practitioner reflection on what this material reveals about product design decisions, user friction, and team judgment.`;
+}
+
+function sourceBasedAngleRu(items: CollectedItemRecord[], fallback = "Разобрать материал как практическое наблюдение о продуктовых дизайн-решениях."): string {
+  const primary = items[0];
+  if (!primary) {
+    return fallback;
+  }
+
+  return `Разобрать "${cleanTitle(primary.title)}" как практическое наблюдение о продуктовых дизайн-решениях, пользовательском усилии и профессиональном суждении команды.`;
+}
+
+function firstUsefulText(...values: Array<string | null>): string | null {
+  const value = values
+    .map((item) => item?.trim())
+    .find((item): item is string => Boolean(item && item.length > 30));
+
+  return value ? value.slice(0, 360) : null;
+}
+
+function cleanTitle(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function usableAiTitle(value: string | undefined): string | undefined {
+  if (!value || !isSpecificAiAngle(value)) {
+    return undefined;
+  }
+
+  return usableAiField(value);
+}
+
+function usableAiField(value: string | undefined): string | undefined {
+  if (!value || value.trim().length < 24) {
+    return undefined;
+  }
+
+  const normalized = value.toLowerCase();
+  if (normalized.startsWith("based on ") || normalized.startsWith("основано на ")) {
+    return undefined;
+  }
+  if (normalized.includes("how ai is changing product design work without replacing product responsibility")) {
+    return undefined;
+  }
+  if (normalized.includes("why small form decisions can create outsized product friction")) {
+    return undefined;
+  }
+  if (normalized.includes("почему маленькие решения в формах создают большую продуктовую фрикцию")) {
+    return undefined;
+  }
+
+  return value;
 }
 
 function extractNovelty(item: CollectedItemRecord, ai: AiScoringResult | undefined): number | null {
@@ -295,6 +407,15 @@ function keywordWeight(keyword: string): number {
 function isSpecificAiAngle(angle: string): boolean {
   const normalized = angle.toLowerCase();
   if (normalized.includes("how ai is changing product design work without replacing product responsibility")) {
+    return false;
+  }
+  if (normalized.includes("why small form decisions can create outsized product friction")) {
+    return false;
+  }
+  if (normalized.includes("где ai помогает продуктовому дизайну")) {
+    return false;
+  }
+  if (normalized.includes("почему маленькие решения в формах создают большую продуктовую фрикцию")) {
     return false;
   }
 

@@ -62,25 +62,28 @@ export async function scoreWithOpenAi(env: Env, items: CollectedItemRecord[]): P
                   professionalValue: "0-100",
                   possibleLinkedInAngle: "string",
                   explanation: "string",
-                  postTitle: "specific future LinkedIn post title in English",
-                  postTitleRu: "specific future LinkedIn post title in Russian",
-                  shortDescription: "brief post preview in English",
-                  shortDescriptionRu: "brief post preview in Russian",
+                  postTitle: "specific future LinkedIn post title in English, grounded in this exact material",
+                  postTitleRu: "specific future LinkedIn post title in Russian, grounded in this exact material",
+                  shortDescription: "brief descriptive preview of the possible post in English, not a source list",
+                  shortDescriptionRu: "brief descriptive preview of the possible post in Russian, not a source list",
                   audienceValue: "value for Product/UX audience in English",
                   audienceValueRu: "value for Product/UX audience in Russian",
                   hrValue: "value for HR/hiring signal in English",
                   hrValueRu: "value for HR/hiring signal in Russian",
-                  suggestedAngleRu: "suggested angle in Russian"
+                  suggestedAngleRu: "suggested angle in Russian, grounded in this exact material"
                 }
               ]
             },
             items: items.map((item) => ({
               itemId: item.id,
               title: item.title,
-              summary: trimText(item.summary ?? item.normalized_content ?? ""),
+              canonicalUrl: item.canonical_url ?? item.url,
+              summary: trimText(item.summary ?? ""),
+              excerpt: trimText(item.normalized_content ?? item.raw_content ?? ""),
               sourceId: item.source_id,
               publishedAt: item.published_at,
-              ruleScore: item.rule_score
+              ruleScore: item.rule_score,
+              metadata: compactMetadata(item.metadata_json)
             }))
           })
         }
@@ -143,6 +146,30 @@ export function validateAiResults(value: unknown): AiScoringResult[] {
 
 function trimText(value: string): string {
   return value.slice(0, scoringConfig.maxItemTextLength);
+}
+
+function compactMetadata(metadataJson: string | null): Record<string, unknown> | null {
+  if (!metadataJson) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(metadataJson) as unknown;
+    if (!isRecord(parsed)) {
+      return null;
+    }
+
+    return {
+      ingestion_method: parsed.ingestion_method,
+      extraction_status: parsed.extraction_status,
+      site_name: parsed.site_name,
+      source_domain: parsed.source_domain,
+      quotes: Array.isArray(parsed.quotes) ? parsed.quotes.slice(0, 3) : undefined,
+      links: Array.isArray(parsed.links) ? parsed.links.slice(0, 5) : undefined
+    };
+  } catch {
+    return null;
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
