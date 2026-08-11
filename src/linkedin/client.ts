@@ -107,6 +107,18 @@ export class LinkedInClient {
 
 function requireOauthConfig(config: LinkedInConfig | LinkedInPublishConfig): LinkedInConfig {
   if ("clientId" in config && "clientSecret" in config && "redirectUri" in config) {
+    if (!config.clientId) {
+      throw new Error("Missing required environment variable: LINKEDIN_CLIENT_ID");
+    }
+
+    if (!config.clientSecret) {
+      throw new Error("Missing required environment variable: LINKEDIN_CLIENT_SECRET");
+    }
+
+    if (!config.redirectUri) {
+      throw new Error("Missing required environment variable: LINKEDIN_REDIRECT_URI");
+    }
+
     return config;
   }
 

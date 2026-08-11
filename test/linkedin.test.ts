@@ -50,3 +50,13 @@ test("LinkedIn publish config does not require OAuth redirect URI", () => {
 
   assert.equal(config.apiVersion, "202607");
 });
+
+test("LinkedIn config creation is lenient but OAuth URL still requires redirect URI", () => {
+  const config = getLinkedInConfig({
+    LINKEDIN_CLIENT_ID: "client-id",
+    LINKEDIN_CLIENT_SECRET: "secret"
+  } as never);
+
+  assert.equal(config.redirectUri, "");
+  assert.throws(() => new LinkedInClient(config).buildAuthorizationUrl("state123"), /LINKEDIN_REDIRECT_URI/);
+});
