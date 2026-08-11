@@ -307,6 +307,26 @@ export class CollectedItemsRepository {
     return result.results ?? [];
   }
 
+  async listRecentlySeen(limit: number, mode: CollectedItemMode, seenSince: string): Promise<CollectedItemRecord[]> {
+    const modeFilter = modeFilterSql(mode);
+    const result = await this.db
+      .prepare(
+        `SELECT * FROM collected_items
+         WHERE status != 'archived'
+           ${modeFilter}
+           AND (
+             last_seen_at >= ?
+             OR collected_at >= ?
+           )
+         ORDER BY COALESCE(last_seen_at, collected_at) DESC, collected_at DESC
+         LIMIT ?`
+      )
+      .bind(seenSince, seenSince, limit)
+      .all<CollectedItemRecord>();
+
+    return result.results ?? [];
+  }
+
   async getByIds(ids: string[]): Promise<CollectedItemRecord[]> {
     if (ids.length === 0) {
       return [];

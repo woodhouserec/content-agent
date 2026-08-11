@@ -22,7 +22,7 @@ export interface ScoringRunResult {
 export async function runScoring(env: Env, options: { mode?: CollectedItemMode } = {}): Promise<ScoringRunResult> {
   const repos = createRepositories(env.DB);
   const activeProfile = await repos.relevanceProfiles.getActive();
-  const candidates = await repos.collectedItems.listForScoring(100, options.mode);
+  const candidates = await loadScoringCandidates(env, options.mode);
   const scoredItems = [];
 
   for (const item of candidates) {
@@ -152,4 +152,20 @@ export async function runScoring(env: Env, options: { mode?: CollectedItemMode }
     topicsRestored,
     topicIds
   };
+}
+
+async function loadScoringCandidates(env: Env, mode?: CollectedItemMode) {
+  const repos = createRepositories(env.DB);
+  const candidates = await repos.collectedItems.listForScoring(100, mode);
+
+  if (candidates.length > 0 || mode !== "permanent") {
+    return candidates;
+  }
+
+  const latestRun = await repos.processingRuns.latest();
+  if (!latestRun || latestRun.status !== "completed" || latestRun.received_items_count <= 0) {
+    return candidates;
+  }
+
+  return repos.collectedItems.listRecentlySeen(100, mode, latestRun.started_at);
 }
