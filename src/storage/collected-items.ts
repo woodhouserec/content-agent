@@ -176,6 +176,23 @@ export class CollectedItemsRepository {
     return this.setStatus(id, "archived");
   }
 
+  async deleteManualUrlItem(id: string): Promise<boolean> {
+    const result = await this.db
+      .prepare(
+        `DELETE FROM collected_items
+         WHERE id = ?
+           AND (
+             source_id = 'src_manual_urls'
+             OR metadata_json LIKE '%"ingestion_method":"manual_url"%'
+             OR metadata_json LIKE '%"ingestionMethod":"manual_url"%'
+           )`
+      )
+      .bind(id)
+      .run();
+
+    return Boolean(result.meta?.changes);
+  }
+
   async restore(id: string): Promise<boolean> {
     return this.setStatus(id, "collected");
   }

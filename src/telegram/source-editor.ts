@@ -136,13 +136,17 @@ export async function handleSourceEditorMessage(env: Env, telegram: TelegramClie
   if (deleteState) {
     if (text.trim() === menuLabels.yes) {
       if (deleteState.target_type === "manual_item") {
-        await repos.collectedItems.archive(deleteState.target_id);
+        await repos.collectedItems.deleteManualUrlItem(deleteState.target_id);
       } else {
         await repos.sources.disable(deleteState.target_id);
       }
       await repos.conversationStates.clear(telegramUserId, "source_delete_confirm");
-      await telegram.sendMessage(chatId, deleteState.target_type === "manual_item" ? "Временный источник архивирован." : "Источник отключён.");
-      await moveSourceIndex(env, telegram, chatId, telegramUserId, 1);
+      await telegram.sendMessage(chatId, deleteState.target_type === "manual_item" ? "Временный источник удалён." : "Источник отключён.");
+      if (deleteState.target_type === "manual_item") {
+        await removeCurrentSourceFromEditor(env, telegram, chatId, telegramUserId, deleteState.target_id);
+      } else {
+        await moveSourceIndex(env, telegram, chatId, telegramUserId, 1);
+      }
       return true;
     }
 
@@ -185,7 +189,7 @@ export async function handleSourceEditorMessage(env: Env, telegram: TelegramClie
       targetId: sourceId,
       ttlMinutes: 10
     });
-    await telegram.sendMessage(chatId, payload.itemType === "temporary" ? "Архивировать этот временный источник?" : "Отключить этот источник?", {
+    await telegram.sendMessage(chatId, payload.itemType === "temporary" ? "Удалить этот временный источник навсегда?" : "Отключить этот источник?", {
       replyMarkup: { keyboard: [[{ text: menuLabels.yes }, { text: menuLabels.no }]], resize_keyboard: true }
     });
     return true;
@@ -300,6 +304,30 @@ async function updateEditorIndex(env: Env, telegramUserId: string, chatId: strin
   }
   const payload = parsePayload(state.payload_json);
   await saveEditorState(env, telegramUserId, chatId, { ...payload, index });
+}
+
+async function removeCurrentSourceFromEditor(env: Env, telegram: TelegramClient, chatId: string, telegramUserId: string, deletedId: string): Promise<void> {
+  const repos = createRepositories(env.DB);
+  const state = await repos.conversationStates.getActive(telegramUserId, "source_editor");
+  if (!state) {
+    return;
+  }
+
+  const payload = parsePayload(state.payload_json);
+  const sourceIds = payload.sourceIds.filter((id) => id !== deletedId);
+
+  if (sourceIds.length === 0) {
+    await repos.conversationStates.clear(telegramUserId, "source_editor");
+    await telegram.sendMessage(chatId, "Временных источников больше нет.", { replyMarkup: buildSectionMenu("sourceList") });
+    return;
+  }
+
+  await saveEditorState(env, telegramUserId, chatId, {
+    ...payload,
+    sourceIds,
+    index: Math.min(payload.index, sourceIds.length - 1)
+  });
+  await sendCurrentSource(env, telegram, chatId, telegramUserId);
 }
 
 async function saveEditorState(env: Env, telegramUserId: string, chatId: string, payload: SourceEditorPayload): Promise<void> {
