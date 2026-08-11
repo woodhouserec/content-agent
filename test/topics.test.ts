@@ -90,12 +90,14 @@ test("topic formation prefers AI post ideas over generic clusters", async () => 
     explanation: "The material gives a concrete UX angle on onboarding, trust, and interaction design.",
     postTitle: "What AI onboarding in design tools reveals about trust and control",
     postTitleRu: "Что AI-onboarding в дизайн-инструментах показывает про доверие и контроль",
-    shortDescription: "A post about why AI features need onboarding patterns that explain control, feedback, and recovery.",
-    shortDescriptionRu: "Пост о том, почему AI-фичам нужны onboarding-паттерны, объясняющие контроль, обратную связь и восстановление.",
+    shortDescription: "AI onboarding becomes a trust problem when users cannot see control, feedback, and recovery paths inside design tools.",
+    shortDescriptionRu: "AI-onboarding становится задачей доверия, когда пользователь не видит контроль, обратную связь и способы восстановления внутри дизайн-инструмента.",
     audienceValue: "Helps Product/UX designers evaluate AI features as interaction systems.",
     audienceValueRu: "Помогает Product/UX-дизайнерам оценивать AI-фичи как интерактивные системы.",
     hrValue: "Shows mature product thinking beyond UI execution.",
     hrValueRu: "Показывает зрелое продуктовое мышление, а не только UI-исполнение.",
+    recruiterValue: "Signals interaction-design judgment around trust, control, feedback, and recovery in AI-assisted tools.",
+    recruiterValueRu: "Показывает interaction-design judgment вокруг доверия, контроля, обратной связи и восстановления в AI-инструментах.",
     suggestedAngleRu: "Разобрать AI-onboarding как задачу доверия, контроля и восстановления после ошибок."
   }], { minFinalScoreForTopic: 70 });
 
@@ -106,7 +108,7 @@ test("topic formation prefers AI post ideas over generic clusters", async () => 
   assert.equal(topics[0].whyItMattersRu.includes("Ценность для рекрутера"), true);
 });
 
-test("topic formation replaces generic AI post title with source-grounded title", async () => {
+test("topic formation uses specific AI post title and description", async () => {
   const item = {
     id: "item_forms",
     source_id: "src_test",
@@ -124,10 +126,22 @@ test("topic formation replaces generic AI post title with source-grounded title"
     noveltyScore: 70,
     professionalValue: 88,
     possibleLinkedInAngle: "Why small form decisions can create outsized product friction",
-    explanation: "This material has a practical UX angle for form design."
+    explanation: "This material has a practical UX angle for form design.",
+    keyThesis: "Dropdowns can add unnecessary effort when a simpler input pattern better matches the user's decision.",
+    keyThesisRu: "Dropdown может добавлять лишнее усилие, если более простой паттерн лучше соответствует пользовательскому выбору.",
+    postTitle: "When a dropdown quietly adds product friction",
+    postTitleRu: "Когда dropdown незаметно добавляет продуктовую фрикцию",
+    shortDescription: "A form-control choice becomes a product decision when it changes effort, confidence, and completion.",
+    shortDescriptionRu: "Выбор контрола в форме становится продуктовым решением, когда меняет усилие, уверенность и завершение сценария.",
+    audienceValue: "Helps designers connect small form patterns with measurable user effort.",
+    audienceValueRu: "Помогает дизайнерам связывать маленькие паттерны формы с реальным пользовательским усилием.",
+    recruiterValue: "Signals attention to interaction detail and the ability to connect UI patterns with conversion friction.",
+    recruiterValueRu: "Показывает внимание к interaction-деталям и умение связывать UI-паттерны с фрикцией в конверсии.",
+    suggestedAngleRu: "Разобрать dropdown как маленькое решение, которое может менять усилие пользователя и завершение формы."
   }], { minFinalScoreForTopic: 70 });
 
-  assert.equal(topics[0].title.includes("Does Your Form Really Need a Dropdown List?"), true);
+  assert.equal(topics[0].title, "When a dropdown quietly adds product friction");
+  assert.equal(topics[0].summaryRu, "Выбор контрола в форме становится продуктовым решением, когда меняет усилие, уверенность и завершение сценария.");
   assert.equal(topics[0].summaryRu.startsWith("Основано на"), false);
   assert.equal(topics[0].summaryRu.includes("Возможный пост о"), false);
 });
@@ -150,13 +164,56 @@ test("topic formation avoids mechanical summary text in AI-backed cards", async 
     noveltyScore: 68,
     professionalValue: 86,
     possibleLinkedInAngle: "What health insurance UX benchmarks reveal about trust and risk perception",
-    explanation: "The material connects health insurance portal UX with trust, clarity, and customer confidence."
+    explanation: "The material connects health insurance portal UX with trust, clarity, and customer confidence.",
+    keyThesis: "Insurance self-service UX needs to reduce ambiguity because users make high-stakes decisions under uncertainty.",
+    keyThesisRu: "UX self-service в страховании должен снижать неоднозначность, потому что пользователь принимает важные решения в условиях неопределённости.",
+    postTitle: "Why insurance portals need UX that builds confidence, not just convenience",
+    postTitleRu: "Почему страховым порталам нужен UX доверия, а не только удобства",
+    shortDescription: "Health-insurance benchmarks reveal how clarity, account control, and risk perception shape confidence in self-service journeys.",
+    shortDescriptionRu: "Бенчмарки UX медицинского страхования показывают, как ясность, контроль аккаунта и восприятие риска формируют уверенность в self-service сценариях.",
+    audienceValue: "Gives Product/UX teams a concrete way to reason about trust in high-stakes portals.",
+    audienceValueRu: "Даёт Product/UX-командам конкретный способ рассуждать о доверии в high-stakes порталах.",
+    recruiterValue: "Signals mature judgment about trust, clarity, and task completion in sensitive product categories.",
+    recruiterValueRu: "Показывает зрелое суждение о доверии, ясности и завершении задач в чувствительных продуктовых категориях.",
+    suggestedAngleRu: "Разобрать страховой портал как продукт, где доверие и ясность важнее декоративного удобства."
   }], { minFinalScoreForTopic: 70 });
 
   assert.equal(topics.length, 1);
   assert.equal(topics[0].summaryRu.includes("Возможный пост о"), false);
   assert.equal(topics[0].summary.includes("A possible post about"), false);
   assert.match(topics[0].summaryRu, /довер|риск|ясност|health insurance|UX/i);
+});
+
+test("topic formation varies fallback summaries inside adjacent trust and healthcare materials", async () => {
+  const insuranceItem = {
+    id: "item_health_insurance",
+    source_id: "src_test",
+    title: "UX and NPS Benchmarks of Health Insurance Websites (2026)",
+    summary: "Tech has improved a lot over the last ten years. Modern portals promise complete, on-demand control over health insurance accounts.",
+    normalized_content: "Health insurance websites, NPS benchmarks, online account control, trust, clarity, and task completion.",
+    final_score: 48,
+    rule_score: 48,
+    scoring_breakdown_json: JSON.stringify({ factors: { freshness: 8 } })
+  } as CollectedItemRecord;
+  const diagnosisItem = {
+    id: "item_womens_health_ai",
+    source_id: "src_test",
+    title: "Building AI for Women's Health: How Hertility Combined Bayesian Diagnosis and Scan Automation",
+    summary: "A women's health product combines Bayesian diagnosis and scan automation to support clinical workflows.",
+    normalized_content: "AI healthcare product, diagnosis support, Bayesian reasoning, scan automation, clinical workflow, responsibility.",
+    final_score: 48,
+    rule_score: 48,
+    scoring_breakdown_json: JSON.stringify({ factors: { freshness: 8 } })
+  } as CollectedItemRecord;
+
+  const insuranceTopics = await formTopics([insuranceItem], [], { minFinalScoreForTopic: 70 });
+  const diagnosisTopics = await formTopics([diagnosisItem], [], { minFinalScoreForTopic: 70 });
+
+  assert.equal(insuranceTopics.length, 1);
+  assert.equal(diagnosisTopics.length, 1);
+  assert.notEqual(insuranceTopics[0].summaryRu, diagnosisTopics[0].summaryRu);
+  assert.match(insuranceTopics[0].summaryRu, /медицинского страхования|NPS|портал/i);
+  assert.match(diagnosisTopics[0].summaryRu, /AI|healthcare|диагност|автоматизац/i);
 });
 
 test("topic formation can use strong AI signal when final score is below hard threshold", async () => {
@@ -180,8 +237,8 @@ test("topic formation can use strong AI signal when final score is below hard th
     explanation: "The material can become a practical Product/Founder post about communication and product value.",
     postTitle: "How startup storytelling can make product value easier to understand",
     postTitleRu: "Как стартап-сторителлинг помогает понятнее показать продуктовую ценность",
-    shortDescription: "A post about using founder storytelling as a product communication tool, not just a marketing story.",
-    shortDescriptionRu: "Пост о том, как использовать историю фаундера как инструмент объяснения продуктовой ценности, а не просто маркетинговый рассказ.",
+    shortDescription: "Founder storytelling becomes useful when it clarifies product value instead of merely decorating the startup narrative.",
+    shortDescriptionRu: "История фаундера становится полезной, когда проясняет продуктовую ценность, а не просто украшает стартап-нарратив.",
     audienceValue: "Helps founders and product designers connect narrative with product clarity.",
     audienceValueRu: "Помогает фаундерам и продуктовым дизайнерам связать нарратив с ясностью продукта.",
     hrValue: "Shows strategic product communication thinking.",

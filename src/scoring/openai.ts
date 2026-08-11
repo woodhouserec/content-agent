@@ -10,19 +10,19 @@ export interface AiScoringResult {
   professionalValue: number;
   possibleLinkedInAngle: string;
   explanation: string;
-  keyThesis?: string;
-  keyThesisRu?: string;
-  postTitle?: string;
-  postTitleRu?: string;
-  shortDescription?: string;
-  shortDescriptionRu?: string;
-  audienceValue?: string;
-  audienceValueRu?: string;
+  keyThesis: string;
+  keyThesisRu: string;
+  postTitle: string;
+  postTitleRu: string;
+  shortDescription: string;
+  shortDescriptionRu: string;
+  audienceValue: string;
+  audienceValueRu: string;
   hrValue?: string;
   hrValueRu?: string;
-  recruiterValue?: string;
-  recruiterValueRu?: string;
-  suggestedAngleRu?: string;
+  recruiterValue: string;
+  recruiterValueRu: string;
+  suggestedAngleRu: string;
 }
 
 export interface AiScoringResponse {
@@ -74,8 +74,8 @@ export async function scoreWithOpenAi(env: Env, items: CollectedItemRecord[], op
                     keyThesisRu: "one specific semantic thesis extracted from this material in Russian",
                     postTitle: "specific future LinkedIn post title in English, grounded in this exact material",
                     postTitleRu: "specific future LinkedIn post title in Russian, grounded in this exact material",
-                    shortDescription: "brief descriptive preview of the possible post in English, not a source list",
-                    shortDescriptionRu: "brief descriptive preview of the possible post in Russian, not a source list",
+                    shortDescription: "required, specific one-sentence preview in English; unique to this exact material; do not start with 'A post about'",
+                    shortDescriptionRu: "required, specific one-sentence preview in Russian; unique to this exact material; do not start with 'Пост о'",
                     audienceValue: "value for Product/UX audience in English",
                     audienceValueRu: "value for Product/UX audience in Russian",
                     hrValue: "value for HR/hiring signal in English",
@@ -153,19 +153,19 @@ export function validateAiResults(value: unknown): AiScoringResult[] {
       professionalValue: requireScore(result.professionalValue, "professionalValue"),
       possibleLinkedInAngle: requireString(result.possibleLinkedInAngle, "possibleLinkedInAngle"),
       explanation: requireString(result.explanation, "explanation"),
-      keyThesis: optionalString(result.keyThesis),
-      keyThesisRu: optionalString(result.keyThesisRu),
-      postTitle: optionalString(result.postTitle),
-      postTitleRu: optionalString(result.postTitleRu),
-      shortDescription: optionalString(result.shortDescription),
-      shortDescriptionRu: optionalString(result.shortDescriptionRu),
-      audienceValue: optionalString(result.audienceValue),
-      audienceValueRu: optionalString(result.audienceValueRu),
+      keyThesis: requireQualityString(result.keyThesis, "keyThesis"),
+      keyThesisRu: requireQualityString(result.keyThesisRu, "keyThesisRu"),
+      postTitle: requireQualityString(result.postTitle, "postTitle"),
+      postTitleRu: requireQualityString(result.postTitleRu, "postTitleRu"),
+      shortDescription: requireQualityString(result.shortDescription, "shortDescription"),
+      shortDescriptionRu: requireQualityString(result.shortDescriptionRu, "shortDescriptionRu"),
+      audienceValue: requireQualityString(result.audienceValue, "audienceValue"),
+      audienceValueRu: requireQualityString(result.audienceValueRu, "audienceValueRu"),
       hrValue: optionalString(result.hrValue),
       hrValueRu: optionalString(result.hrValueRu),
-      recruiterValue: optionalString(result.recruiterValue),
-      recruiterValueRu: optionalString(result.recruiterValueRu),
-      suggestedAngleRu: optionalString(result.suggestedAngleRu)
+      recruiterValue: requireQualityString(result.recruiterValue, "recruiterValue"),
+      recruiterValueRu: requireQualityString(result.recruiterValueRu, "recruiterValueRu"),
+      suggestedAngleRu: requireQualityString(result.suggestedAngleRu, "suggestedAngleRu")
     };
   });
 }
@@ -210,8 +210,46 @@ function requireString(value: unknown, field: string): string {
   return value.trim().slice(0, 800);
 }
 
+function requireQualityString(value: unknown, field: string): string {
+  const text = requireString(value, field);
+
+  if (isGenericQualityText(text)) {
+    throw new Error(`Invalid AI scoring JSON: ${field} is too generic.`);
+  }
+
+  return text.slice(0, 900);
+}
+
 function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value.trim().slice(0, 900) : undefined;
+}
+
+function isGenericQualityText(value: string): boolean {
+  const normalized = value.toLowerCase().replace(/\s+/g, " ").trim();
+  const genericPatterns = [
+    "a possible post about",
+    "a possible post that",
+    "a post about how",
+    "a post about why",
+    "a post preview grounded in",
+    "based on the material",
+    "this material can become",
+    "turns the material into",
+    "product decisions, user effort, and design quality",
+    "clear professional position",
+    "shows professional thinking",
+    "возможный пост о",
+    "возможный пост, который",
+    "пост о том, как",
+    "пост о том, почему",
+    "на базе материала",
+    "превращается не в пересказ ссылки",
+    "ясную профессиональную позицию",
+    "такой пост показывает",
+    "показывает профессиональное мышление"
+  ];
+
+  return genericPatterns.some((pattern) => normalized.includes(pattern));
 }
 
 function requireScore(value: unknown, field: string): number {

@@ -57,7 +57,18 @@ test("AI JSON validation accepts structured scoring response", () => {
         noveltyScore: 74,
         professionalValue: 88,
         possibleLinkedInAngle: "Why UX research still matters in AI-assisted product design",
-        explanation: "Strong practitioner angle."
+        explanation: "Strong practitioner angle.",
+        keyThesis: "AI-assisted design still needs research judgment to decide what evidence should change.",
+        keyThesisRu: "AI-assisted design всё равно требует исследовательского суждения о том, какие evidence должны менять решение.",
+        postTitle: "Why AI-assisted design still needs research judgment",
+        postTitleRu: "Почему AI-assisted design всё ещё требует research judgment",
+        shortDescription: "Research judgment becomes the safeguard that keeps AI-assisted design tied to evidence, prioritization, and product risk.",
+        shortDescriptionRu: "Research judgment становится защитным слоем, который связывает AI-assisted design с evidence, приоритизацией и продуктовым риском.",
+        audienceValue: "Helps Product/UX teams use AI without weakening evidence-based decisions.",
+        audienceValueRu: "Помогает Product/UX-командам использовать AI без ослабления evidence-based решений.",
+        recruiterValue: "Signals research maturity and the ability to connect AI workflows with product decision quality.",
+        recruiterValueRu: "Показывает исследовательскую зрелость и умение связывать AI-workflow с качеством продуктовых решений.",
+        suggestedAngleRu: "Разобрать AI-assisted design через research judgment, evidence и качество продуктовых решений."
       }
     ]
   });
@@ -67,6 +78,32 @@ test("AI JSON validation accepts structured scoring response", () => {
 
 test("AI JSON validation rejects malformed response", () => {
   assert.throws(() => validateAiResults({ nope: [] }), /results array/);
+});
+
+test("AI JSON validation rejects generic post-preview text", () => {
+  assert.throws(() => validateAiResults({
+    results: [
+      {
+        itemId: "item_1",
+        aiRelevanceScore: 82,
+        noveltyScore: 74,
+        professionalValue: 88,
+        possibleLinkedInAngle: "Why UX research still matters in AI-assisted product design",
+        explanation: "Strong practitioner angle.",
+        keyThesis: "AI-assisted design still needs research judgment to decide what evidence should change.",
+        keyThesisRu: "AI-assisted design всё равно требует исследовательского суждения о том, какие evidence должны менять решение.",
+        postTitle: "Why AI-assisted design still needs research judgment",
+        postTitleRu: "Почему AI-assisted design всё ещё требует research judgment",
+        shortDescription: "A post about why AI-assisted design still matters for product teams.",
+        shortDescriptionRu: "Пост о том, почему AI-assisted design важен для продуктовых команд.",
+        audienceValue: "Helps Product/UX teams use AI without weakening evidence-based decisions.",
+        audienceValueRu: "Помогает Product/UX-командам использовать AI без ослабления evidence-based решений.",
+        recruiterValue: "Signals research maturity and the ability to connect AI workflows with product decision quality.",
+        recruiterValueRu: "Показывает исследовательскую зрелость и умение связывать AI-workflow с качеством продуктовых решений.",
+        suggestedAngleRu: "Разобрать AI-assisted design через research judgment, evidence и качество продуктовых решений."
+      }
+    ]
+  }), /shortDescription is too generic/);
 });
 
 test("OpenAI scoring falls back when API key is absent", async () => {

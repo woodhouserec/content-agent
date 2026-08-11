@@ -239,16 +239,16 @@ async function formAiPostIdeas(
 
     const title = usableAiTitle(ai.postTitle) ?? usableAiTitle(ai.possibleLinkedInAngle) ?? sourceBasedTitle([item]);
     const titleRu = usableAiTitle(ai.postTitleRu) ?? sourceBasedTitleRu([item]);
-    const suggestedAngle = usableAiMaterialField(ai.possibleLinkedInAngle, item) ?? sourceBasedAngle([item]);
-    const suggestedAngleRu = usableAiMaterialField(ai.suggestedAngleRu, item) ?? sourceBasedAngleRu([item]);
-    const summary = aiSummaryField(ai.shortDescription) ?? aiSummaryField(ai.keyThesis) ?? aiSummaryField(ai.explanation) ?? sourceBasedAiSummary([item]);
-    const summaryRu = aiSummaryField(ai.shortDescriptionRu) ?? aiSummaryField(ai.keyThesisRu) ?? sourceBasedAiSummaryRu([item]);
-    const audienceValue = usableAiMaterialField(ai.audienceValue, item) ?? usableAiMaterialField(ai.explanation, item) ?? sourceBasedValue([item]);
+    const suggestedAngle = usableAiField(ai.possibleLinkedInAngle) ?? sourceBasedAngle([item]);
+    const suggestedAngleRu = ai.suggestedAngleRu;
+    const summary = ai.shortDescription;
+    const summaryRu = ai.shortDescriptionRu;
+    const audienceValue = ai.audienceValue;
     const hrValue = usableAiMaterialField(ai.hrValue, item) ?? "Shows how the author thinks about product quality, design judgment, and business context through a concrete source.";
-    const audienceValueRu = usableAiMaterialField(ai.audienceValueRu, item) ?? sourceBasedValueRu([item]);
+    const audienceValueRu = ai.audienceValueRu;
     const hrValueRu = usableAiMaterialField(ai.hrValueRu, item) ?? "Показывает профессиональное мышление автора через конкретный материал: продуктовый взгляд, дизайн-суждение и связь с бизнес-контекстом.";
-    const recruiterValue = usableAiMaterialField(ai.recruiterValue, item) ?? usableAiMaterialField(ai.hrValue, item) ?? sourceBasedRecruiterValue([item], ai);
-    const recruiterValueRu = usableAiMaterialField(ai.recruiterValueRu, item) ?? usableAiMaterialField(ai.hrValueRu, item) ?? sourceBasedRecruiterValueRu([item], ai);
+    const recruiterValue = ai.recruiterValue;
+    const recruiterValueRu = ai.recruiterValueRu;
     const sourceItemIds = [item.id];
     const combinedScore = Math.round(((item.final_score ?? item.rule_score ?? 70) * 0.35) + (ai.aiRelevanceScore * 0.35) + (ai.professionalValue * 0.3));
     const noveltyScore = ai.noveltyScore;
@@ -314,7 +314,7 @@ function sourceBasedAiSummary(items: CollectedItemRecord[]): string {
   }
 
   const signal = inferHiringSignal(primary);
-  return signal.summaryEn(cleanTitle(primary.title));
+  return withSourceDigest(signal.summaryEn(cleanTitle(primary.title)), primary);
 }
 
 function sourceBasedAiSummaryRu(items: CollectedItemRecord[]): string {
@@ -324,7 +324,7 @@ function sourceBasedAiSummaryRu(items: CollectedItemRecord[]): string {
   }
 
   const signal = inferHiringSignal(primary);
-  return signal.summaryRu(cleanTitle(primary.title));
+  return withSourceDigest(signal.summaryRu(cleanTitle(primary.title)), primary);
 }
 
 function sourceBasedValue(items: CollectedItemRecord[], fallback = "This material can help a Product/UX audience connect interface decisions with product quality."): string {
@@ -419,6 +419,42 @@ function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
     text.includes("intent")
   );
 
+  if (text.includes("health insurance") || text.includes("insurance website") || text.includes("insurance portal") || (text.includes("nps") && text.includes("health"))) {
+    return {
+      enWithThesis: (title) => `it shows product judgment in high-stakes self-service: how clarity, confidence, and task completion shape healthcare insurance experiences in "${title}".`,
+      enFallback: (title) => `For hiring, "${title}" can show that the author can reason about trust, comprehension, and self-service UX in a high-stakes insurance context.`,
+      ruWithThesis: (title) => `он показывает продуктовое суждение в high-stakes self-service: как ясность, уверенность и завершение задач формируют опыт медицинского страхования в "${title}".`,
+      ruFallback: (title) => `для hiring-аудитории "${title}" показывает умение рассуждать о доверии, понимании и self-service UX в чувствительном контексте медицинского страхования.`,
+      angleEn: (title) => `Use "${title}" to discuss why health insurance portals need UX that builds confidence, reduces ambiguity, and helps people complete high-stakes tasks.`,
+      angleRu: (title) => `Разобрать "${title}" через то, почему порталам медицинского страхования нужен UX, который создаёт уверенность, снижает неоднозначность и помогает завершать важные задачи.`,
+      summaryEn: (title) => `A post about health-insurance UX: how "${title}" turns convenience, NPS, and online account control into questions of trust and task completion.`,
+      summaryRu: (title) => `Пост о UX медицинского страхования: как "${title}" переводит удобство, NPS и управление аккаунтом в вопросы доверия и завершения пользовательских задач.`
+    };
+  }
+  if (text.includes("women's health") || text.includes("diagnosis") || text.includes("bayesian") || text.includes("scan automation") || text.includes("clinical") || text.includes("fertility")) {
+    return {
+      enWithThesis: (title) => `it shows AI-product judgment in a sensitive healthcare context: how automation, diagnosis support, and human accountability need to work together in "${title}".`,
+      enFallback: (title) => `A recruiter would see that the author can evaluate AI beyond novelty, using "${title}" to discuss reliability, responsibility, and workflow fit in healthcare.`,
+      ruWithThesis: (title) => `он показывает AI-product judgment в чувствительном healthcare-контексте: как автоматизация, диагностическая поддержка и человеческая ответственность должны работать вместе в "${title}".`,
+      ruFallback: (title) => `рекрутер увидит, что автор оценивает AI не как новинку, а через надёжность, ответственность и встраивание в healthcare workflow на примере "${title}".`,
+      angleEn: (title) => `Use "${title}" to separate useful AI automation from the product responsibility required in clinical or diagnostic workflows.`,
+      angleRu: (title) => `Разобрать "${title}" через границу между полезной AI-автоматизацией и продуктовой ответственностью в клинических или диагностических сценариях.`,
+      summaryEn: (title) => `A post about AI in healthcare products: how "${title}" raises questions of diagnostic support, automation boundaries, and professional accountability.`,
+      summaryRu: (title) => `Пост об AI в healthcare-продуктах: как "${title}" поднимает вопросы диагностической поддержки, границ автоматизации и профессиональной ответственности.`
+    };
+  }
+  if (text.includes("ai") && (text.includes("interview") || text.includes("moderate") || text.includes("moderation") || text.includes("ux of ai") || text.includes("ai-generated"))) {
+    return {
+      enWithThesis: (title) => `it shows AI interaction judgment: how control, trust, and human oversight shape whether AI improves or weakens UX work in "${title}".`,
+      enFallback: (title) => `For hiring, "${title}" can show that the author evaluates AI through workflow quality, user trust, and professional responsibility instead of model hype.`,
+      ruWithThesis: (title) => `он показывает зрелое AI interaction-суждение: как контроль, доверие и human oversight определяют, усиливает ли AI UX-работу в "${title}".`,
+      ruFallback: (title) => `для hiring-аудитории "${title}" показывает, что автор оценивает AI через качество workflow, доверие пользователя и профессиональную ответственность, а не через hype.`,
+      angleEn: (title) => `Use "${title}" to discuss AI as an interaction and workflow problem, not only as model capability.`,
+      angleRu: (title) => `Разобрать "${title}" как interaction и workflow-задачу, а не только как вопрос возможностей модели.`,
+      summaryEn: (title) => `A post about AI UX: how "${title}" connects automation with trust, control, and the designer's responsibility for workflow quality.`,
+      summaryRu: (title) => `Пост об AI UX: как "${title}" связывает автоматизацию с доверием, контролем и ответственностью дизайнера за качество workflow.`
+    };
+  }
   if (text.includes("betting") || text.includes("finance") || text.includes("trust") || text.includes("regulated")) {
     return {
       enWithThesis: (title) => `it signals judgment about trust-heavy products: how identity, clarity, and interaction choices shape confidence in a sensitive category like "${title}".`,
@@ -554,6 +590,27 @@ function firstUsefulText(...values: Array<string | null>): string | null {
   return value ? value.slice(0, 360) : null;
 }
 
+function withSourceDigest(base: string, item: CollectedItemRecord): string {
+  const digest = sourceDigest(item);
+  return digest ? `${base} ${digest}` : base;
+}
+
+function sourceDigest(item: CollectedItemRecord): string | null {
+  const text = firstUsefulText(item.summary, item.normalized_content, item.raw_content);
+  if (!text) {
+    return null;
+  }
+
+  const cleaned = text
+    .replace(/&[#a-z0-9]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const firstSentence = cleaned.match(/^[^.!?]+[.!?]?/)?.[0] ?? cleaned;
+  const digest = firstSentence.length > 220 ? `${firstSentence.slice(0, 217).trim()}...` : firstSentence;
+
+  return digest.length > 35 ? `Контекст материала: ${digest}` : null;
+}
+
 function cleanTitle(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -599,11 +656,6 @@ function usableAiMaterialField(value: string | undefined, item: CollectedItemRec
   const hasSpecificTerm = terms.some((term) => lower.includes(term));
 
   return hasSpecificTerm ? candidate : undefined;
-}
-
-function aiSummaryField(value: string | undefined): string | undefined {
-  const candidate = usableAiField(value);
-  return candidate && !isGenericMaterialField(candidate) ? candidate : undefined;
 }
 
 function isGenericMaterialField(value: string): boolean {
