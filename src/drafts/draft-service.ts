@@ -131,8 +131,9 @@ export class DraftService {
     const monthPrefix = nowIso().slice(0, 7);
     const summary = await this.repos.aiGenerationLogs.monthlySummary(monthPrefix);
     const counts = await this.repos.drafts.countCreatedSince(`${monthPrefix}-01T00:00:00.000Z`);
+    const recentFailures = await this.repos.aiGenerationLogs.recentFailures(3);
 
-    return [
+    const lines = [
       "Usage за текущий месяц:",
       "",
       `AI-вызовов: ${summary.calls}`,
@@ -142,7 +143,17 @@ export class DraftService {
       `Output tokens: ${summary.outputTokens}`,
       `Total tokens: ${summary.totalTokens}`,
       `Ошибок: ${summary.errors}`
-    ].join("\n");
+    ];
+
+    if (recentFailures.length > 0) {
+      lines.push(
+        "",
+        "Последние ошибки:",
+        ...recentFailures.map((failure, index) => `${index + 1}. ${failure.request_type}: ${failure.error_type ?? "unknown"} (${failure.created_at})`)
+      );
+    }
+
+    return lines.join("\n");
   }
 
   private async getOrCreateBrief(topic: TopicRecord, sources: GroundedSource[], preferenceMemory: string): Promise<DraftBriefRecord> {
@@ -211,7 +222,7 @@ export class DraftService {
       }
     });
     const draft = validateDraftGenerationResponse(generated.data);
-    const factual = await this.reviewDraft(topic, brief, sources, draft.content);
+    const factual = await this.reviewDraftSafely(topic, brief, sources, draft.content);
 
     const record = await this.repos.drafts.create({
       topicId: topic.id,
@@ -262,7 +273,7 @@ export class DraftService {
       }
     });
     const draft = validateDraftGenerationResponse(generated.data);
-    const factual = await this.reviewDraft(topic, brief, sources, draft.content);
+    const factual = await this.reviewDraftSafely(topic, brief, sources, draft.content);
 
     const record = await this.repos.drafts.create({
       topicId: topic.id,
@@ -314,6 +325,19 @@ export class DraftService {
     });
 
     return validateFactualReviewResponse(review.data);
+  }
+
+  private async reviewDraftSafely(topic: TopicRecord, brief: DraftBriefRecord, sources: GroundedSource[], content: string): Promise<FactualReviewData> {
+    try {
+      return await this.reviewDraft(topic, brief, sources, content);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        hasSeriousConflict: true,
+        flags: [`Factual review did not complete: ${message.slice(0, 160)}`],
+        summary: "Черновик создан, но автоматическая проверка фактов не завершилась. Перед публикацией вручную проверьте, что утверждения опираются на источники."
+      };
+    }
   }
 
   private async preferenceMemoryForPrompt(): Promise<string> {

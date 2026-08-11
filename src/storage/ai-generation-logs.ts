@@ -23,6 +23,12 @@ export interface AiUsageSummary {
   errors: number;
 }
 
+export interface AiGenerationFailure {
+  request_type: string;
+  error_type: string | null;
+  created_at: string;
+}
+
 export class AiGenerationLogsRepository {
   constructor(private readonly db: D1Database) {}
 
@@ -80,6 +86,21 @@ export class AiGenerationLogsRepository {
       totalTokens,
       errors: rows.filter((row) => row.status === "failed").length
     };
+  }
+
+  async recentFailures(limit: number): Promise<AiGenerationFailure[]> {
+    const result = await this.db
+      .prepare(
+        `SELECT request_type, error_type, created_at
+         FROM ai_generation_logs
+         WHERE status = 'failed'
+         ORDER BY created_at DESC
+         LIMIT ?`
+      )
+      .bind(limit)
+      .all<AiGenerationFailure>();
+
+    return result.results ?? [];
   }
 }
 
