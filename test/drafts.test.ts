@@ -65,6 +65,36 @@ test("draft brief accepts tone and desired length as arrays", () => {
   assert.equal(brief.tone, "thoughtful, confident, professional");
 });
 
+test("draft brief accepts factual constraints as string or empty", () => {
+  const withString = validateDraftBriefResponse({
+    central_thesis: "Designers should use AI as support, not abdication.",
+    author_position: "Practitioner insight",
+    supporting_points: ["AI can speed up exploration"],
+    source_facts: ["The source discusses AI design context"],
+    practical_takeaway: "Use AI to improve decision quality.",
+    target_audience: "Product Designers",
+    desired_length: "default",
+    tone: "thoughtful and professional",
+    factual_constraints: "Do not invent adoption numbers."
+  });
+
+  assert.deepEqual(withString.factualConstraints, ["Do not invent adoption numbers."]);
+
+  const withEmpty = validateDraftBriefResponse({
+    central_thesis: "Designers should use AI as support, not abdication.",
+    author_position: "Practitioner insight",
+    supporting_points: ["AI can speed up exploration"],
+    source_facts: ["The source discusses AI design context"],
+    practical_takeaway: "Use AI to improve decision quality.",
+    target_audience: "Product Designers",
+    desired_length: "default",
+    tone: "thoughtful and professional",
+    factual_constraints: null
+  });
+
+  assert.deepEqual(withEmpty.factualConstraints, []);
+});
+
 test("draft brief rejects empty tone array", () => {
   assert.throws(() => validateDraftBriefResponse({
     central_thesis: "Designers should use AI as support, not abdication.",

@@ -12,7 +12,7 @@ export function validateDraftBriefResponse(value: unknown): DraftBriefData {
     targetAudience: expectTextOrArray(record.target_audience, "target_audience"),
     desiredLength: expectTextOrArray(record.desired_length, "desired_length"),
     tone: expectTextOrArray(record.tone, "tone"),
-    factualConstraints: expectTextArray(record.factual_constraints, "factual_constraints")
+    factualConstraints: expectOptionalTextArray(record.factual_constraints, "factual_constraints")
   };
 }
 
@@ -80,6 +80,18 @@ function expectTextArray(value: unknown, field: string, allowEmpty = false): str
   }
 
   return items;
+}
+
+function expectOptionalTextArray(value: unknown, field: string): string[] {
+  if (value === undefined || value === null || value === "") {
+    return [];
+  }
+
+  if (typeof value === "string") {
+    return value.trim().length > 0 ? [value.trim()] : [];
+  }
+
+  return expectTextArray(value, field, true);
 }
 
 function expectTextOrArray(value: unknown, field: string): string {
