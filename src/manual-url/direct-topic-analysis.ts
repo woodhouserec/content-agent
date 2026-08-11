@@ -100,7 +100,7 @@ export function validateDirectTopicAnalysis(value: unknown): DirectTopicAnalysis
     suggestedAngleRu: text(record.suggested_angle_ru, "suggested_angle_ru", 20, 900),
     summary: text(record.summary, "summary", 20, 700),
     summaryRu: text(record.summary_ru, "summary_ru", 20, 700),
-    targetAudience: text(record.target_audience, "target_audience", 3, 300),
+    targetAudience: textOrList(record.target_audience, "target_audience", 3, 300),
     noveltyScore: score(record.novelty_score, "novelty_score"),
     relevanceScore: score(record.relevance_score, "relevance_score"),
     reasoningSummary: text(record.reasoning_summary, "reasoning_summary", 10, 700),
@@ -131,6 +131,18 @@ function text(value: unknown, field: string, minLength: number, maxLength: numbe
   }
 
   return value.trim().slice(0, maxLength);
+}
+
+function textOrList(value: unknown, field: string, minLength: number, maxLength: number): string {
+  if (Array.isArray(value)) {
+    const joined = value
+      .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+      .map((item) => item.trim())
+      .join(", ");
+    return text(joined, field, minLength, maxLength);
+  }
+
+  return text(value, field, minLength, maxLength);
 }
 
 function score(value: unknown, field: string): number {

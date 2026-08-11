@@ -77,6 +77,25 @@ test("direct manual URL topic analysis accepts specific AI response", () => {
   assert.ok(analysis.title.includes("ecommerce UX"));
 });
 
+test("direct manual URL topic analysis accepts target audience as array", () => {
+  const analysis = validateDirectTopicAnalysis({
+    title: "Why ecommerce UX benchmarks should become design decisions, not slide decoration",
+    title_ru: "Почему UX-бенчмарки ecommerce должны становиться решениями, а не украшением презентаций",
+    why_it_matters: "The source gives product teams concrete ecommerce behavior signals that can shape prioritization and reduce checkout friction.",
+    why_it_matters_ru: "Материал даёт продуктовым командам конкретные сигналы поведения покупателей, которые можно использовать для приоритизации и снижения фрикции.",
+    suggested_angle: "Use the Baymard findings to argue that UX research creates value when teams translate patterns into product decisions.",
+    suggested_angle_ru: "Использовать выводы Baymard, чтобы показать: UX research ценен тогда, когда паттерны превращаются в продуктовые решения.",
+    summary: "A source-specific direction about ecommerce quantitative UX insights and their role in product prioritization.",
+    summary_ru: "Направление по конкретному материалу о количественных ecommerce UX-инсайтах и их роли в продуктовой приоритизации.",
+    target_audience: ["Product Designers", "UX Researchers", "Product Managers"],
+    novelty_score: 78,
+    relevance_score: 91,
+    reasoning_summary: "The article is relevant because it offers concrete UX behavior data and a practitioner angle on decision quality."
+  });
+
+  assert.equal(analysis.targetAudience, "Product Designers, UX Researchers, Product Managers");
+});
+
 test("direct manual URL topic analysis does not create fallback without OpenAI", async () => {
   await assert.rejects(
     analyzeManualUrlForDirectTopic({} as Env, {
