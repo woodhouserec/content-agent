@@ -27,3 +27,29 @@ export function buildImagePrompt(input: {
     input.preferenceMemory ? `Preference memory:\n${input.preferenceMemory}` : null
   ].filter(Boolean).join("\n");
 }
+
+export function buildCustomImagePrompt(input: {
+  concept: string;
+  metaphor: string | null;
+  composition: string | null;
+  style: string | null;
+  colorDirection: string | null;
+  aspectRatio: string;
+  userInstruction: string;
+  preferenceMemory?: string;
+}): string {
+  return [
+    "Create a LinkedIn post visual based on the existing visual brief and the user's revision instruction.",
+    "The user's visual revision instruction has priority over the default style direction, including style choices such as photorealism, illustration, collage, minimalism, or other aesthetics.",
+    "Do not include brand logos, copyrighted characters, UI screenshots, or excessive text inside the image unless explicitly requested and safe.",
+    `User visual revision instruction: ${input.userInstruction.slice(0, 900)}`,
+    "",
+    `Original concept: ${input.concept}`,
+    input.metaphor ? `Original metaphor: ${input.metaphor}` : null,
+    input.composition ? `Original composition: ${input.composition}` : null,
+    input.style ? `Original style: ${input.style}` : null,
+    input.colorDirection ? `Original color direction: ${input.colorDirection}` : null,
+    `Aspect ratio: ${input.aspectRatio}`,
+    input.preferenceMemory ? `Preference memory:\n${input.preferenceMemory}` : null
+  ].filter(Boolean).join("\n");
+}

@@ -5,6 +5,7 @@ import type { VisualAssetRecord, VisualBriefRecord } from "../storage/visuals";
 import { R2AssetStorage } from "../visual/r2-storage";
 import { VisualService, type VisualGenerationResult } from "../visual/visual-service";
 import type { TelegramClient } from "./client";
+import type { TelegramMessage } from "./types";
 import { escapeHtml } from "./html";
 
 export function buildVisualButton(draftId: string) {
@@ -66,6 +67,72 @@ export async function runCustomVisualRevision(env: Env, telegram: TelegramClient
   const draftId = await getVisualReviewDraftId(env, telegramUserId) ?? result.draft.id;
   await setVisualReviewDraft(env, telegramUserId, chatId, draftId);
   await sendGeneratedVisualReview(env, telegram, chatId, result, draftId);
+}
+
+export async function requestVisualUpload(env: Env, telegramUserId: string, chatId: string, draftId: string): Promise<string> {
+  await createRepositories(env.DB).conversationStates.set({
+    telegramUserId,
+    telegramChatId: chatId,
+    stateType: "awaiting_visual_upload",
+    targetType: "draft",
+    targetId: draftId,
+    ttlMinutes: 30
+  });
+
+  return "Отправьте изображение одним сообщением: как фото или как файл PNG/JPG/WebP. Я добавлю его в общий список изображений для этого поста.";
+}
+
+export async function handleAwaitingVisualUpload(env: Env, telegram: TelegramClient, chatId: string, telegramUserId: string, message: TelegramMessage): Promise<boolean> {
+  const repos = createRepositories(env.DB);
+  const state = await repos.conversationStates.getActive(telegramUserId, "awaiting_visual_upload");
+  if (!state) {
+    return false;
+  }
+
+  if (message.text) {
+    if (message.text.trim().toLowerCase() === "отмена") {
+      await repos.conversationStates.clear(telegramUserId, "awaiting_visual_upload");
+      await telegram.sendMessage(chatId, "Загрузка изображения отменена.");
+      return true;
+    }
+
+    await telegram.sendMessage(chatId, "Я жду изображение, а не текст. Отправьте фото или файл PNG/JPG/WebP. Для отмены напишите: Отмена");
+    return true;
+  }
+
+  const upload = selectTelegramImage(message);
+  if (!upload) {
+    await telegram.sendMessage(chatId, "Не вижу изображения. Отправьте фото или файл PNG/JPG/WebP. Для отмены напишите: Отмена");
+    return true;
+  }
+
+  if (upload.fileSize && upload.fileSize > 10 * 1024 * 1024) {
+    await telegram.sendMessage(chatId, "Файл слишком большой. Пожалуйста, отправьте изображение до 10 MB.");
+    return true;
+  }
+
+  if (!upload.mimeType.startsWith("image/")) {
+    await telegram.sendMessage(chatId, "Поддерживаются только изображения PNG, JPG или WebP.");
+    return true;
+  }
+
+  await repos.conversationStates.clear(telegramUserId, "awaiting_visual_upload");
+  await telegram.sendMessage(chatId, "Изображение получено. Сохраняю его в библиотеку поста.");
+
+  const downloaded = await telegram.downloadFile(upload.fileId);
+  const mimeType = normalizeImageMimeType(upload.mimeType, downloaded.mimeType);
+  const result = await new VisualService(env).addUploadedAssetForDraft({
+    draftId: state.target_id,
+    bytes: downloaded.bytes,
+    mimeType,
+    width: upload.width,
+    height: upload.height,
+    fileName: upload.fileName,
+    uploadedBy: telegramUserId
+  });
+  await setVisualReviewDraft(env, telegramUserId, chatId, state.target_id);
+  await sendGeneratedVisualReview(env, telegram, chatId, result, state.target_id);
+  return true;
 }
 
 export async function resetVisualLimitForDraft(env: Env, draftId: string): Promise<string> {
@@ -233,4 +300,46 @@ async function requireVisualBrief(env: Env, visualBriefId: string): Promise<Visu
     throw new Error("Visual brief not found");
   }
   return brief;
+}
+
+function selectTelegramImage(message: TelegramMessage): {
+  fileId: string;
+  mimeType: string;
+  width: number;
+  height: number;
+  fileName?: string | null;
+  fileSize?: number;
+} | null {
+  if (message.photo && message.photo.length > 0) {
+    const photo = [...message.photo].sort((a, b) => (b.width * b.height) - (a.width * a.height))[0];
+    return {
+      fileId: photo.file_id,
+      mimeType: "image/jpeg",
+      width: photo.width,
+      height: photo.height,
+      fileSize: photo.file_size
+    };
+  }
+
+  const document = message.document;
+  if (document?.mime_type && ["image/png", "image/jpeg", "image/webp"].includes(document.mime_type)) {
+    return {
+      fileId: document.file_id,
+      mimeType: document.mime_type,
+      width: 0,
+      height: 0,
+      fileName: document.file_name,
+      fileSize: document.file_size
+    };
+  }
+
+  return null;
+}
+
+function normalizeImageMimeType(expected: string, actual: string | null): string {
+  if (actual && ["image/png", "image/jpeg", "image/webp"].includes(actual)) {
+    return actual;
+  }
+
+  return expected;
 }

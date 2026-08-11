@@ -40,7 +40,9 @@ import { publishDraftToLinkedIn } from "../linkedin/service";
 import {
   approveVisualAsset,
   consumeCustomVisualInstruction,
+  handleAwaitingVisualUpload,
   rejectVisualAsset,
+  requestVisualUpload,
   requestCustomVisualRevision,
   resetVisualLimitForDraft,
   runCustomVisualRevision,
@@ -129,6 +131,10 @@ async function processTelegramUpdate(
 
   try {
     if (message.text && await handleSourceEditorMessage(env, telegram, chatId, telegramUserId, message.text)) {
+      return;
+    }
+
+    if (await handleAwaitingVisualUpload(env, telegram, chatId, telegramUserId, message)) {
       return;
     }
 
@@ -469,6 +475,11 @@ async function handleDraftCallback(
 
     if (action === "visual_select") {
       await sendVisualLibraryForDraft(env, telegram, chatId, String(callback.from.id), targetId);
+      return true;
+    }
+
+    if (action === "visual_upload") {
+      await telegram.sendMessage(chatId, await requestVisualUpload(env, String(callback.from.id), chatId, targetId));
       return true;
     }
 

@@ -144,6 +144,7 @@ export async function buildApprovedDraftKeyboard(env: Env, draftId: string, tele
         { text: "Создать иллюстрацию", callback_data: `draft:visual:${draftId}` },
         { text: "Выбрать изображение", callback_data: `draft:visual_select:${draftId}` }
       ],
+      [{ text: "Добавить своё изображение", callback_data: `draft:visual_upload:${draftId}` }],
       [{ text: "Показать источники", callback_data: `draft:sources:${draftId}` }]
     ]
   };

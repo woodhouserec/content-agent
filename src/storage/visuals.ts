@@ -213,6 +213,22 @@ export class VisualsRepository {
     return row?.count ?? 0;
   }
 
+  async countGeneratedActiveAssetsForTopic(topicId: string): Promise<number> {
+    const row = await this.db
+      .prepare(
+        `SELECT COUNT(*) AS count
+         FROM visual_assets a
+         INNER JOIN visual_briefs b ON b.id = a.visual_brief_id
+         WHERE b.topic_id = ?
+           AND a.status != 'archived'
+           AND COALESCE(a.generation_provider, '') != 'user_upload'`
+      )
+      .bind(topicId)
+      .first<{ count: number }>();
+
+    return row?.count ?? 0;
+  }
+
   async archiveNonApprovedAssetsForTopic(topicId: string): Promise<number> {
     const result = await this.db
       .prepare(
@@ -241,6 +257,7 @@ export class VisualsRepository {
     generationModel: string;
     generationPrompt: string;
     parentAssetId?: string | null;
+    status?: string;
   }): Promise<VisualAssetRecord> {
     const id = createId("vasset");
     const timestamp = nowIso();
@@ -270,7 +287,7 @@ export class VisualsRepository {
         input.generationPrompt,
         version,
         input.parentAssetId ?? null,
-        "generated",
+        input.status ?? "generated",
         timestamp,
         null,
         null

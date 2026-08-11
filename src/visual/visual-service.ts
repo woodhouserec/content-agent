@@ -6,7 +6,7 @@ import type { TopicRecord } from "../storage/topics";
 import type { VisualAssetRecord, VisualBriefRecord } from "../storage/visuals";
 import { createRepositories } from "../storage/repositories";
 import { formatPreferenceMemoryForPrompt, getActivePreferenceMemory, rememberPreference } from "../preferences/memory";
-import { buildImagePrompt, visualBriefPrompt } from "./prompts";
+import { buildCustomImagePrompt, buildImagePrompt, visualBriefPrompt } from "./prompts";
 import { visualConfig } from "./config";
 import { validateVisualBriefResponse } from "./validation";
 import { OpenAiImageProvider } from "./openai-image-provider";
@@ -39,7 +39,7 @@ export class VisualService {
     const topic = await this.requireTopic(draft.topic_id);
     const preferenceMemory = await this.preferenceMemoryForPrompt();
     const brief = await this.getOrCreateBrief(topic, draft);
-    const existingAssets = await this.repos.visuals.countActiveAssetsForTopic(topic.id);
+    const existingAssets = await this.repos.visuals.countGeneratedActiveAssetsForTopic(topic.id);
 
     if (existingAssets >= visualConfig.maxImageVariantsPerDraft) {
       throw new Error(`Image variant limit reached for this topic (${visualConfig.maxImageVariantsPerDraft})`);
@@ -94,24 +94,21 @@ export class VisualService {
 
     const topic = await this.requireTopic(brief.topic_id);
     const draft = await this.requireApprovedDraft(brief.draft_id);
-    const existingAssets = await this.repos.visuals.countActiveAssetsForTopic(topic.id);
+    const existingAssets = await this.repos.visuals.countGeneratedActiveAssetsForTopic(topic.id);
     if (existingAssets >= visualConfig.maxImageVariantsPerDraft) {
       throw new Error(`Image variant limit reached for this topic (${visualConfig.maxImageVariantsPerDraft})`);
     }
 
-    const prompt = [
-      buildImagePrompt({
-        concept: brief.concept,
-        metaphor: brief.metaphor,
-        composition: brief.composition,
-        style: brief.style,
-        colorDirection: brief.color_direction,
-        aspectRatio: brief.aspect_ratio,
-        preferenceMemory: await this.preferenceMemoryForPrompt()
-      }),
-      "",
-      `User visual revision instruction: ${instruction.slice(0, 600)}`
-    ].join("\n");
+    const prompt = buildCustomImagePrompt({
+      concept: brief.concept,
+      metaphor: brief.metaphor,
+      composition: brief.composition,
+      style: brief.style,
+      colorDirection: brief.color_direction,
+      aspectRatio: brief.aspect_ratio,
+      userInstruction: instruction,
+      preferenceMemory: await this.preferenceMemoryForPrompt()
+    });
     const generated = await this.imageProvider.generate(prompt);
     const stored = await this.storage.put({
       bytes: generated.bytes,
@@ -148,6 +145,48 @@ export class VisualService {
     }
     await this.rememberVisualDecision(asset, "visual_approved");
     return asset;
+  }
+
+  async addUploadedAssetForDraft(input: {
+    draftId: string;
+    bytes: ArrayBuffer;
+    mimeType: string;
+    width: number;
+    height: number;
+    fileName?: string | null;
+    uploadedBy: string;
+  }): Promise<VisualGenerationResult> {
+    const draft = await this.requireApprovedDraft(input.draftId);
+    const topic = await this.requireTopic(draft.topic_id);
+    const brief = await this.getOrCreateBrief(topic, draft);
+    const stored = await this.storage.put({
+      bytes: input.bytes,
+      mimeType: input.mimeType,
+      keyHint: `${draft.id}-upload`
+    });
+    const asset = await this.repos.visuals.createAsset({
+      visualBriefId: brief.id,
+      storageKey: stored.storageKey,
+      mimeType: input.mimeType,
+      width: input.width,
+      height: input.height,
+      generationProvider: "user_upload",
+      generationModel: "telegram_upload",
+      generationPrompt: JSON.stringify({
+        uploaded_by: input.uploadedBy,
+        file_name: input.fileName ?? null
+      }),
+      status: "uploaded"
+    });
+
+    return {
+      draft,
+      topic,
+      brief,
+      asset,
+      imageBytes: input.bytes,
+      mimeType: input.mimeType
+    };
   }
 
   async resetVariantLimitForDraft(draftId: string): Promise<number> {
