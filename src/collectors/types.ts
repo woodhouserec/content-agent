@@ -35,7 +35,7 @@ export interface CollectorResult {
 }
 
 export interface Collector {
-  readonly type: SourceRecord["type"];
+  readonly type: SourceRecord["type"] | "discovery_page";
   collect(source: SourceRecord, config: CollectorConfig): Promise<CollectorResult>;
 }
 
@@ -56,5 +56,6 @@ export interface SourceConfig {
   listing?: "hot" | "new" | "top";
   timeframe?: "hour" | "day" | "week" | "month" | "year" | "all";
   allowedSubreddits?: string[];
+  collector_type?: "discovery_page";
   article_link_limit?: number;
 }

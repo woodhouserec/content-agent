@@ -140,13 +140,14 @@ export async function confirmPendingSource(env: Env, pendingId: string): Promise
     return `Источник уже есть: ${duplicate.name}`;
   }
 
-  const sourceType = pending.detected_type === "discovery_page" ? "discovery_page" : "rss";
+  const isDiscoveryPage = pending.detected_type === "discovery_page";
   const source = await repos.sources.create({
-    type: sourceType,
+    type: "rss",
     name: pending.feed_title ?? new URL(pending.normalized_url).hostname,
     url: pending.normalized_url,
     enabled: true,
     config: {
+      ...(isDiscoveryPage ? { collector_type: "discovery_page" } : {}),
       author_name: pending.feed_title ?? new URL(pending.normalized_url).hostname,
       source_tier: "discovery",
       content_kind: "news",
@@ -156,10 +157,10 @@ export async function confirmPendingSource(env: Env, pendingId: string): Promise
       editorial_priority: 2,
       max_content_age_days: 14,
       allow_full_text: false,
-      license_notes: sourceType === "discovery_page"
+      license_notes: isDiscoveryPage
         ? "Added via Telegram as static discovery page. Fetch linked article pages with excerpts and metadata only."
         : "Added via Telegram after RSS/Atom validation. Use excerpts and metadata only.",
-      ...(sourceType === "discovery_page" ? { article_link_limit: 5 } : {}),
+      ...(isDiscoveryPage ? { article_link_limit: 5 } : {}),
       max_items_per_run: 5
     }
   });
@@ -185,7 +186,7 @@ function formatSourcePreview(validation: Awaited<ReturnType<typeof validateRssSo
 }
 
 export function formatSourceLine(source: SourceRecord): string {
-  let config: { source_tier?: string; content_kind?: string; trust_score?: number; editorial_priority?: number } = {};
+  let config: { collector_type?: string; source_tier?: string; content_kind?: string; trust_score?: number; editorial_priority?: number } = {};
 
   try {
     config = source.config_json ? JSON.parse(source.config_json) : {};
@@ -197,7 +198,7 @@ export function formatSourceLine(source: SourceRecord): string {
     `${source.name}`,
     `Status: ${formatSourceStatus(source.enabled)}`,
     `ID: ${source.id}`,
-    `Type: ${source.type}`,
+    `Type: ${config.collector_type ?? source.type}`,
     `Tier: ${config.source_tier ?? "unknown"}, Kind: ${config.content_kind ?? "unknown"}`,
     `Trust: ${config.trust_score ?? "n/a"}, Priority: ${config.editorial_priority ?? "n/a"}`,
     source.url

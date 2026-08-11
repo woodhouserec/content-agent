@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { getCollectorForSource } from "../src/collectors";
 import { detectFeedType, parseFeedTitle } from "../src/collectors/xml";
 import { extractDiscoveryPagePreview } from "../src/sources/discovery-page";
+import type { SourceRecord } from "../src/storage/sources";
 
 test("detectFeedType detects RSS and Atom", () => {
   assert.equal(detectFeedType("<rss><channel><title>A</title></channel></rss>"), "rss");
@@ -35,4 +37,19 @@ test("extractDiscoveryPagePreview finds same-site article links", () => {
   assert.equal(preview.links.length, 2);
   assert.equal(preview.links[0].url, "https://www.creativeboom.com/digital/design-systems-ai-product-teams");
   assert.equal(preview.links[1].title, "Why UX research should shape better product decisions");
+});
+
+test("getCollectorForSource can use discovery collector from source config", () => {
+  const source: SourceRecord = {
+    id: "src_test",
+    type: "rss",
+    name: "Discovery page",
+    url: "https://example.com/design/",
+    config_json: JSON.stringify({ collector_type: "discovery_page" }),
+    enabled: 1,
+    created_at: "2026-08-11T00:00:00.000Z",
+    updated_at: "2026-08-11T00:00:00.000Z"
+  };
+
+  assert.equal(getCollectorForSource(source)?.type, "discovery_page");
 });

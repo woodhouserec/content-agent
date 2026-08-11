@@ -1,4 +1,5 @@
 import type { SourceRecord } from "../storage/sources";
+import { parseSourceConfig } from "./config";
 import type { Collector } from "./types";
 import { DiscoveryPageCollector } from "./discovery-page";
 import { RedditCollector } from "./reddit";
@@ -11,5 +12,7 @@ const collectors: Collector[] = [
 ];
 
 export function getCollectorForSource(source: SourceRecord): Collector | null {
-  return collectors.find((collector) => collector.type === source.type) ?? null;
+  const config = parseSourceConfig(source.config_json);
+  const collectorType = config.collector_type ?? source.type;
+  return collectors.find((collector) => collector.type === collectorType) ?? null;
 }
