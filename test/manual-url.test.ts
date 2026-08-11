@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ArticleExtractor } from "../src/manual-url/article-extractor";
+import { validateDirectTopicAnalysis } from "../src/manual-url/direct-topic-analysis";
 import { assertSafeHttpUrl } from "../src/manual-url/url-safety";
 
 test("manual URL safety rejects localhost and private IPs", () => {
@@ -42,4 +43,25 @@ test("article extractor reads static metadata and text", () => {
   assert.equal(article.extractionStatus, "accepted");
   assert.ok(article.text?.includes("Product design"));
   assert.ok(!article.text?.includes("Navigation"));
+});
+
+test("direct manual URL topic analysis accepts specific AI response", () => {
+  const analysis = validateDirectTopicAnalysis({
+    title: "Why ecommerce UX benchmarks should become design decisions, not slide decoration",
+    title_ru: "Почему UX-бенчмарки ecommerce должны становиться решениями, а не украшением презентаций",
+    why_it_matters: "The source gives product teams concrete ecommerce behavior signals that can shape prioritization and reduce checkout friction.",
+    why_it_matters_ru: "Материал даёт продуктовым командам конкретные сигналы поведения покупателей, которые можно использовать для приоритизации и снижения фрикции.",
+    suggested_angle: "Use the Baymard findings to argue that UX research creates value when teams translate patterns into product decisions.",
+    suggested_angle_ru: "Использовать выводы Baymard, чтобы показать: UX research ценен тогда, когда паттерны превращаются в продуктовые решения.",
+    summary: "A source-specific direction about ecommerce quantitative UX insights and their role in product prioritization.",
+    summary_ru: "Направление по конкретному материалу о количественных ecommerce UX-инсайтах и их роли в продуктовой приоритизации.",
+    target_audience: "Product Designers, UX Researchers, Product Managers",
+    novelty_score: 78,
+    relevance_score: 91,
+    reasoning_summary: "The article is relevant because it offers concrete UX behavior data and a practitioner angle on decision quality."
+  });
+
+  assert.equal(analysis.usedAi, true);
+  assert.equal(analysis.relevanceScore, 91);
+  assert.ok(analysis.title.includes("ecommerce UX"));
 });

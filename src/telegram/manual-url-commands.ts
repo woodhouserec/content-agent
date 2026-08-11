@@ -5,6 +5,7 @@ import type { TelegramClient } from "./client";
 import { createRepositories } from "../storage/repositories";
 import { createTopicFingerprint } from "../scoring/topic-fingerprint";
 import { buildCreateDraftButton } from "./drafts";
+import { analyzeManualUrlForDirectTopic } from "../manual-url/direct-topic-analysis";
 
 const service = new ManualUrlIngestionService();
 
@@ -51,32 +52,38 @@ export async function createDraftTopicFromManualUrl(env: Env, pendingId: string)
     throw new Error("Saved manual URL item was not found.");
   }
 
-  const title = directTopicTitle(item.title);
-  const summary = item.summary ?? item.normalized_content?.slice(0, 300) ?? item.title;
-  const fingerprint = await createTopicFingerprint(title, "direct_manual_url_post", [item.id]);
+  const analysis = await analyzeManualUrlForDirectTopic(env, item);
+  const fingerprint = await createTopicFingerprint(analysis.title, analysis.suggestedAngle, [item.id]);
   const topic = await repos.topics.createIfNotExists({
-    title,
-    titleRu: `Пост по материалу: ${item.title}`,
-    summary: `Direct post topic based on manually submitted source: ${item.title}.`,
-    summaryRu: `Тема создана напрямую по вручную добавленному материалу: ${item.title}.`,
-    whyItMatters: summary,
-    whyItMattersRu: "Вы выбрали этот материал вручную, поэтому бот подготовит пост вокруг этой конкретной статьи, без общего подбора тем.",
-    suggestedAngle: "Turn this specific source into a practitioner LinkedIn post with a clear Product/UX perspective.",
-    suggestedAngleRu: "Сделать пост именно по этому материалу: не пересказ, а профессиональный вывод с Product/UX-углом.",
-    targetAudience: "Product Designers, UI/UX Designers, Design Leads, Product Managers, SaaS founders",
+    title: analysis.title,
+    titleRu: analysis.titleRu,
+    summary: analysis.summary,
+    summaryRu: analysis.summaryRu,
+    whyItMatters: analysis.whyItMatters,
+    whyItMattersRu: analysis.whyItMattersRu,
+    suggestedAngle: analysis.suggestedAngle,
+    suggestedAngleRu: analysis.suggestedAngleRu,
+    targetAudience: analysis.targetAudience,
     sourceItemIds: [item.id],
-    relevanceScore: Math.max(80, item.final_score ?? item.rule_score ?? 80),
-    noveltyScore: 70,
+    relevanceScore: analysis.relevanceScore,
+    noveltyScore: analysis.noveltyScore,
     topicFingerprint: fingerprint,
-    aiReasoningSummary: "Direct manual URL post requested by the user."
+    aiReasoningSummary: analysis.reasoningSummary
   });
 
   await repos.topics.updateStatus(topic.id, "selected");
 
   return {
-    text: result.inserted
-      ? `Материал добавлен: ${result.title}\nСоздана выбранная тема для поста именно по этому материалу. Когда будете готовы, нажмите «Создать черновик».`
-      : `Материал уже был в базе: ${result.title}\nЯ всё равно создал/нашёл выбранную тему для поста по этому материалу. Когда будете готовы, нажмите «Создать черновик».`,
+    text: [
+      result.inserted ? `Материал добавлен: ${result.title}` : `Материал уже был в базе: ${result.title}`,
+      analysis.usedAi
+        ? "AI проанализировал материал и создал отдельную выбранную тему именно по этой статье."
+        : "AI-анализ материала был недоступен, поэтому создана базовая выбранная тема по этой статье.",
+      "",
+      `Тема: ${analysis.titleRu}`,
+      "",
+      "Когда будете готовы, нажмите «Создать черновик»."
+    ].join("\n"),
     replyMarkup: buildCreateDraftButton(topic.id)
   };
 }
@@ -115,8 +122,4 @@ function formatManualUrlPreview(preview: ManualUrlPreview & { pendingId: string 
     "",
     "Что сделать с материалом?"
   ].join("\n");
-}
-
-function directTopicTitle(sourceTitle: string): string {
-  return `A Product/UX perspective on ${sourceTitle}`.slice(0, 180);
 }
