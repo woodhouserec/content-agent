@@ -129,6 +129,34 @@ test("topic formation replaces generic AI post title with source-grounded title"
 
   assert.equal(topics[0].title.includes("Does Your Form Really Need a Dropdown List?"), true);
   assert.equal(topics[0].summaryRu.startsWith("Основано на"), false);
+  assert.equal(topics[0].summaryRu.includes("Возможный пост о"), false);
+});
+
+test("topic formation avoids mechanical summary text in AI-backed cards", async () => {
+  const item = {
+    id: "item_health_benchmark",
+    source_id: "src_test",
+    title: "UX and NPS Benchmarks of Health Insurance Websites (2026)",
+    summary: "A benchmark article about health insurance portals, online policy management, customer confidence, and risk perception.",
+    normalized_content: "Health insurance websites need clarity, trust, confidence, and better interaction decisions in a sensitive product category.",
+    final_score: 84,
+    rule_score: 82,
+    scoring_breakdown_json: JSON.stringify({ factors: { freshness: 18 } })
+  } as CollectedItemRecord;
+
+  const topics = await formTopics([item], [{
+    itemId: "item_health_benchmark",
+    aiRelevanceScore: 88,
+    noveltyScore: 68,
+    professionalValue: 86,
+    possibleLinkedInAngle: "What health insurance UX benchmarks reveal about trust and risk perception",
+    explanation: "The material connects health insurance portal UX with trust, clarity, and customer confidence."
+  }], { minFinalScoreForTopic: 70 });
+
+  assert.equal(topics.length, 1);
+  assert.equal(topics[0].summaryRu.includes("Возможный пост о"), false);
+  assert.equal(topics[0].summary.includes("A possible post about"), false);
+  assert.match(topics[0].summaryRu, /довер|риск|ясност|health insurance|UX/i);
 });
 
 test("topic formation can use strong AI signal when final score is below hard threshold", async () => {

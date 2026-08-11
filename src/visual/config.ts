@@ -1,5 +1,5 @@
 export const visualConfig = {
-  promptVersion: "visual_brief_v1",
+  promptVersion: "visual_brief_v2",
   imagePromptVersion: "image_generation_v1",
   defaultImageModel: "gpt-image-1",
   defaultAspectRatio: "1:1",

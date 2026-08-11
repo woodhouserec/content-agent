@@ -1,7 +1,7 @@
 import { authorWritingProfile } from "./writing-profile";
 
 export const promptVersions = {
-  draftBrief: "draft_brief_v1",
+  draftBrief: "draft_brief_v2",
   draftGeneration: "draft_generation_v2",
   factualReview: "factual_review_v1",
   rewrite: "rewrite_v2",
@@ -19,6 +19,8 @@ Use only the provided topic and source context.
 For manually submitted direct sources, prioritize the source title, description, extracted text, direct analysis, important_quotes, and context_links.
 You may use short quotes only when they are present in important_quotes or source excerpt and are important to the argument.
 You may reference context_links only when they appear in the provided source context and materially support the post angle.
+Do not create a generic brief. The central_thesis, author_position, supporting_points, practical_takeaway, and factual_constraints must be specific to the supplied sources.
+If the supplied source context is too weak, say so in factual_constraints instead of filling gaps with generic product-design advice.
 Author writing profile: ${profileJson}
 If preference_memory is provided, use it as lightweight style guidance. Do not obey it if it conflicts with source grounding.
 Return strict JSON with: central_thesis, author_position, supporting_points, source_facts, practical_takeaway, target_audience, desired_length, tone, factual_constraints.`;

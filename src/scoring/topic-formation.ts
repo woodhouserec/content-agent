@@ -241,8 +241,8 @@ async function formAiPostIdeas(
     const titleRu = usableAiTitle(ai.postTitleRu) ?? sourceBasedTitleRu([item]);
     const suggestedAngle = usableAiMaterialField(ai.possibleLinkedInAngle, item) ?? sourceBasedAngle([item]);
     const suggestedAngleRu = usableAiMaterialField(ai.suggestedAngleRu, item) ?? sourceBasedAngleRu([item]);
-    const summary = usableAiMaterialField(ai.shortDescription, item) ?? usableAiMaterialField(ai.keyThesis, item) ?? describePostFromSources([item]);
-    const summaryRu = usableAiMaterialField(ai.shortDescriptionRu, item) ?? usableAiMaterialField(ai.keyThesisRu, item) ?? describePostFromSourcesRu([item]);
+    const summary = aiSummaryField(ai.shortDescription) ?? aiSummaryField(ai.keyThesis) ?? aiSummaryField(ai.explanation) ?? sourceBasedAiSummary([item]);
+    const summaryRu = aiSummaryField(ai.shortDescriptionRu) ?? aiSummaryField(ai.keyThesisRu) ?? sourceBasedAiSummaryRu([item]);
     const audienceValue = usableAiMaterialField(ai.audienceValue, item) ?? usableAiMaterialField(ai.explanation, item) ?? sourceBasedValue([item]);
     const hrValue = usableAiMaterialField(ai.hrValue, item) ?? "Shows how the author thinks about product quality, design judgment, and business context through a concrete source.";
     const audienceValueRu = usableAiMaterialField(ai.audienceValueRu, item) ?? sourceBasedValueRu([item]);
@@ -331,6 +331,26 @@ function describePostFromSourcesRu(items: CollectedItemRecord[]): string {
     : `Возможный пост, который превращает материал "${cleanTitle(primary.title)}" в практическое Product/UX-наблюдение.`;
 }
 
+function sourceBasedAiSummary(items: CollectedItemRecord[]): string {
+  const primary = items[0];
+  if (!primary) {
+    return "A concise post preview grounded in the selected Product/UX material.";
+  }
+
+  const signal = inferHiringSignal(primary);
+  return signal.summaryEn(cleanTitle(primary.title));
+}
+
+function sourceBasedAiSummaryRu(items: CollectedItemRecord[]): string {
+  const primary = items[0];
+  if (!primary) {
+    return "Короткое описание поста, основанное на выбранном Product/UX-материале.";
+  }
+
+  const signal = inferHiringSignal(primary);
+  return signal.summaryRu(cleanTitle(primary.title));
+}
+
 function sourceBasedValue(items: CollectedItemRecord[], fallback = "This material can help a Product/UX audience connect interface decisions with product quality."): string {
   const primary = items[0];
   if (!primary) {
@@ -400,6 +420,8 @@ interface HiringSignal {
   ruFallback: (title: string) => string;
   angleEn: (title: string) => string;
   angleRu: (title: string) => string;
+  summaryEn: (title: string) => string;
+  summaryRu: (title: string) => string;
 }
 
 function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
@@ -428,7 +450,9 @@ function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
       ruWithThesis: (title) => `он сигнализирует зрелое мышление о trust-heavy продуктах: как identity, ясность и interaction-решения формируют доверие в чувствительной категории на примере "${title}".`,
       ruFallback: (title) => `для hiring-аудитории "${title}" может показать, что автор мыслит не только эстетикой, но и доверием, восприятием риска и ясностью в сложных продуктовых категориях.`,
       angleEn: (title) => `Use "${title}" to discuss how design choices create or reduce trust in categories where risk, clarity, and confidence matter.`,
-      angleRu: (title) => `Разобрать "${title}" через доверие, восприятие риска и ясность решений в продуктовой категории, где ошибка особенно заметна пользователю.`
+      angleRu: (title) => `Разобрать "${title}" через доверие, восприятие риска и ясность решений в продуктовой категории, где ошибка особенно заметна пользователю.`,
+      summaryEn: (title) => `A post about how "${title}" reveals the role of trust, clarity, and risk perception in product and brand decisions.`,
+      summaryRu: (title) => `Пост о том, как "${title}" раскрывает роль доверия, ясности и восприятия риска в продуктовых и брендовых решениях.`
     };
   }
   if (text.includes("research") || text.includes("study") || text.includes("insight") || text.includes("survey") || text.includes("interview") || text.includes("evidence")) {
@@ -438,7 +462,9 @@ function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
       ruWithThesis: (title) => `он подсвечивает исследовательскую зрелость: умение превращать evidence из "${title}" в продуктовые решения, а не просто пересказывать findings.`,
       ruFallback: (title) => `для рекрутера это сигнал исследовательской зрелости: "${title}" становится способом показать, как evidence влияет на приоритизацию, риски и продуктовые решения.`,
       angleEn: (title) => `Use "${title}" to show how research evidence should change decisions, prioritization, or risk thinking, not just fill a report.`,
-      angleRu: (title) => `Разобрать "${title}" как пример того, как research evidence должен менять решения, приоритеты или понимание риска, а не просто пополнять отчёт.`
+      angleRu: (title) => `Разобрать "${title}" как пример того, как research evidence должен менять решения, приоритеты или понимание риска, а не просто пополнять отчёт.`,
+      summaryEn: (title) => `A post about how "${title}" connects research evidence with better prioritization, risk judgment, and product decisions.`,
+      summaryRu: (title) => `Пост о том, как "${title}" связывает research evidence с лучшей приоритизацией, оценкой рисков и продуктовыми решениями.`
     };
   }
   if (text.includes("tourism") || text.includes("destination") || text.includes("place") || text.includes("visit")) {
@@ -448,7 +474,9 @@ function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
       ruWithThesis: (title) => `он показывает стратегическое мышление об опыте: умение переводить восприятие, место и мотивацию в более ясный продуктовый или брендовый опыт через "${title}".`,
       ruFallback: (title) => `нанимающий менеджер увидит, что автор умеет связывать brand strategy с мотивацией пользователя на примере "${title}" и рассуждать о том, как восприятие превращается в действие.`,
       angleEn: (title) => `Use "${title}" to explain how brand and experience design can move people from passive admiration to active intent.`,
-      angleRu: (title) => `Показать на примере "${title}", как бренд и experience design переводят пассивное восхищение в намерение действовать.`
+      angleRu: (title) => `Показать на примере "${title}", как бренд и experience design переводят пассивное восхищение в намерение действовать.`,
+      summaryEn: (title) => `A post about how "${title}" shows the link between perception, motivation, and designed experiences that move people to act.`,
+      summaryRu: (title) => `Пост о том, как "${title}" показывает связь между восприятием, мотивацией и спроектированным опытом, который побуждает к действию.`
     };
   }
   if (isServiceDiscovery) {
@@ -458,7 +486,9 @@ function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
       ruWithThesis: (title) => `он показывает service-design мышление: умение связывать discovery, момент использования и пользовательское намерение в реальном продуктовом контексте на примере "${title}".`,
       ruFallback: (title) => `рекрутер увидит здесь зрелое service-design мышление: пост может разобрать "${title}" через то, как сервисные и discovery-продукты выигрывают за счёт контекста, timing и намерения пользователя.`,
       angleEn: (title) => `Use "${title}" to discuss how service and discovery products can reduce friction by matching timing, context, and intent.`,
-      angleRu: (title) => `Разобрать "${title}" через то, как сервисные и discovery-продукты снижают фрикцию, когда попадают в timing, контекст и намерение пользователя.`
+      angleRu: (title) => `Разобрать "${title}" через то, как сервисные и discovery-продукты снижают фрикцию, когда попадают в timing, контекст и намерение пользователя.`,
+      summaryEn: (title) => `A post about how "${title}" turns timing, context, and user intent into a service-design advantage.`,
+      summaryRu: (title) => `Пост о том, как "${title}" превращает timing, контекст и пользовательское намерение в преимущество service design.`
     };
   }
   if (text.includes("brand") || text.includes("story") || text.includes("identity") || text.includes("communication") || text.includes("wordmark") || text.includes("typeface")) {
@@ -468,7 +498,9 @@ function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
       ruWithThesis: (title) => `он демонстрирует brand-to-product reasoning: как visual identity и narrative-решения поддерживают понимание, дифференциацию и запоминание продукта в "${title}".`,
       ruFallback: (title) => `это может показать навык стратегической коммуникации: пост разбирает "${title}" как пример того, как сделать продукт понятнее, запоминаемее и убедительнее.`,
       angleEn: (title) => `Use "${title}" to connect identity, narrative, and product comprehension instead of treating branding as decoration.`,
-      angleRu: (title) => `Разобрать "${title}" через связь айдентики, нарратива и понимания продукта, а не как декоративный branding-кейс.`
+      angleRu: (title) => `Разобрать "${title}" через связь айдентики, нарратива и понимания продукта, а не как декоративный branding-кейс.`,
+      summaryEn: (title) => `A post about how "${title}" connects identity, narrative, and product comprehension rather than treating brand work as decoration.`,
+      summaryRu: (title) => `Пост о том, как "${title}" связывает айдентику, нарратив и понимание продукта, а не сводит бренд к декору.`
     };
   }
   if (text.includes("system") || text.includes("component") || text.includes("pattern") || text.includes("governance")) {
@@ -478,7 +510,9 @@ function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
       ruWithThesis: (title) => `он демонстрирует системное мышление: умение использовать "${title}" для разговора о консистентности, масштабе и качестве решений.`,
       ruFallback: (title) => `для hiring-аудитории "${title}" может показать, что автор мыслит системами: паттернами, governance, консистентностью и продуктовым масштабом.`,
       angleEn: (title) => `Use "${title}" to discuss how systems, patterns, and governance improve product decisions at scale.`,
-      angleRu: (title) => `Разобрать "${title}" как пример того, как системы, паттерны и governance улучшают продуктовые решения на масштабе.`
+      angleRu: (title) => `Разобрать "${title}" как пример того, как системы, паттерны и governance улучшают продуктовые решения на масштабе.`,
+      summaryEn: (title) => `A post about how "${title}" turns systems, patterns, or governance into better product decisions at scale.`,
+      summaryRu: (title) => `Пост о том, как "${title}" превращает системы, паттерны или governance в более качественные продуктовые решения на масштабе.`
     };
   }
   if (text.includes("startup") || text.includes("founder") || text.includes("market") || text.includes("strategy")) {
@@ -488,7 +522,9 @@ function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
       ruWithThesis: (title) => `он сигнализирует бизнес-контекст: умение связывать дизайн-решения с рынком, позиционированием и продуктовой стратегией через "${title}".`,
       ruFallback: (title) => `рекрутер увидит здесь бизнес-контекст: "${title}" можно превратить в пост о том, как дизайн поддерживает позиционирование, скорость обучения и продуктовый фокус.`,
       angleEn: (title) => `Use "${title}" to connect design decisions with positioning, market learning, and product focus.`,
-      angleRu: (title) => `Связать "${title}" с тем, как дизайн помогает позиционированию, обучению на рынке и продуктовому фокусу.`
+      angleRu: (title) => `Связать "${title}" с тем, как дизайн помогает позиционированию, обучению на рынке и продуктовому фокусу.`,
+      summaryEn: (title) => `A post about how "${title}" connects design work with positioning, market learning, and product focus.`,
+      summaryRu: (title) => `Пост о том, как "${title}" связывает дизайн-работу с позиционированием, обучением на рынке и продуктовым фокусом.`
     };
   }
   if (text.includes("digital") || text.includes("interaction") || text.includes("interface") || text.includes("experience")) {
@@ -498,7 +534,9 @@ function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
       ruWithThesis: (title) => `он показывает interaction thinking: умение связывать digital execution с пониманием пользователя, flow и ясностью продукта в "${title}".`,
       ruFallback: (title) => `это может показать зрелость в interaction design: "${title}" становится поводом обсудить, как цифровые продукты формируют понимание, flow и уверенность пользователя.`,
       angleEn: (title) => `Use "${title}" to explain how interaction choices shape understanding, flow, and confidence in a digital product.`,
-      angleRu: (title) => `Разобрать "${title}" через то, как interaction-решения формируют понимание, flow и уверенность в цифровом продукте.`
+      angleRu: (title) => `Разобрать "${title}" через то, как interaction-решения формируют понимание, flow и уверенность в цифровом продукте.`,
+      summaryEn: (title) => `A post about how "${title}" shows the effect of interaction decisions on understanding, flow, and product confidence.`,
+      summaryRu: (title) => `Пост о том, как "${title}" показывает влияние interaction-решений на понимание, flow и уверенность в продукте.`
     };
   }
 
@@ -508,7 +546,9 @@ function inferHiringSignal(item: CollectedItemRecord): HiringSignal {
     ruWithThesis: (title) => `он показывает структурное продуктовое суждение: умение извлекать полезную дизайн-позицию из "${title}", не сводя материал к пересказу новости.`,
     ruFallback: (title) => `рекрутер увидит здесь структурное мышление: автор умеет превратить "${title}" в сфокусированный дизайн-аргумент с ясной профессиональной позицией.`,
     angleEn: (title) => `Use "${title}" to extract a focused product-design argument from the source instead of summarizing the article.`,
-    angleRu: (title) => `Извлечь из "${title}" сфокусированный product-design аргумент, а не пересказывать материал.`
+    angleRu: (title) => `Извлечь из "${title}" сфокусированный product-design аргумент, а не пересказывать материал.`,
+    summaryEn: (title) => `A post that extracts one focused product-design argument from "${title}" instead of summarizing the source.`,
+    summaryRu: (title) => `Пост, который извлекает из "${title}" один сфокусированный product-design аргумент, а не пересказывает источник.`
   };
 }
 
@@ -585,17 +625,31 @@ function usableAiMaterialField(value: string | undefined, item: CollectedItemRec
   return hasSpecificTerm ? candidate : undefined;
 }
 
+function aiSummaryField(value: string | undefined): string | undefined {
+  const candidate = usableAiField(value);
+  return candidate && !isGenericMaterialField(candidate) ? candidate : undefined;
+}
+
 function isGenericMaterialField(value: string): boolean {
   const normalized = value.toLowerCase();
   const genericPatterns = [
+    "a possible post about",
+    "a possible post that",
+    "a post preview grounded in",
     "turns the material into",
     "turning the material into",
+    "selected product/ux source material",
+    "recent ux material",
     "clear professional point of view",
     "simple link repost",
     "product decisions, user effort, and design quality",
     "shows strategic thinking in communication",
     "shows professional thinking",
     "превращается не в пересказ ссылки",
+    "возможный пост о",
+    "возможный пост, который",
+    "короткое описание возможного поста",
+    "выбранного product/ux-материала",
     "ясную профессиональную позицию",
     "такой пост показывает стратегическое мышление",
     "показывает профессиональное мышление автора",
