@@ -393,7 +393,7 @@ async function handleDraftCallback(
   await logCallbackAction(env, callback, chatId, targetType, action ?? data, targetId, data);
 
   if (targetType === "manualurl" && action === "draft") {
-    await telegram.sendMessage(chatId, "AI-анализ материала запущен. Сначала разберу статью и создам направление поста, затем покажу кнопку «Создать черновик».");
+    await telegram.sendMessage(chatId, "Материал принят. Подготовлю его для черновика и покажу кнопку «Создать черновик».");
     dispatcher.dispatch("telegram_manual_url_direct_topic", async () => {
       try {
         const response = await createDraftTopicFromManualUrl(env, targetId);

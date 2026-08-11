@@ -5,7 +5,6 @@ import type { TelegramClient } from "./client";
 import { createRepositories } from "../storage/repositories";
 import { createTopicFingerprint } from "../scoring/topic-fingerprint";
 import { buildCreateDraftButton } from "./drafts";
-import { analyzeManualUrlForDirectTopic } from "../manual-url/direct-topic-analysis";
 
 const service = new ManualUrlIngestionService();
 
@@ -52,23 +51,40 @@ export async function createDraftTopicFromManualUrl(env: Env, pendingId: string)
     throw new Error("Saved manual URL item was not found.");
   }
 
-  const analysis = await analyzeManualUrlForDirectTopic(env, item);
-  const fingerprint = await createTopicFingerprint(analysis.title, analysis.suggestedAngle, [item.id]);
+  const title = item.title;
+  const titleRu = `Пост по материалу: ${item.title}`.slice(0, 220);
+  const summary = item.summary ?? item.normalized_content?.slice(0, 500) ?? item.raw_content?.slice(0, 500) ?? item.title;
+  const whyItMatters = [
+    "The user manually selected this source for a dedicated LinkedIn post.",
+    "Treat the topic record as routing metadata; the draft brief must perform the full editorial analysis from the source context."
+  ].join(" ");
+  const whyItMattersRu = [
+    "Материал выбран вручную для отдельного поста.",
+    "Полноценный смысловой анализ должен выполняться на этапе draft brief по тексту статьи, цитатам и ссылкам."
+  ].join(" ");
+  const suggestedAngle = "Create a grounded practitioner LinkedIn post directly from this manually submitted source.";
+  const suggestedAngleRu = "Создать grounded LinkedIn-пост напрямую по этому материалу, без отдельной генерации темы.";
+  const reasoningSummary = [
+    "Manual URL direct post request.",
+    "Do not use this technical topic as the final editorial angle.",
+    "Build the draft brief directly from the source title, description, extracted text, important quotes, context links, writing profile, and preference memory."
+  ].join(" ");
+  const fingerprint = await createTopicFingerprint(`manual-url-direct:${item.id}`, suggestedAngle, [item.id]);
   const topic = await repos.topics.createIfNotExists({
-    title: analysis.title,
-    titleRu: analysis.titleRu,
-    summary: analysis.summary,
-    summaryRu: analysis.summaryRu,
-    whyItMatters: analysis.whyItMatters,
-    whyItMattersRu: analysis.whyItMattersRu,
-    suggestedAngle: analysis.suggestedAngle,
-    suggestedAngleRu: analysis.suggestedAngleRu,
-    targetAudience: analysis.targetAudience,
+    title,
+    titleRu,
+    summary,
+    summaryRu: summary,
+    whyItMatters,
+    whyItMattersRu,
+    suggestedAngle,
+    suggestedAngleRu,
+    targetAudience: "Product Designers, UX Researchers, UI/UX Designers, Design Leads, Product Managers, SaaS founders",
     sourceItemIds: [item.id],
-    relevanceScore: analysis.relevanceScore,
-    noveltyScore: analysis.noveltyScore,
+    relevanceScore: Math.max(80, item.final_score ?? item.rule_score ?? 80),
+    noveltyScore: 70,
     topicFingerprint: fingerprint,
-    aiReasoningSummary: analysis.reasoningSummary
+    aiReasoningSummary: reasoningSummary
   });
 
   await repos.topics.updateStatus(topic.id, "selected");
@@ -76,9 +92,10 @@ export async function createDraftTopicFromManualUrl(env: Env, pendingId: string)
   return {
     text: [
       result.inserted ? `Материал добавлен: ${result.title}` : `Материал уже был в базе: ${result.title}`,
-      "AI проанализировал материал и создал отдельную выбранную тему именно по этой статье.",
+      "Материал подготовлен для черновика.",
+      "Полноценный AI-анализ статьи начнётся на этапе draft brief.",
       "",
-      `Тема: ${analysis.titleRu}`,
+      `Материал: ${item.title}`,
       "",
       "Когда будете готовы, нажмите «Создать черновик»."
     ].join("\n"),
