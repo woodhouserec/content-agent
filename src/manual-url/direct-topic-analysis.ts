@@ -23,7 +23,7 @@ export interface DirectTopicAnalysis {
 
 export async function analyzeManualUrlForDirectTopic(env: Env, item: CollectedItemRecord): Promise<DirectTopicAnalysis> {
   if (!env.OPENAI_API_KEY) {
-    return fallbackDirectTopic(item, "OpenAI API key is not configured.");
+    throw new Error("OPENAI_API_KEY is not configured for direct manual URL analysis.");
   }
 
   const client = new OpenAiDraftClient(env);
@@ -34,6 +34,7 @@ export async function analyzeManualUrlForDirectTopic(env: Env, item: CollectedIt
       requestType: "manual_url_direct_topic",
       promptVersion: "manual_url_direct_topic_v1",
       systemPrompt: directTopicPrompt,
+      timeoutMs: 30_000,
       payload: {
         source: {
           id: item.id,
@@ -69,7 +70,8 @@ export async function analyzeManualUrlForDirectTopic(env: Env, item: CollectedIt
       status: "failed",
       errorType: error instanceof Error ? error.message.slice(0, 180) : "unknown"
     });
-    return fallbackDirectTopic(item, error instanceof Error ? error.message : String(error));
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`AI-анализ материала не завершился: ${message}`);
   }
 }
 
@@ -103,25 +105,6 @@ export function validateDirectTopicAnalysis(value: unknown): DirectTopicAnalysis
     relevanceScore: score(record.relevance_score, "relevance_score"),
     reasoningSummary: text(record.reasoning_summary, "reasoning_summary", 10, 700),
     usedAi: true
-  };
-}
-
-function fallbackDirectTopic(item: CollectedItemRecord, reason: string): DirectTopicAnalysis {
-  const summary = item.summary ?? item.normalized_content?.slice(0, 280) ?? item.title;
-  return {
-    title: `What product teams can learn from ${item.title}`.slice(0, 180),
-    titleRu: `Пост по материалу: ${item.title}`.slice(0, 220),
-    whyItMatters: summary,
-    whyItMattersRu: "Вы выбрали этот материал вручную, поэтому бот подготовит пост вокруг этой конкретной статьи. AI-анализ темы был недоступен, используется базовый режим.",
-    suggestedAngle: "Turn this specific source into a practitioner LinkedIn post with a clear Product/UX perspective.",
-    suggestedAngleRu: "Сделать пост именно по этому материалу: не пересказ, а профессиональный вывод с Product/UX-углом.",
-    summary: `Direct post topic based on manually submitted source: ${item.title}.`,
-    summaryRu: `Тема создана напрямую по вручную добавленному материалу: ${item.title}.`,
-    targetAudience: "Product Designers, UI/UX Designers, Design Leads, Product Managers, SaaS founders",
-    noveltyScore: 60,
-    relevanceScore: Math.max(80, item.final_score ?? item.rule_score ?? 80),
-    reasoningSummary: `Fallback direct topic was used: ${reason.slice(0, 180)}`,
-    usedAi: false
   };
 }
 

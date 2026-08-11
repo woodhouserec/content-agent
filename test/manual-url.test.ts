@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ArticleExtractor } from "../src/manual-url/article-extractor";
-import { validateDirectTopicAnalysis } from "../src/manual-url/direct-topic-analysis";
+import { analyzeManualUrlForDirectTopic, validateDirectTopicAnalysis } from "../src/manual-url/direct-topic-analysis";
+import type { Env } from "../src/domain/runtime";
+import type { CollectedItemRecord } from "../src/storage/collected-items";
 import { assertSafeHttpUrl } from "../src/manual-url/url-safety";
 
 test("manual URL safety rejects localhost and private IPs", () => {
@@ -73,4 +75,16 @@ test("direct manual URL topic analysis accepts specific AI response", () => {
   assert.equal(analysis.usedAi, true);
   assert.equal(analysis.relevanceScore, 91);
   assert.ok(analysis.title.includes("ecommerce UX"));
+});
+
+test("direct manual URL topic analysis does not create fallback without OpenAI", async () => {
+  await assert.rejects(
+    analyzeManualUrlForDirectTopic({} as Env, {
+      id: "item_1",
+      title: "Useful UX article",
+      url: "https://example.com/article",
+      summary: "A useful UX article with concrete product design context."
+    } as CollectedItemRecord),
+    /OPENAI_API_KEY/
+  );
 });

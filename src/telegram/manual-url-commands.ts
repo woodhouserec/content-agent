@@ -76,9 +76,7 @@ export async function createDraftTopicFromManualUrl(env: Env, pendingId: string)
   return {
     text: [
       result.inserted ? `Материал добавлен: ${result.title}` : `Материал уже был в базе: ${result.title}`,
-      analysis.usedAi
-        ? "AI проанализировал материал и создал отдельную выбранную тему именно по этой статье."
-        : "AI-анализ материала был недоступен, поэтому создана базовая выбранная тема по этой статье.",
+      "AI проанализировал материал и создал отдельную выбранную тему именно по этой статье.",
       "",
       `Тема: ${analysis.titleRu}`,
       "",

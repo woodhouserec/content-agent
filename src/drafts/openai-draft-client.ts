@@ -10,6 +10,7 @@ export class OpenAiDraftClient {
     promptVersion: string;
     systemPrompt: string;
     payload: unknown;
+    timeoutMs?: number;
   }): Promise<OpenAiJsonResult<T>> {
     const apiKey = this.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -19,7 +20,7 @@ export class OpenAiDraftClient {
     const model = this.env.OPENAI_DRAFT_MODEL ?? draftConfig.defaultOpenAiModel;
     const started = Date.now();
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), draftConfig.openAiTimeoutMs);
+    const timeout = setTimeout(() => controller.abort(), input.timeoutMs ?? draftConfig.openAiTimeoutMs);
 
     try {
       const response = await fetch("https://api.openai.com/v1/responses", {
@@ -112,4 +113,3 @@ function extractOpenAiError(body: Record<string, unknown>): string {
 
   return "unknown error";
 }
-
