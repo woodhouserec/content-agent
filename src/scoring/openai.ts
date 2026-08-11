@@ -10,6 +10,15 @@ export interface AiScoringResult {
   professionalValue: number;
   possibleLinkedInAngle: string;
   explanation: string;
+  postTitle?: string;
+  postTitleRu?: string;
+  shortDescription?: string;
+  shortDescriptionRu?: string;
+  audienceValue?: string;
+  audienceValueRu?: string;
+  hrValue?: string;
+  hrValueRu?: string;
+  suggestedAngleRu?: string;
 }
 
 export interface AiScoringResponse {
@@ -52,7 +61,16 @@ export async function scoreWithOpenAi(env: Env, items: CollectedItemRecord[]): P
                   noveltyScore: "0-100",
                   professionalValue: "0-100",
                   possibleLinkedInAngle: "string",
-                  explanation: "string"
+                  explanation: "string",
+                  postTitle: "specific future LinkedIn post title in English",
+                  postTitleRu: "specific future LinkedIn post title in Russian",
+                  shortDescription: "brief post preview in English",
+                  shortDescriptionRu: "brief post preview in Russian",
+                  audienceValue: "value for Product/UX audience in English",
+                  audienceValueRu: "value for Product/UX audience in Russian",
+                  hrValue: "value for HR/hiring signal in English",
+                  hrValueRu: "value for HR/hiring signal in Russian",
+                  suggestedAngleRu: "suggested angle in Russian"
                 }
               ]
             },
@@ -109,7 +127,16 @@ export function validateAiResults(value: unknown): AiScoringResult[] {
       noveltyScore: requireScore(result.noveltyScore, "noveltyScore"),
       professionalValue: requireScore(result.professionalValue, "professionalValue"),
       possibleLinkedInAngle: requireString(result.possibleLinkedInAngle, "possibleLinkedInAngle"),
-      explanation: requireString(result.explanation, "explanation")
+      explanation: requireString(result.explanation, "explanation"),
+      postTitle: optionalString(result.postTitle),
+      postTitleRu: optionalString(result.postTitleRu),
+      shortDescription: optionalString(result.shortDescription),
+      shortDescriptionRu: optionalString(result.shortDescriptionRu),
+      audienceValue: optionalString(result.audienceValue),
+      audienceValueRu: optionalString(result.audienceValueRu),
+      hrValue: optionalString(result.hrValue),
+      hrValueRu: optionalString(result.hrValueRu),
+      suggestedAngleRu: optionalString(result.suggestedAngleRu)
     };
   });
 }
@@ -128,6 +155,10 @@ function requireString(value: unknown, field: string): string {
   }
 
   return value.trim().slice(0, 800);
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim().slice(0, 900) : undefined;
 }
 
 function requireScore(value: unknown, field: string): number {

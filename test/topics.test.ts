@@ -66,3 +66,40 @@ test("topic formation includes Russian review fields for Telegram", async () => 
   assert.equal(topics[0].whyItMattersRu.length > 20, true);
   assert.equal(topics[0].suggestedAngleRu.length > 20, true);
 });
+
+test("topic formation prefers AI post ideas over generic clusters", async () => {
+  const item = {
+    id: "item_ai_ux",
+    source_id: "src_test",
+    title: "A practical teardown of AI onboarding patterns in design tools",
+    summary: "The source compares concrete onboarding decisions in AI-assisted design tools.",
+    normalized_content: "AI onboarding needs control, feedback, empty states, and recovery patterns.",
+    final_score: 86,
+    rule_score: 82,
+    scoring_breakdown_json: JSON.stringify({ factors: { freshness: 18 } })
+  } as CollectedItemRecord;
+
+  const topics = await formTopics([item], [{
+    itemId: "item_ai_ux",
+    aiRelevanceScore: 90,
+    noveltyScore: 77,
+    professionalValue: 92,
+    possibleLinkedInAngle: "What AI onboarding in design tools reveals about trust and control",
+    explanation: "The material gives a concrete UX angle on onboarding, trust, and interaction design.",
+    postTitle: "What AI onboarding in design tools reveals about trust and control",
+    postTitleRu: "Что AI-onboarding в дизайн-инструментах показывает про доверие и контроль",
+    shortDescription: "A post about why AI features need onboarding patterns that explain control, feedback, and recovery.",
+    shortDescriptionRu: "Пост о том, почему AI-фичам нужны onboarding-паттерны, объясняющие контроль, обратную связь и восстановление.",
+    audienceValue: "Helps Product/UX designers evaluate AI features as interaction systems.",
+    audienceValueRu: "Помогает Product/UX-дизайнерам оценивать AI-фичи как интерактивные системы.",
+    hrValue: "Shows mature product thinking beyond UI execution.",
+    hrValueRu: "Показывает зрелое продуктовое мышление, а не только UI-исполнение.",
+    suggestedAngleRu: "Разобрать AI-onboarding как задачу доверия, контроля и восстановления после ошибок."
+  }], { minFinalScoreForTopic: 70 });
+
+  assert.equal(topics.length, 1);
+  assert.equal(topics[0].title, "What AI onboarding in design tools reveals about trust and control");
+  assert.equal(topics[0].titleRu.includes("AI-onboarding"), true);
+  assert.deepEqual(topics[0].sourceItemIds, ["item_ai_ux"]);
+  assert.equal(topics[0].whyItMattersRu.includes("Ценность для аудитории"), true);
+});

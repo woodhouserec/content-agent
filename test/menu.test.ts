@@ -39,7 +39,7 @@ test("permanent sources menu keeps collection and topic workflow buttons", () =>
 
   assert.ok(buttons.includes(menuLabels.collect));
   assert.ok(buttons.includes(menuLabels.score));
-  assert.ok(buttons.includes(menuLabels.showTopics));
+  assert.ok(!buttons.includes(menuLabels.showTopics));
   assert.ok(buttons.includes(menuLabels.resetTopics));
 });
 

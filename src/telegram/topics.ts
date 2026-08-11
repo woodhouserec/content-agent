@@ -7,19 +7,21 @@ import type { TelegramClient } from "./client";
 
 export async function runScoringAndSendTopics(env: Env, telegram: TelegramClient, chatId: string, mode?: CollectedItemMode): Promise<void> {
   const result = await runScoring(env, { mode });
-  await telegram.sendMessage(
-    chatId,
-    [
-      `Создание тем завершено${mode ? ` (${mode === "temporary" ? "временные источники" : "постоянные источники"})` : ""}.`,
-      `Материалов оценено: ${result.scoredItems}`,
-      `Материалов использовано для тем: ${result.topicCandidateItems}`,
-      `OpenAI-запросов: ${result.aiRequests}`,
-      `Fallback без OpenAI: ${result.usedAiFallback ? "да" : "нет"}`,
-      `Новых тем: ${result.topicsCreated}`,
-      `Дубликатов тем: ${result.topicsSkippedAsDuplicates}`,
-      `Возвращено в доступные: ${result.topicsRestored}`
-    ].join("\n")
-  );
+  const lines = [
+    `Генерация тезисов завершена${mode ? ` (${mode === "temporary" ? "временные источники" : "постоянные источники"})` : ""}.`,
+    `Материалов оценено: ${result.scoredItems}`,
+    `Материалов использовано для тезисов: ${result.topicCandidateItems}`,
+    `OpenAI-запросов: ${result.aiRequests}`,
+    `AI fallback: ${result.usedAiFallback ? "да" : "нет"}`,
+    `Новых тезисов: ${result.topicsCreated}`,
+    `Дубликатов тезисов: ${result.topicsSkippedAsDuplicates}`,
+    `Возвращено в доступные: ${result.topicsRestored}`
+  ];
+  const sourceIssues = await formatLatestSourceIssues(env);
+  if (sourceIssues) {
+    lines.push("", sourceIssues);
+  }
+  await telegram.sendMessage(chatId, lines.join("\n"));
   await sendLatestTopics(env, telegram, chatId, mode);
 }
 
@@ -29,7 +31,7 @@ export async function sendLatestTopics(env: Env, telegram: TelegramClient, chatI
   const topics = mode ? await filterTopicsByMode(env, allTopics, mode, 5) : allTopics.slice(0, 5);
 
   if (topics.length === 0) {
-    await telegram.sendMessage(chatId, "Пока нет доступных тем. Сначала нажмите «Создать темы» после сбора или добавления материалов.");
+    await telegram.sendMessage(chatId, "Пока нет доступных тезисов. Сначала нажмите «Сгенерировать тезисы» после сбора материалов.");
     return;
   }
 
@@ -38,7 +40,7 @@ export async function sendLatestTopics(env: Env, telegram: TelegramClient, chatI
     await telegram.sendMessage(chatId, formatTopicMessage(topic, sources), {
       replyMarkup: {
         inline_keyboard: [
-          [{ text: "Выбрать тему", callback_data: `topic:select:${topic.id}` }],
+          [{ text: "Создать черновик", callback_data: `topic:draft:${topic.id}` }],
           [
             { text: "Пропустить", callback_data: `topic:skip:${topic.id}` },
             { text: "Показать источники", callback_data: `topic:sources:${topic.id}` }
@@ -112,9 +114,9 @@ function formatTopicMessage(topic: TopicRecord, sources: Array<{ title: string; 
   return [
     `<b>${escapeHtml(topic.title_ru ?? topic.title)}</b>`,
     "",
-    `<b>Почему важно:</b> ${escapeHtml(topic.why_it_matters_ru ?? topic.why_it_matters ?? topic.summary ?? "Нет объяснения")}`,
+    `<b>Краткое описание:</b> ${escapeHtml(topic.summary_ru ?? topic.summary ?? "Нет описания")}`,
+    `<b>Ценность:</b> ${escapeHtml(topic.why_it_matters_ru ?? topic.why_it_matters ?? "Нет объяснения")}`,
     `<b>Угол:</b> ${escapeHtml(topic.suggested_angle_ru ?? topic.suggested_angle ?? topic.angle ?? "Нет угла")}`,
-    `<b>Score:</b> ${Math.round(topic.relevance_score)}`,
     "",
     "<b>Источники:</b>",
     sourceLines.join("\n") || "No sources"
@@ -130,9 +132,9 @@ export function formatTopicEnglish(topic: TopicRecord, sources: Array<{ title: s
   return [
     `<b>${escapeHtml(topic.title)}</b>`,
     "",
-    `<b>Why it matters:</b> ${escapeHtml(topic.why_it_matters ?? topic.summary ?? "No explanation")}`,
+    `<b>Short description:</b> ${escapeHtml(topic.summary ?? "No description")}`,
+    `<b>Value:</b> ${escapeHtml(topic.why_it_matters ?? "No explanation")}`,
     `<b>Angle:</b> ${escapeHtml(topic.suggested_angle ?? topic.angle ?? "No angle")}`,
-    `<b>Score:</b> ${Math.round(topic.relevance_score)}`,
     "",
     "<b>Sources:</b>",
     sourceLines.join("\n") || "No sources"
@@ -145,19 +147,62 @@ export function formatTopicSources(topic: TopicRecord, sources: Array<{ title: s
     return `${index + 1}. ${escapeHtml(source.title)}\n${escapeHtml(source.canonical_url ?? "")}\n${date}`;
   });
 
-  return [`Источники темы: ${escapeHtml(topic.title_ru ?? topic.title)}`, "", lines.join("\n\n") || "Источники не найдены."].join("\n");
+  return [`Источники тезиса: ${escapeHtml(topic.title_ru ?? topic.title)}`, "", lines.join("\n\n") || "Источники не найдены."].join("\n");
 }
 
 export function formatTopicWhy(topic: TopicRecord): string {
   return [
-    `Почему выбрано: ${escapeHtml(topic.title_ru ?? topic.title)}`,
+    `Почему предложен тезис: ${escapeHtml(topic.title_ru ?? topic.title)}`,
     "",
-    `Score: ${Math.round(topic.relevance_score)}`,
-    `Novelty: ${Math.round(topic.novelty_score ?? 0)}`,
     `Объяснение: ${escapeHtml(topic.why_it_matters_ru ?? topic.ai_reasoning_summary ?? topic.why_it_matters ?? "Rule-based relevance and source fit.")}`,
     "",
     `English title: ${escapeHtml(topic.title)}`
   ].join("\n");
+}
+
+async function formatLatestSourceIssues(env: Env): Promise<string | null> {
+  const repos = createRepositories(env.DB);
+  const latestRun = await repos.processingRuns.latest();
+  const errors = parseSourceErrors(latestRun?.source_errors_json ?? null).slice(0, 5);
+
+  if (errors.length === 0) {
+    return null;
+  }
+
+  const sources = await repos.sources.listAll();
+  const byId = new Map(sources.map((source) => [source.id, source]));
+  const lines = errors.map((error, index) => {
+    const source = byId.get(error.sourceId);
+    const label = source ? `${source.name} — ${source.url}` : error.sourceId;
+    return `${index + 1}. ${escapeHtml(label)}\n${escapeHtml(error.message)}`;
+  });
+
+  return ["Не удалось обработать источники:", ...lines].join("\n");
+}
+
+function parseSourceErrors(value: string | null): Array<{ sourceId: string; message: string }> {
+  if (!value) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.flatMap((item) => {
+      if (!item || typeof item !== "object") {
+        return [];
+      }
+      const record = item as { sourceId?: unknown; message?: unknown };
+      return typeof record.sourceId === "string" && typeof record.message === "string"
+        ? [{ sourceId: record.sourceId, message: record.message }]
+        : [];
+    });
+  } catch {
+    return [];
+  }
 }
 
 function escapeHtml(value: string): string {

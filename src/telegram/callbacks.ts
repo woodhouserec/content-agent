@@ -44,7 +44,7 @@ export async function handleCallback(env: Env, callback: TelegramCallbackQuery):
       await repos.topics.updateStatus(targetId, "selected");
       await safeRememberTopic(env, "topic_selected", targetId, "topic_preferences", `Selected topic direction: ${topic.title_ru ?? topic.title}`);
       return {
-        text: "Тема выбрана. Генерация поста не запускается автоматически. Когда будете готовы, нажмите «Создать черновик».",
+        text: "Тезис выбран. Генерация поста не запускается автоматически. Когда будете готовы, нажмите «Создать черновик».",
         replyMarkup: buildCreateDraftButton(targetId)
       };
     }
@@ -52,7 +52,7 @@ export async function handleCallback(env: Env, callback: TelegramCallbackQuery):
     if (action === "skip") {
       await repos.topics.updateStatus(targetId, "skipped");
       await safeRememberTopic(env, "topic_skipped", targetId, "avoid", `Avoid or de-prioritize topic direction: ${topic.title_ru ?? topic.title}`);
-      return { text: "Тема пропущена." };
+      return { text: "Тезис пропущен." };
     }
 
     if (action === "sources") {

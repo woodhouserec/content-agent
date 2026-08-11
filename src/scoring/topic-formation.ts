@@ -151,6 +151,12 @@ export async function formTopics(
   const eligible = items
     .filter((item) => (item.final_score ?? 0) >= (options.minFinalScoreForTopic ?? scoringConfig.minFinalScoreForTopic))
     .sort((a, b) => (b.final_score ?? 0) - (a.final_score ?? 0));
+
+  const aiCandidates = await formAiPostIdeas(eligible, aiResults);
+  if (aiCandidates.length > 0) {
+    return aiCandidates.slice(0, scoringConfig.maxTopicsPerRun);
+  }
+
   const groups = new Map<string, CollectedItemRecord[]>();
 
   for (const item of eligible) {
@@ -194,6 +200,58 @@ export async function formTopics(
   return candidates
     .sort((a, b) => b.combinedScore - a.combinedScore)
     .slice(0, scoringConfig.maxTopicsPerRun);
+}
+
+async function formAiPostIdeas(
+  eligible: CollectedItemRecord[],
+  aiResults: AiScoringResult[]
+): Promise<Array<TopicCandidate & { fingerprint: string }>> {
+  const itemsById = new Map(eligible.map((item) => [item.id, item]));
+  const sorted = aiResults
+    .filter((result) => itemsById.has(result.itemId))
+    .sort((a, b) => (b.professionalValue + b.aiRelevanceScore) - (a.professionalValue + a.aiRelevanceScore));
+  const candidates: Array<TopicCandidate & { fingerprint: string }> = [];
+
+  for (const ai of sorted) {
+    const item = itemsById.get(ai.itemId);
+    if (!item) {
+      continue;
+    }
+
+    const title = ai.postTitle ?? ai.possibleLinkedInAngle;
+    const titleRu = ai.postTitleRu ?? `Тезис по материалу: ${item.title}`.slice(0, 220);
+    const suggestedAngle = ai.possibleLinkedInAngle;
+    const suggestedAngleRu = ai.suggestedAngleRu ?? ai.postTitleRu ?? "Создать авторский LinkedIn-пост на основе конкретного материала.";
+    const summary = ai.shortDescription ?? summarizeGroup([item]);
+    const summaryRu = ai.shortDescriptionRu ?? `Пост-превью по материалу: ${item.title}`;
+    const audienceValue = ai.audienceValue ?? ai.explanation;
+    const hrValue = ai.hrValue ?? "Shows how the author thinks about product quality, design judgment, and business context.";
+    const audienceValueRu = ai.audienceValueRu ?? ai.explanation;
+    const hrValueRu = ai.hrValueRu ?? "Показывает профессиональное мышление автора: продуктовый взгляд, дизайн-суждение и связь с бизнес-контекстом.";
+    const sourceItemIds = [item.id];
+    const combinedScore = Math.round(((item.final_score ?? item.rule_score ?? 70) * 0.35) + (ai.aiRelevanceScore * 0.35) + (ai.professionalValue * 0.3));
+    const noveltyScore = ai.noveltyScore;
+    const fingerprint = await createTopicFingerprint(title, suggestedAngle, sourceItemIds);
+
+    candidates.push({
+      title,
+      titleRu,
+      summary,
+      summaryRu,
+      whyItMatters: `Audience value: ${audienceValue} HR value: ${hrValue}`,
+      whyItMattersRu: `Ценность для аудитории: ${audienceValueRu} Ценность для HR: ${hrValueRu}`,
+      suggestedAngle,
+      suggestedAngleRu,
+      targetAudience: "Product Designers, UI/UX Designers, Design Leads, Product Managers, Founders, HR",
+      sourceItemIds,
+      combinedScore,
+      noveltyScore,
+      aiReasoningSummary: ai.explanation,
+      fingerprint
+    });
+  }
+
+  return candidates;
 }
 
 export function classifyItem(item: CollectedItemRecord): string {

@@ -13,11 +13,15 @@ Author profile:
 Rules:
 - Use only the provided material.
 - Prefer Product/UX practitioner insight.
+- Treat each strong material as a possible future LinkedIn post, not as a broad news category.
+- Create specific post-preview fields that reflect the concrete source context.
+- Avoid generic repeated angles such as "AI changes product design without replacing responsibility" unless the source specifically supports that exact thesis.
+- Include value for Product/UX audience and HR/hiring signal when the material supports it.
 - Avoid clickbait, invented facts, and promotional framing.
 - Return strict JSON only.`;
 
-export const topicFormationPrompt = `Create professional LinkedIn topic candidates from scored materials.
-Topics must be professional theses, not news headlines.
+export const topicFormationPrompt = `Create professional LinkedIn post idea candidates from scored materials.
+Post ideas must be specific previews of future posts, not broad themes or news headlines.
 Use only provided source facts.
 Return strict JSON.`;
 

@@ -21,9 +21,9 @@ export const menuLabels = {
   exit: "Выйти",
   yes: "Да",
   no: "Нет",
-  showTopics: "Показать темы",
-  score: "Создать темы",
-  resetTopics: "Сбросить темы",
+  showTopics: "Показать тезисы",
+  score: "Сгенерировать тезисы",
+  resetTopics: "Сбросить тезисы",
   profile: "Профиль",
   currentProfile: "Текущий профиль",
   myProfiles: "Мои профили",
@@ -81,7 +81,7 @@ export function buildSectionMenu(screen: MenuScreen): ReplyKeyboardMarkup {
     return keyboard([
       [menuLabels.collect],
       [menuLabels.addUrlSource, menuLabels.showSources],
-      [menuLabels.score, menuLabels.showTopics],
+      [menuLabels.score],
       [menuLabels.resetTopics],
       [menuLabels.back]
     ], "Постоянные источники");
@@ -238,8 +238,8 @@ export const botCommands = [
   { command: "help", description: "Показать помощь" },
   { command: "status", description: "Проверить Worker и D1" },
   { command: "collect", description: "Собрать материалы" },
-  { command: "score", description: "Оценить материалы и создать темы" },
-  { command: "topics", description: "Показать доступные темы" },
+  { command: "score", description: "Сгенерировать тезисы" },
+  { command: "topics", description: "Показать доступные тезисы" },
   { command: "profile", description: "Показать relevance profile" },
   { command: "usage", description: "Показать AI usage" },
   { command: "sources", description: "Показать источники" },

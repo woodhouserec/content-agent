@@ -214,8 +214,8 @@ async function processTelegramUpdate(
         await telegram.sendMessage(
           chatId,
           resetCount > 0
-            ? `Темы сброшены (${mode === "temporary" ? "временные источники" : "постоянные источники"}): ${resetCount}. Теперь нажмите «Показать темы».`
-            : `Нет тем для сброса (${mode === "temporary" ? "временные источники" : "постоянные источники"}).`
+            ? `Тезисы сброшены (${mode === "temporary" ? "временные источники" : "постоянные источники"}): ${resetCount}. Теперь нажмите «Сгенерировать тезисы».`
+            : `Нет тезисов для сброса (${mode === "temporary" ? "временные источники" : "постоянные источники"}).`
         );
         return;
       }
@@ -295,7 +295,7 @@ async function processTelegramUpdate(
 
     if (command === "/score") {
       const mode = await getSourceMenuMode(env, telegramUserId);
-      await telegram.sendMessage(chatId, `Создание тем запущено (${mode === "temporary" ? "временные источники" : "постоянные источники"}). Я пришлю темы, когда закончу.`);
+      await telegram.sendMessage(chatId, `Генерация тезисов запущена (${mode === "temporary" ? "временные источники" : "постоянные источники"}). Я пришлю тезисы, когда закончу.`);
 
       dispatcher.dispatch("telegram_scoring", async () => {
         try {
@@ -307,7 +307,7 @@ async function processTelegramUpdate(
             requestId,
             error: message
           });
-          await telegram.sendMessage(chatId, `Создание тем не завершилось: ${message}`);
+          await telegram.sendMessage(chatId, `Генерация тезисов не завершилась: ${message}`);
         }
       });
 
@@ -339,7 +339,7 @@ async function processTelegramUpdate(
             `Новых материалов: ${stats.newItems}`,
             `Дублей: ${stats.duplicateItems}`,
             "",
-            "Теперь можно нажать «Создать темы»."
+            "Теперь можно нажать «Сгенерировать тезисы»."
           ].join("\n"));
         } catch (error: unknown) {
           const message = formatSafeError(error);
@@ -407,6 +407,7 @@ async function handleDraftCallback(
 
   if (targetType === "topic" && action === "draft") {
     try {
+      await createRepositories(env.DB).topics.updateStatus(targetId, "selected");
       await runDraftGeneration(env, telegram, chatId, targetId);
     } catch (error: unknown) {
       const message = formatSafeError(error);
