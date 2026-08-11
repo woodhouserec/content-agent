@@ -2,6 +2,7 @@ import { DraftService, type DraftServiceResult } from "../drafts/draft-service";
 import type { Env } from "../domain/runtime";
 import type { DraftRecord } from "../storage/drafts";
 import { createRepositories } from "../storage/repositories";
+import { createLinkedInConnectUrl } from "../linkedin/service";
 import type { TelegramClient } from "./client";
 import { escapeHtml } from "./html";
 
@@ -104,6 +105,18 @@ export async function approveDraft(env: Env, draftId: string): Promise<string> {
     "",
     escapeHtml(draft.content)
   ].join("\n");
+}
+
+export async function buildApprovedDraftKeyboard(env: Env, draftId: string, telegramUserId: string, chatId: string) {
+  const connectUrl = await createLinkedInConnectUrl(env, { telegramUserId, telegramChatId: chatId });
+
+  return {
+    inline_keyboard: [
+      [{ text: "Опубликовать в LinkedIn", callback_data: `draft:publish:${draftId}` }],
+      [{ text: "Подключить LinkedIn", url: connectUrl }],
+      [{ text: "Показать источники", callback_data: `draft:sources:${draftId}` }]
+    ]
+  };
 }
 
 export async function rejectDraft(env: Env, draftId: string): Promise<string> {

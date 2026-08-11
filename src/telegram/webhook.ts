@@ -26,6 +26,7 @@ import { getSourceMenuMode } from "./source-editor";
 import { handleProfileMessage, showMyProfiles, startCreateProfile } from "./profiles";
 import {
   approveDraft,
+  buildApprovedDraftKeyboard,
   buildUsageMessage,
   formatDraftSources,
   handleCustomRevisionMessage,
@@ -34,6 +35,7 @@ import {
   runDraftGeneration,
   runDraftRevision
 } from "./drafts";
+import { publishDraftToLinkedIn } from "../linkedin/service";
 
 export async function handleTelegramWebhook(
   request: Request,
@@ -344,8 +346,33 @@ async function handleDraftCallback(
 
   if (targetType === "draft") {
     if (action === "approve") {
-      await telegram.sendMessage(chatId, await approveDraft(env, targetId));
+      await telegram.sendMessage(chatId, await approveDraft(env, targetId), {
+        replyMarkup: await buildApprovedDraftKeyboard(env, targetId, String(callback.from.id), chatId)
+      });
       await telegram.sendMessage(chatId, await formatDraftSources(env, targetId));
+      return true;
+    }
+
+    if (action === "publish") {
+      dispatcher.dispatch("telegram_linkedin_publish", async () => {
+        try {
+          await telegram.sendMessage(chatId, "Публикация в LinkedIn запущена.");
+          const result = await publishDraftToLinkedIn(env, {
+            draftId: targetId,
+            telegramUserId: String(callback.from.id)
+          });
+          await telegram.sendMessage(
+            chatId,
+            result.alreadyPublished
+              ? `Этот черновик уже был опубликован в LinkedIn: ${result.postUrn}`
+              : `Пост опубликован в LinkedIn: ${result.postUrn}`
+          );
+        } catch (error: unknown) {
+          const message = formatSafeError(error);
+          logger.error("LinkedIn publish failed", { event: "linkedin_publish_failed", requestId, error: message });
+          await telegram.sendMessage(chatId, `Публикация в LinkedIn не выполнена: ${message}`);
+        }
+      });
       return true;
     }
 

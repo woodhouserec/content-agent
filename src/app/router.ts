@@ -9,6 +9,7 @@ import { assertTelegramWebhookSecret } from "../telegram/auth";
 import { TelegramClient } from "../telegram/client";
 import { handleTelegramWebhook } from "../telegram/webhook";
 import { botCommands } from "../telegram/menu";
+import { completeLinkedInOAuth } from "../linkedin/service";
 
 export async function handleFetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const requestId = crypto.randomUUID();
@@ -35,6 +36,27 @@ export async function handleFetch(request: Request, env: Env, ctx: ExecutionCont
 
     if (request.method === "GET" && url.pathname === "/setup") {
       return htmlResponse(buildSetupPage());
+    }
+
+    if (request.method === "GET" && url.pathname === "/linkedin/oauth/callback") {
+      const code = url.searchParams.get("code");
+      const state = url.searchParams.get("state");
+      const error = url.searchParams.get("error");
+
+      if (error) {
+        return htmlResponse(buildLinkedInPage("LinkedIn не подключён", `LinkedIn вернул ошибку: ${escapeHtml(error)}`), { status: 400 });
+      }
+
+      if (!code || !state) {
+        return htmlResponse(buildLinkedInPage("LinkedIn не подключён", "Не найден code или state."), { status: 400 });
+      }
+
+      const result = await completeLinkedInOAuth(env, { code, state });
+      const config = getConfig(env);
+      const telegram = new TelegramClient(config.telegramBotToken);
+      await telegram.sendMessage(result.telegramChatId, "LinkedIn подключён. Теперь approved drafts можно публиковать кнопкой «Опубликовать в LinkedIn».");
+
+      return htmlResponse(buildLinkedInPage("LinkedIn подключён", "Можно вернуться в Telegram."));
     }
 
     if (request.method === "POST" && url.pathname === "/telegram/webhook") {
@@ -176,4 +198,33 @@ function buildSetupPage(): string {
     </form>
   </body>
 </html>`;
+}
+
+function buildLinkedInPage(title: string, message: string): string {
+  return `<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${escapeHtml(title)}</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 680px; margin: 56px auto; padding: 0 20px; line-height: 1.5; }
+      .box { border: 1px solid #ddd; border-radius: 8px; padding: 20px; }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <h1>${escapeHtml(title)}</h1>
+      <p>${message}</p>
+    </div>
+  </body>
+</html>`;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

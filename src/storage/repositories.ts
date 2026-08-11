@@ -8,6 +8,7 @@ import { ProcessingRunsRepository } from "./processing-runs";
 import { RelevanceProfilesRepository } from "./relevance-profiles";
 import { PendingSourcesRepository } from "./pending-sources";
 import { PendingManualUrlsRepository } from "./pending-manual-urls";
+import { LinkedInRepository } from "./linkedin";
 import { SourcesRepository } from "./sources";
 import { TelegramActionsRepository } from "./telegram-actions";
 import { TopicsRepository } from "./topics";
@@ -19,6 +20,7 @@ export function createRepositories(db: D1Database) {
     conversationStates: new ConversationStatesRepository(db),
     draftBriefs: new DraftBriefsRepository(db),
     drafts: new DraftsRepository(db),
+    linkedin: new LinkedInRepository(db),
     processingRuns: new ProcessingRunsRepository(db),
     relevanceProfiles: new RelevanceProfilesRepository(db),
     pendingSources: new PendingSourcesRepository(db),

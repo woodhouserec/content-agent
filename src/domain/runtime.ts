@@ -7,6 +7,10 @@ export interface Env {
   OPENAI_API_KEY?: string;
   OPENAI_SCORING_MODEL?: string;
   OPENAI_DRAFT_MODEL?: string;
+  LINKEDIN_CLIENT_ID?: string;
+  LINKEDIN_CLIENT_SECRET?: string;
+  LINKEDIN_REDIRECT_URI?: string;
+  LINKEDIN_API_VERSION?: string;
 }
 
 export interface ExecutionContext {
