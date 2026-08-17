@@ -13,7 +13,7 @@ import { runScheduledCollection } from "../scheduled/handler";
 import { resetTopicsForMode, runScoringAndSendTopics, sendLatestTopics } from "./topics";
 import { handleAddSource, handleSourceDisable, handleSources, handleSourceTest } from "./source-commands";
 import { createDraftTopicFromManualUrl, extractUrl, handleAddUrl } from "./manual-url-commands";
-import { buildMainMenu, buildMenuMessage, buildSectionMenu, resolveMenuAction } from "./menu";
+import { buildMainMenu, buildMenuMessage, buildSectionMenu, menuLabels, resolveMenuAction } from "./menu";
 import {
   handleAwaitingSourceUrl,
   handleSourceEditorMessage,
@@ -135,8 +135,24 @@ async function processTelegramUpdate(
   const menuAction = resolveMenuAction(message.text);
   const command = menuAction?.kind === "command" ? menuAction.value : getCommand(message.text);
   const telegramUserId = String(message.from?.id ?? "");
+  const text = message.text?.trim();
 
   try {
+    if (menuAction?.kind === "screen" && text && isPriorityNavigationText(text)) {
+      await handleScreenAction(env, telegram, chatId, telegramUserId, menuAction.value);
+      return;
+    }
+
+    if (text === menuLabels.collect) {
+      await handleManualCollectionCommand(env, telegram, dispatcher, chatId, telegramUserId, requestId);
+      return;
+    }
+
+    if (text === menuLabels.score) {
+      await handleManualScoringCommand(env, telegram, dispatcher, chatId, telegramUserId, requestId);
+      return;
+    }
+
     if (message.text && await handleSourceEditorMessage(env, telegram, chatId, telegramUserId, message.text)) {
       return;
     }
@@ -184,17 +200,7 @@ async function processTelegramUpdate(
     }
 
     if (menuAction?.kind === "screen") {
-      const screen = menuAction.value as "main" | "sourcesRoot" | "temporarySources" | "permanentSources" | "profileRoot" | "myProfiles" | "system";
-      if (screen === "temporarySources" || screen === "permanentSources") {
-        await setSourceMenuContext(env, telegramUserId, chatId, screen === "temporarySources" ? "temporary" : "permanent");
-      }
-      if (screen === "myProfiles") {
-        await showMyProfiles(env, telegram, chatId);
-        return;
-      }
-      await telegram.sendMessage(chatId, buildMenuMessage(screen), {
-        replyMarkup: screen === "main" ? buildMainMenu() : buildSectionMenu(screen)
-      });
+      await handleScreenAction(env, telegram, chatId, telegramUserId, menuAction.value);
       return;
     }
 
@@ -330,64 +336,12 @@ async function processTelegramUpdate(
     }
 
     if (command === "/score") {
-      const mode = await getSourceMenuMode(env, telegramUserId);
-      await telegram.sendMessage(chatId, `Генерация тезисов запущена (${mode === "temporary" ? "временные источники" : "постоянные источники"}). Я пришлю тезисы, когда закончу.`);
-
-      dispatcher.dispatch("telegram_scoring", async () => {
-        try {
-          await runScoringAndSendTopics(env, telegram, chatId, mode);
-        } catch (error: unknown) {
-          const message = formatSafeError(error);
-          logger.error("Manual scoring failed", {
-            event: "manual_scoring_failed",
-            requestId,
-            error: message
-          });
-          await telegram.sendMessage(chatId, `Генерация тезисов не завершилась: ${message}`);
-        }
-      });
-
+      await handleManualScoringCommand(env, telegram, dispatcher, chatId, telegramUserId, requestId);
       return;
     }
 
     if (command === "/collect") {
-      const mode = await getSourceMenuMode(env, telegramUserId);
-
-      if (mode === "temporary") {
-        await telegram.sendMessage(chatId, "Для временных источников автоматический сбор не нужен: материалы добавляются ссылками. Добавьте URL источника, затем выберите «Создать пост по материалу».");
-        return;
-      }
-
-      await telegram.sendMessage(chatId, "Сбор материалов запущен. Я напишу, когда закончу. /status можно использовать параллельно.");
-
-      dispatcher.dispatch("telegram_manual_collection", async () => {
-        try {
-          const { stats } = await runScheduledCollection("manual", env, {
-            requestedBy: "telegram",
-            telegramChatId: chatId,
-            requestId
-          });
-          await telegram.sendMessage(chatId, [
-            "Сбор материалов завершён.",
-            `Источников обработано: ${stats.processedSources}`,
-            `Успешных источников: ${stats.successfulSources}`,
-            `Ошибок источников: ${stats.failedSources}`,
-            `Новых материалов: ${stats.newItems}`,
-            `Дублей: ${stats.duplicateItems}`,
-            "",
-            "Теперь можно нажать «Сгенерировать тезисы»."
-          ].join("\n"));
-        } catch (error: unknown) {
-          const message = formatSafeError(error);
-          logger.error("Manual collection failed", {
-            event: "manual_collection_failed",
-            requestId,
-            error: message
-          });
-          await telegram.sendMessage(chatId, `Сбор материалов не завершился: ${message}`);
-        }
-      });
-
+      await handleManualCollectionCommand(env, telegram, dispatcher, chatId, telegramUserId, requestId);
       return;
     }
 
@@ -407,6 +361,102 @@ async function processTelegramUpdate(
     });
     await telegram.sendMessage(chatId, `Команда не выполнена: ${message}`);
   }
+}
+
+function isPriorityNavigationText(text: string): boolean {
+  return text === menuLabels.main
+    || text === menuLabels.sourcesRoot
+    || text === menuLabels.temporarySources
+    || text === menuLabels.permanentSources
+    || text === menuLabels.profile
+    || text === menuLabels.system;
+}
+
+async function handleScreenAction(
+  env: Env,
+  telegram: TelegramClient,
+  chatId: string,
+  telegramUserId: string,
+  value: string
+): Promise<void> {
+  const screen = value as "main" | "sourcesRoot" | "temporarySources" | "permanentSources" | "profileRoot" | "myProfiles" | "system";
+  if (screen === "temporarySources" || screen === "permanentSources") {
+    await setSourceMenuContext(env, telegramUserId, chatId, screen === "temporarySources" ? "temporary" : "permanent");
+  }
+  if (screen === "myProfiles") {
+    await showMyProfiles(env, telegram, chatId);
+    return;
+  }
+  await telegram.sendMessage(chatId, buildMenuMessage(screen), {
+    replyMarkup: screen === "main" ? buildMainMenu() : buildSectionMenu(screen)
+  });
+}
+
+async function handleManualScoringCommand(
+  env: Env,
+  telegram: TelegramClient,
+  dispatcher: BackgroundJobDispatcher,
+  chatId: string,
+  telegramUserId: string,
+  requestId: string
+): Promise<void> {
+  const mode = await getSourceMenuMode(env, telegramUserId);
+  await telegram.sendMessage(chatId, `Генерация тезисов запущена (${mode === "temporary" ? "временные источники" : "постоянные источники"}). Я пришлю тезисы, когда закончу.`);
+
+  dispatcher.dispatch("telegram_scoring", async () => {
+    try {
+      await runScoringAndSendTopics(env, telegram, chatId, mode);
+    } catch (error: unknown) {
+      const message = formatSafeError(error);
+      logger.error("Manual scoring failed", {
+        event: "manual_scoring_failed",
+        requestId,
+        error: message
+      });
+      await telegram.sendMessage(chatId, `Генерация тезисов не завершилась: ${message}`);
+    }
+  });
+}
+
+async function handleManualCollectionCommand(
+  env: Env,
+  telegram: TelegramClient,
+  dispatcher: BackgroundJobDispatcher,
+  chatId: string,
+  telegramUserId: string,
+  requestId: string
+): Promise<void> {
+  await setSourceMenuContext(env, telegramUserId, chatId, "permanent");
+
+  await telegram.sendMessage(chatId, "Сбор материалов запущен. Я напишу, когда закончу. /status можно использовать параллельно.");
+
+  dispatcher.dispatch("telegram_manual_collection", async () => {
+    try {
+      const { stats } = await runScheduledCollection("manual", env, {
+        requestedBy: "telegram",
+        telegramChatId: chatId,
+        requestId
+      });
+      await telegram.sendMessage(chatId, [
+        "Сбор материалов завершён.",
+        `Источников обработано: ${stats.processedSources}`,
+        `Успешных источников: ${stats.successfulSources}`,
+        `Ошибок источников: ${stats.failedSources}`,
+        `Новых материалов: ${stats.newItems}`,
+        `Дублей: ${stats.duplicateItems}`,
+        "",
+        "Теперь можно нажать «Сгенерировать тезисы»."
+      ].join("\n"));
+    } catch (error: unknown) {
+      const message = formatSafeError(error);
+      logger.error("Manual collection failed", {
+        event: "manual_collection_failed",
+        requestId,
+        error: message
+      });
+      await telegram.sendMessage(chatId, `Сбор материалов не завершился: ${message}`);
+    }
+  });
 }
 
 async function handleDraftCallback(
