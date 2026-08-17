@@ -10,7 +10,7 @@ export class DiscoveryPageCollector implements Collector {
   readonly type = "discovery_page" as const;
 
   async collect(source: SourceRecord, config: CollectorConfig): Promise<CollectorResult> {
-    const fetcher = new ArticleFetcher();
+    const fetcher = new ArticleFetcher({ timeoutMs: config.timeoutMs, maxBytes: 250_000 });
     const extractor = new ArticleExtractor();
     const sourceConfig = parseSourceConfig(source.config_json);
     const limit = getSourceLimit(source.config_json, config.maxItemsPerSource, sourceConfig.article_link_limit ?? 5);
@@ -35,56 +35,73 @@ export class DiscoveryPageCollector implements Collector {
         };
       }
 
-      for (const link of preview.links.slice(0, limit)) {
+      const articleResults = await mapWithConcurrency(preview.links.slice(0, limit), 3, async (link) => {
         try {
           const fetched = await fetcher.fetch(link.url);
           const article = extractor.extract(link.url, fetched);
 
           if (article.extractionStatus === "unsupported" || (!article.title && !article.description && !article.text)) {
-            errors.push({
-              sourceId: source.id,
-              stage: "item",
-              message: `Article skipped because content extraction was unsupported: ${link.url}`,
-              recoverable: true
-            });
-            continue;
+            return {
+              item: null,
+              error: {
+                sourceId: source.id,
+                stage: "item",
+                message: `Article skipped because content extraction was unsupported: ${link.url}`,
+                recoverable: true
+              } satisfies CollectorError
+            };
           }
 
-          items.push({
-            externalId: article.canonicalUrl ?? article.finalUrl,
-            sourceId: source.id,
-            title: article.title ?? link.title,
-            url: article.finalUrl,
-            summary: article.description ?? article.text?.slice(0, 500) ?? null,
-            author: article.author,
-            publishedAt: article.publishedAt,
-            rawContent: sourceConfig.allow_full_text ? article.text : article.description,
-            metadata: {
-              ingestion_method: "discovery_page",
-              discovery_page_url: source.url,
-              extraction_status: article.extractionStatus,
-              extraction_method: article.extractionMethod,
-              extraction_warnings: article.extractionWarnings,
-              canonical_url: article.canonicalUrl,
-              source_domain: new URL(article.finalUrl).hostname,
-              fetched_at: article.fetchedAt,
-              content_length: article.contentLength,
-              language: article.language,
-              site_name: article.siteName,
-              open_graph: article.openGraph,
-              quotes: article.quotes,
-              links: article.links,
-              sourceConfig
-            },
-            collectedAt: nowIso()
-          });
+          return {
+            item: {
+              externalId: article.canonicalUrl ?? article.finalUrl,
+              sourceId: source.id,
+              title: article.title ?? link.title,
+              url: article.finalUrl,
+              summary: article.description ?? article.text?.slice(0, 500) ?? null,
+              author: article.author,
+              publishedAt: article.publishedAt,
+              rawContent: sourceConfig.allow_full_text ? article.text : article.description,
+              metadata: {
+                ingestion_method: "discovery_page",
+                discovery_page_url: source.url,
+                extraction_status: article.extractionStatus,
+                extraction_method: article.extractionMethod,
+                extraction_warnings: article.extractionWarnings,
+                canonical_url: article.canonicalUrl,
+                source_domain: new URL(article.finalUrl).hostname,
+                fetched_at: article.fetchedAt,
+                content_length: article.contentLength,
+                language: article.language,
+                site_name: article.siteName,
+                open_graph: article.openGraph,
+                quotes: article.quotes,
+                links: article.links,
+                sourceConfig
+              },
+              collectedAt: nowIso()
+            } satisfies CollectorItem,
+            error: null
+          };
         } catch (error: unknown) {
-          errors.push({
-            sourceId: source.id,
-            stage: "item",
-            message: `Article fetch failed for ${link.url}: ${error instanceof Error ? error.message : String(error)}`,
-            recoverable: true
-          });
+          return {
+            item: null,
+            error: {
+              sourceId: source.id,
+              stage: "item",
+              message: `Article fetch failed for ${link.url}: ${error instanceof Error ? error.message : String(error)}`,
+              recoverable: true
+            } satisfies CollectorError
+          };
+        }
+      });
+
+      for (const result of articleResults) {
+        if (result.item) {
+          items.push(result.item);
+        }
+        if (result.error) {
+          errors.push(result.error);
         }
       }
 
@@ -108,4 +125,24 @@ export class DiscoveryPageCollector implements Collector {
       };
     }
   }
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = [];
+  let index = 0;
+
+  async function worker(): Promise<void> {
+    while (index < items.length) {
+      const currentIndex = index;
+      index += 1;
+      results[currentIndex] = await mapper(items[currentIndex]);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()));
+  return results;
 }

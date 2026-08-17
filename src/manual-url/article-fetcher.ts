@@ -12,7 +12,14 @@ const MAX_REDIRECTS = 3;
 const MAX_BYTES = 500_000;
 const TIMEOUT_MS = 7000;
 
+interface ArticleFetcherOptions {
+  timeoutMs?: number;
+  maxBytes?: number;
+}
+
 export class ArticleFetcher {
+  constructor(private readonly options: ArticleFetcherOptions = {}) {}
+
   async fetch(url: string): Promise<ArticleFetchResult> {
     let current = assertSafeHttpUrl(url).toString();
 
@@ -44,7 +51,7 @@ export class ArticleFetcher {
 
   private async fetchOnce(url: string): Promise<{ status: number; location: string | null; body: string; contentType: string; contentLength: number }> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort("timeout"), TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort("timeout"), this.options.timeoutMs ?? TIMEOUT_MS);
 
     try {
       const response = await fetch(url, {
@@ -61,7 +68,7 @@ export class ArticleFetcher {
         throw new Error(`Unsupported content-type: ${contentType || "unknown"}`);
       }
 
-      const text = await readLimitedText(response);
+      const text = await readLimitedText(response, this.options.maxBytes ?? MAX_BYTES);
 
       return {
         status: response.status,
@@ -81,7 +88,7 @@ function isAllowedContentType(contentType: string): boolean {
   return lower.includes("text/html") || lower.includes("application/xhtml+xml") || lower.includes("text/plain");
 }
 
-async function readLimitedText(response: Response): Promise<string> {
+async function readLimitedText(response: Response, maxBytes: number): Promise<string> {
   const reader = response.body?.getReader();
 
   if (!reader) {
@@ -100,7 +107,7 @@ async function readLimitedText(response: Response): Promise<string> {
 
     total += value.byteLength;
 
-    if (total > MAX_BYTES) {
+    if (total > maxBytes) {
       throw new Error("Response is too large.");
     }
 

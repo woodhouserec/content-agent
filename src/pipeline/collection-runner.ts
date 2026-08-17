@@ -23,7 +23,8 @@ const collectorConfig: CollectorConfig = {
   userAgent: "ContentAgent/0.2 (+https://github.com/woodhouserec/content-agent)"
 };
 
-const collectorConcurrency = 5;
+const collectorConcurrency = 8;
+const sourceTimeoutMs = 12_000;
 
 export async function runCollection(env: Env, runId: string): Promise<CollectionRunStats> {
   const repos = createRepositories(env.DB);
@@ -66,7 +67,11 @@ export async function runCollection(env: Env, runId: string): Promise<Collection
 
       return {
         source,
-        result: await collector.collect(source, collectorConfig),
+        result: await withTimeout(
+          collector.collect(source, collectorConfig),
+          sourceTimeoutMs,
+          `Source timed out after ${sourceTimeoutMs}ms: ${source.name}`
+        ),
         error: null
       };
     } catch (error: unknown) {
@@ -126,6 +131,22 @@ export async function runCollection(env: Env, runId: string): Promise<Collection
   }
 
   return stats;
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_resolve, reject) => {
+        timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
+      })
+    ]);
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
 }
 
 async function mapWithConcurrency<T, R>(

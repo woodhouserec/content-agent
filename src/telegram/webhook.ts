@@ -437,6 +437,9 @@ async function handleManualCollectionCommand(
         telegramChatId: chatId,
         requestId
       });
+      const sourceErrors = stats.errors
+        .slice(0, 5)
+        .map((error, index) => `${index + 1}. ${error.sourceId}: ${error.stage} - ${error.message}`);
       await telegram.sendMessage(chatId, [
         "Сбор материалов завершён.",
         `Источников обработано: ${stats.processedSources}`,
@@ -444,6 +447,7 @@ async function handleManualCollectionCommand(
         `Ошибок источников: ${stats.failedSources}`,
         `Новых материалов: ${stats.newItems}`,
         `Дублей: ${stats.duplicateItems}`,
+        ...(sourceErrors.length > 0 ? ["", "Первые ошибки источников:", ...sourceErrors] : []),
         "",
         "Теперь можно нажать «Сгенерировать тезисы»."
       ].join("\n"));
