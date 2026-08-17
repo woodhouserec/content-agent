@@ -40,6 +40,10 @@ export interface CompleteProcessingRunInput {
   sourceErrors: unknown[];
 }
 
+export interface UpdateProcessingRunProgressInput extends CompleteProcessingRunInput {
+  metadata: unknown;
+}
+
 export class ProcessingRunsRepository {
   constructor(private readonly db: D1Database) {}
 
@@ -100,6 +104,29 @@ export class ProcessingRunsRepository {
       .run();
   }
 
+  async getById(id: string): Promise<ProcessingRun | null> {
+    return this.db
+      .prepare("SELECT * FROM processing_runs WHERE id = ? LIMIT 1")
+      .bind(id)
+      .first<ProcessingRun>();
+  }
+
+  async listRunningTelegramCollectionJobs(limit = 3): Promise<ProcessingRun[]> {
+    const result = await this.db
+      .prepare(
+        `SELECT * FROM processing_runs
+         WHERE status = 'running'
+           AND trigger_type = 'manual'
+           AND metadata_json LIKE '%"kind":"telegram_collection_job"%'
+         ORDER BY started_at ASC
+         LIMIT ?`
+      )
+      .bind(limit)
+      .all<ProcessingRun>();
+
+    return result.results ?? [];
+  }
+
   async completeWithStats(id: string, input: CompleteProcessingRunInput): Promise<void> {
     await this.db
       .prepare(
@@ -131,6 +158,40 @@ export class ProcessingRunsRepository {
         input.newItemsCount,
         input.duplicateItemsCount,
         JSON.stringify(input.sourceErrors.slice(0, 20)),
+        id
+      )
+      .run();
+  }
+
+  async updateProgress(id: string, input: UpdateProcessingRunProgressInput): Promise<void> {
+    await this.db
+      .prepare(
+        `UPDATE processing_runs
+         SET collected_count = ?,
+             normalized_count = ?,
+             deduplicated_count = ?,
+             processed_sources_count = ?,
+             successful_sources_count = ?,
+             failed_sources_count = ?,
+             received_items_count = ?,
+             new_items_count = ?,
+             duplicate_items_count = ?,
+             source_errors_json = ?,
+             metadata_json = ?
+         WHERE id = ?`
+      )
+      .bind(
+        input.collectedCount,
+        input.normalizedCount,
+        input.deduplicatedCount,
+        input.processedSourcesCount,
+        input.successfulSourcesCount,
+        input.failedSourcesCount,
+        input.receivedItemsCount,
+        input.newItemsCount,
+        input.duplicateItemsCount,
+        JSON.stringify(input.sourceErrors.slice(0, 20)),
+        JSON.stringify(input.metadata),
         id
       )
       .run();

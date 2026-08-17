@@ -1,9 +1,24 @@
 import type { Env, ScheduledController } from "../domain/runtime";
 import { runCollection, type CollectionRunStats } from "../pipeline/collection-runner";
+import { processPendingTelegramCollectionJobs } from "../pipeline/telegram-collection-job";
+import { getConfig } from "../app/config";
 import { createRepositories } from "../storage/repositories";
+import { TelegramClient } from "../telegram/client";
 import { logger } from "../utils/logger";
 
 export async function handleScheduled(controller: ScheduledController, env: Env): Promise<void> {
+  const config = getConfig(env);
+  const telegram = new TelegramClient(config.telegramBotToken);
+  const processedJobs = await processPendingTelegramCollectionJobs(env, telegram);
+
+  if (controller.cron === "*/5 * * * *") {
+    logger.info("Collection recovery cron completed", {
+      event: "collection_recovery_cron_completed",
+      processedJobs
+    });
+    return;
+  }
+
   await runScheduledCollection("cron", env, {
     cron: controller.cron,
     scheduledTime: controller.scheduledTime

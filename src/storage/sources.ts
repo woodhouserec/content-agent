@@ -43,6 +43,25 @@ export class SourcesRepository {
     return this.db.prepare("SELECT * FROM sources WHERE id = ? LIMIT 1").bind(id).first<SourceRecord>();
   }
 
+  async getByIds(ids: string[]): Promise<SourceRecord[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const placeholders = ids.map(() => "?").join(", ");
+    const result = await this.db
+      .prepare(`SELECT * FROM sources WHERE id IN (${placeholders})`)
+      .bind(...ids)
+      .all<SourceRecord>();
+    const rows = result.results ?? [];
+    const byId = new Map(rows.map((source) => [source.id, source]));
+
+    return ids.flatMap((id) => {
+      const source = byId.get(id);
+      return source ? [source] : [];
+    });
+  }
+
   async findByUrl(url: string): Promise<SourceRecord | null> {
     return this.db.prepare("SELECT * FROM sources WHERE url = ? LIMIT 1").bind(url).first<SourceRecord>();
   }

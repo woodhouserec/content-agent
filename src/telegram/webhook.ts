@@ -9,7 +9,7 @@ import { handleCallback } from "./callbacks";
 import { TelegramClient } from "./client";
 import { buildHelpMessage, buildProfileMessage, buildStartMessage, buildStatusMessage, getCommand } from "./commands";
 import type { TelegramUpdate } from "./types";
-import { runScheduledCollection } from "../scheduled/handler";
+import { createTelegramCollectionJob, processTelegramCollectionJob } from "../pipeline/telegram-collection-job";
 import { resetTopicsForMode, runScoringAndSendTopics, sendLatestTopics } from "./topics";
 import { handleAddSource, handleSourceDisable, handleSources, handleSourceTest } from "./source-commands";
 import { createDraftTopicFromManualUrl, extractUrl, handleAddUrl } from "./manual-url-commands";
@@ -427,30 +427,24 @@ async function handleManualCollectionCommand(
   requestId: string
 ): Promise<void> {
   await setSourceMenuContext(env, telegramUserId, chatId, "permanent");
+  const { runId, sourceCount } = await createTelegramCollectionJob(env, {
+    telegramChatId: chatId,
+    requestId
+  });
 
-  await telegram.sendMessage(chatId, "Сбор материалов запущен. Я напишу, когда закончу. /status можно использовать параллельно.");
+  await telegram.sendMessage(
+    chatId,
+    sourceCount > 0
+      ? `Сбор материалов запущен. Источников в очереди: ${sourceCount}. Я начну сейчас; если сбор не успеет завершиться сразу, технический Cron продолжит автоматически и я пришлю итог.`
+      : "Сбор материалов запущен, но включённых постоянных источников сейчас нет."
+  );
 
   dispatcher.dispatch("telegram_manual_collection", async () => {
     try {
-      const { stats } = await runScheduledCollection("manual", env, {
-        requestedBy: "telegram",
-        telegramChatId: chatId,
-        requestId
-      });
-      const sourceErrors = stats.errors
-        .slice(0, 5)
-        .map((error, index) => `${index + 1}. ${error.sourceId}: ${error.stage} - ${error.message}`);
-      await telegram.sendMessage(chatId, [
-        "Сбор материалов завершён.",
-        `Источников обработано: ${stats.processedSources}`,
-        `Успешных источников: ${stats.successfulSources}`,
-        `Ошибок источников: ${stats.failedSources}`,
-        `Новых материалов: ${stats.newItems}`,
-        `Дублей: ${stats.duplicateItems}`,
-        ...(sourceErrors.length > 0 ? ["", "Первые ошибки источников:", ...sourceErrors] : []),
-        "",
-        "Теперь можно нажать «Сгенерировать тезисы»."
-      ].join("\n"));
+      const result = await processTelegramCollectionJob(env, telegram, runId);
+      if (result === "pending") {
+        await telegram.sendMessage(chatId, "Сбор ещё идёт. Я продолжу автоматически и пришлю итог. Можно пользоваться ботом дальше.");
+      }
     } catch (error: unknown) {
       const message = formatSafeError(error);
       logger.error("Manual collection failed", {

@@ -3,6 +3,7 @@ import type { CollectorConfig, CollectorError } from "../collectors/types";
 import type { Env } from "../domain/runtime";
 import { logger } from "../utils/logger";
 import { createRepositories } from "../storage/repositories";
+import type { SourceRecord } from "../storage/sources";
 import { normalizeCollectorItem } from "./normalization";
 
 export interface CollectionRunStats {
@@ -29,6 +30,12 @@ const sourceTimeoutMs = 12_000;
 export async function runCollection(env: Env, runId: string): Promise<CollectionRunStats> {
   const repos = createRepositories(env.DB);
   const sources = await repos.sources.listEnabled();
+
+  return collectSources(env, runId, sources);
+}
+
+export async function collectSources(env: Env, runId: string, sources: SourceRecord[]): Promise<CollectionRunStats> {
+  const repos = createRepositories(env.DB);
   const stats: CollectionRunStats = {
     processedSources: 0,
     successfulSources: 0,
@@ -131,6 +138,31 @@ export async function runCollection(env: Env, runId: string): Promise<Collection
   }
 
   return stats;
+}
+
+export function emptyCollectionRunStats(): CollectionRunStats {
+  return {
+    processedSources: 0,
+    successfulSources: 0,
+    failedSources: 0,
+    receivedItems: 0,
+    normalizedItems: 0,
+    newItems: 0,
+    duplicateItems: 0,
+    errors: []
+  };
+}
+
+export function mergeCollectionRunStats(target: CollectionRunStats, input: CollectionRunStats): CollectionRunStats {
+  target.processedSources += input.processedSources;
+  target.successfulSources += input.successfulSources;
+  target.failedSources += input.failedSources;
+  target.receivedItems += input.receivedItems;
+  target.normalizedItems += input.normalizedItems;
+  target.newItems += input.newItems;
+  target.duplicateItems += input.duplicateItems;
+  target.errors.push(...input.errors);
+  return target;
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
