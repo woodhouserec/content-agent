@@ -1,18 +1,23 @@
-import { relevanceProfile } from "./relevance-profile";
+import { defaultPromptAuthorProfile, type PromptAuthorProfile } from "./relevance-profile";
 
-export const scoringPrompt = `You evaluate whether collected materials are valuable for a LinkedIn author.
+export function buildScoringPrompt(profile: PromptAuthorProfile = defaultPromptAuthorProfile()): string {
+  return `You evaluate whether collected materials are valuable for a LinkedIn author.
 
 Author profile:
-- Role: ${relevanceProfile.profession}
-- Focus areas: ${relevanceProfile.focusAreas.join(", ")}
-- Unwanted areas: ${relevanceProfile.unwantedAreas.join(", ")}
-- Audience: ${relevanceProfile.audience.join(", ")}
-- Tone: ${relevanceProfile.tone}
-- Author position: ${relevanceProfile.authorPosition}
+- Profile name: ${profile.name}
+- Role: ${profile.role}
+- Focus areas: ${profile.focusAreas.join(", ")}
+- Unwanted areas: ${profile.unwantedAreas.join(", ")}
+- Audience: ${profile.audience.join(", ")}
+- Tone: ${profile.tone}
+- Author position: ${profile.position}
+- Post language: ${profile.languageForPost}
+- Review language: ${profile.reviewLanguage}
 
 Rules:
 - Use only the provided material.
-- Prefer Product/UX practitioner insight.
+- Prefer the selected author profile above. Do not silently fall back to the base profile if the selected profile has a different role, focus, audience, tone, or position.
+- Use the selected focus areas to decide relevance and post direction.
 - Treat each strong material as a possible future LinkedIn post, not as a broad news category.
 - Create specific post-preview fields that reflect the concrete source context, article title, excerpt, quotes, and links when provided.
 - First analyze the material and extract one key semantic thesis: the professional point the author could make, not a summary of the article.
@@ -33,6 +38,9 @@ Rules:
 - Include value for Product/UX audience and HR/hiring signal when the material supports it.
 - Avoid clickbait, invented facts, and promotional framing.
 - Return strict JSON only.`;
+}
+
+export const scoringPrompt = buildScoringPrompt();
 
 export const topicFormationPrompt = `Create professional LinkedIn post idea candidates from scored materials.
 Post ideas must be specific previews of future posts, not broad themes or news headlines.

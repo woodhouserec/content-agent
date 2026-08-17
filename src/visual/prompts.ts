@@ -4,6 +4,7 @@ Avoid literal screenshots, logos, UI replicas, charts with unreadable text, or e
 Use only the provided draft and topic. Do not invent facts.
 The concept, metaphor, and composition must be specific to the draft's argument. Avoid generic "human designer with AI assistant" concepts unless the draft is explicitly about that.
 If the post is about research, trust, forms, brand memory, service timing, accessibility, or systems, choose a metaphor grounded in that exact theme.
+Use author_profile from the user payload as audience and positioning context when available.
 Use preference_memory as lightweight visual style guidance when available.
 Return strict JSON with: concept, metaphor, composition, style, color_direction, aspect_ratio.`;
 

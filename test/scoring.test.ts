@@ -5,7 +5,10 @@ import type { Env } from "../src/domain/runtime";
 import { validateAiResults, scoreWithOpenAi } from "../src/scoring/openai";
 import { scoringConfig } from "../src/scoring/config";
 import { scoreCollectedItem } from "../src/scoring/rule-based";
+import { buildScoringPrompt } from "../src/scoring/prompts";
+import { profileFocusKeywords, storedProfileToPromptAuthorProfile } from "../src/scoring/relevance-profile";
 import { modeFilterSql } from "../src/storage/collected-items";
+import type { RelevanceProfileRecord } from "../src/storage/relevance-profiles";
 
 test("rule-based scoring boosts relevant UX/Product material", () => {
   const score = scoreCollectedItem(makeItem({
@@ -74,6 +77,36 @@ test("AI JSON validation accepts structured scoring response", () => {
   });
 
   assert.equal(results[0]?.aiRelevanceScore, 82);
+});
+
+test("scoring prompt uses active relevance profile", () => {
+  const profile = storedProfileToPromptAuthorProfile(makeProfile({
+    name: "HR Lens",
+    role: "Product Designer writing for hiring managers",
+    focus_json: JSON.stringify(["Portfolio strategy", "Hiring signal"]),
+    audience_json: JSON.stringify(["Recruiters", "Design Managers"]),
+    tone: "sharp, practical, evidence-led",
+    position: "portfolio signal, not generic UX commentary"
+  }));
+  const prompt = buildScoringPrompt(profile);
+
+  assert.match(prompt, /HR Lens/);
+  assert.match(prompt, /Product Designer writing for hiring managers/);
+  assert.match(prompt, /Portfolio strategy, Hiring signal/);
+  assert.match(prompt, /Recruiters, Design Managers/);
+  assert.match(prompt, /sharp, practical, evidence-led/);
+});
+
+test("profile focus keywords prefer selected profile focus", () => {
+  const keywords = profileFocusKeywords(makeProfile({
+    focus_json: JSON.stringify(["Hiring signal", "Portfolio strategy"])
+  }));
+
+  assert.ok(keywords.includes("hiring signal"));
+  assert.ok(keywords.includes("hiring"));
+  assert.ok(keywords.includes("portfolio strategy"));
+  assert.ok(keywords.includes("portfolio"));
+  assert.equal(keywords.includes("product design"), false);
 });
 
 test("AI JSON validation rejects malformed response", () => {
@@ -164,6 +197,26 @@ function makeItem(overrides: Partial<CollectedItemRecord>): CollectedItemRecord 
     scoring_version: null,
     status: "collected",
     metadata_json: null,
+    ...overrides
+  };
+}
+
+function makeProfile(overrides: Partial<RelevanceProfileRecord>): RelevanceProfileRecord {
+  return {
+    id: "profile_test",
+    name: "Test profile",
+    role: "Custom role",
+    focus_json: JSON.stringify(["Custom focus"]),
+    audience_json: JSON.stringify(["Custom audience"]),
+    tone: "Custom tone",
+    position: "Custom position",
+    min_rule_score: 60,
+    min_final_score_for_topic: 70,
+    memory_json: "{}",
+    is_active: 1,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    deleted_at: null,
     ...overrides
   };
 }

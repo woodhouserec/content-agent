@@ -1,6 +1,7 @@
 import { OpenAiDraftClient } from "../drafts/openai-draft-client";
 import type { AiJsonClient } from "../drafts/draft-service";
 import type { Env } from "../domain/runtime";
+import { getActivePromptAuthorProfile } from "../scoring/relevance-profile";
 import type { DraftRecord } from "../storage/drafts";
 import type { TopicRecord } from "../storage/topics";
 import type { VisualAssetRecord, VisualBriefRecord } from "../storage/visuals";
@@ -229,6 +230,7 @@ export class VisualService {
           photorealism_allowed: false,
           text_in_image: "minimal"
         },
+        author_profile: await getActivePromptAuthorProfile(this.env),
         preference_memory: await this.preferenceMemoryForPrompt()
       }
     });

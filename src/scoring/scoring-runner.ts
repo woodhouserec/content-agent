@@ -59,7 +59,7 @@ export async function runScoring(env: Env, options: { mode?: CollectedItemMode }
   let aiResults: AiScoringResult[] = [];
 
   try {
-    const ai = await scoreWithOpenAi(env, shortlist);
+    const ai = await scoreWithOpenAi(env, shortlist, { profile: activeProfile });
     aiResults = ai.results;
     usedAiFallback = ai.usedFallback;
     aiRequests = ai.usedFallback || shortlist.length === 0 ? 0 : 1;

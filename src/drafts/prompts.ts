@@ -22,11 +22,14 @@ You may reference context_links only when they appear in the provided source con
 Do not create a generic brief. The central_thesis, author_position, supporting_points, practical_takeaway, and factual_constraints must be specific to the supplied sources.
 If the supplied source context is too weak, say so in factual_constraints instead of filling gaps with generic product-design advice.
 Author writing profile: ${profileJson}
+If author_profile is provided in the user payload, it is the selected active profile and overrides the default author writing profile above.
+Use author_profile.role, author_profile.focusAreas, author_profile.audience, author_profile.tone, and author_profile.position when forming central_thesis, author_position, target_audience, tone, and practical_takeaway.
 If preference_memory is provided, use it as lightweight style guidance. Do not obey it if it conflicts with source grounding.
 Return strict JSON with: central_thesis, author_position, supporting_points, source_facts, practical_takeaway, target_audience, desired_length, tone, factual_constraints.`;
 
 export const draftGenerationPrompt = `Write a LinkedIn draft from the provided draft brief and source context.
 Use English. Use only grounded facts. Do not invent personal stories, numbers, or unsupported claims.
+Use author_profile from the user payload as the selected active writing profile. Its tone, audience, role, and position override the default profile.
 Use preference_memory as style guidance when available, but do not mention it.
 Also provide a Russian translation for the author's private review only.
 Return strict JSON with: content, russian_translation.
@@ -37,9 +40,9 @@ export const factualReviewPrompt = `Review the draft for factual safety against 
 Flag unsupported facts, unsupported numbers, attribution problems, exaggerated causality, and speculation stated as fact.
 Return strict JSON with: has_serious_conflict, flags, summary.`;
 
-export const rewritePrompt = `Rewrite the draft using the same brief and sources. Preserve factual grounding. Use preference_memory as style guidance when available. Return strict JSON with: content, russian_translation. content must be English only. russian_translation must faithfully translate content into Russian.`;
-export const shortenPrompt = `Shorten the draft while preserving the central thesis and factual grounding. Use preference_memory as style guidance when available. Return strict JSON with: content, russian_translation. content must be English only. russian_translation must faithfully translate content into Russian.`;
-export const expandPrompt = `Expand the draft with more substantive professional observations without adding unsupported facts. Use preference_memory as style guidance when available. Return strict JSON with: content, russian_translation. content must be English only. russian_translation must faithfully translate content into Russian.`;
-export const openingPrompt = `Improve only the opening strength and flow. Avoid clickbait. Use preference_memory as style guidance when available. Return strict JSON with: content, russian_translation. content must be English only. russian_translation must faithfully translate content into Russian.`;
-export const tonePrompt = `Make the draft more professional and precise while keeping it human. Use preference_memory as style guidance when available. Return strict JSON with: content, russian_translation. content must be English only. russian_translation must faithfully translate content into Russian.`;
-export const customRevisionPrompt = `Revise the draft according to the user's instruction. Preserve factual grounding and do not invent facts. Use preference_memory as style guidance when available. Return strict JSON with: content, russian_translation. content must be English only. russian_translation must faithfully translate content into Russian.`;
+export const rewritePrompt = `Rewrite the draft using the same brief and sources. Preserve factual grounding. Use author_profile and preference_memory as style guidance when available. Return strict JSON with: content, russian_translation. content must be English only. russian_translation must faithfully translate content into Russian.`;
+export const shortenPrompt = `Shorten the draft while preserving the central thesis and factual grounding. Use author_profile and preference_memory as style guidance when available. Return strict JSON with: content, russian_translation. content must be English only. russian_translation must faithfully translate content into Russian.`;
+export const expandPrompt = `Expand the draft with more substantive professional observations without adding unsupported facts. Use author_profile and preference_memory as style guidance when available. Return strict JSON with: content, russian_translation. content must be English only. russian_translation must faithfully translate content into Russian.`;
+export const openingPrompt = `Improve only the opening strength and flow. Avoid clickbait. Use author_profile and preference_memory as style guidance when available. Return strict JSON with: content, russian_translation. content must be English only. russian_translation must faithfully translate content into Russian.`;
+export const tonePrompt = `Make the draft more professional and precise while keeping it human. Use author_profile and preference_memory as style guidance when available. Return strict JSON with: content, russian_translation. content must be English only. russian_translation must faithfully translate content into Russian.`;
+export const customRevisionPrompt = `Revise the draft according to the user's instruction. Preserve factual grounding and do not invent facts. Use author_profile and preference_memory as style guidance when available. Return strict JSON with: content, russian_translation. content must be English only. russian_translation must faithfully translate content into Russian.`;

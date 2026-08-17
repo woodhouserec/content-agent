@@ -1,7 +1,9 @@
 import type { Env } from "../domain/runtime";
 import type { CollectedItemRecord } from "../storage/collected-items";
+import type { RelevanceProfileRecord } from "../storage/relevance-profiles";
 import { scoringConfig } from "./config";
-import { scoringPrompt } from "./prompts";
+import { buildScoringPrompt } from "./prompts";
+import { storedProfileToPromptAuthorProfile } from "./relevance-profile";
 
 export interface AiScoringResult {
   itemId: string;
@@ -31,7 +33,7 @@ export interface AiScoringResponse {
   usedFallback: boolean;
 }
 
-export async function scoreWithOpenAi(env: Env, items: CollectedItemRecord[], options: { timeoutMs?: number } = {}): Promise<AiScoringResponse> {
+export async function scoreWithOpenAi(env: Env, items: CollectedItemRecord[], options: { timeoutMs?: number; profile?: RelevanceProfileRecord | null } = {}): Promise<AiScoringResponse> {
   if (!env.OPENAI_API_KEY || items.length === 0) {
     return {
       results: [],
@@ -41,6 +43,7 @@ export async function scoreWithOpenAi(env: Env, items: CollectedItemRecord[], op
   }
 
   const model = env.OPENAI_SCORING_MODEL ?? scoringConfig.defaultOpenAiModel;
+  const authorProfile = storedProfileToPromptAuthorProfile(options.profile ?? null);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? scoringConfig.openAiTimeoutMs);
 
@@ -56,7 +59,7 @@ export async function scoreWithOpenAi(env: Env, items: CollectedItemRecord[], op
         input: [
           {
             role: "system",
-            content: scoringPrompt
+            content: buildScoringPrompt(authorProfile)
           },
           {
             role: "user",
@@ -86,6 +89,7 @@ export async function scoreWithOpenAi(env: Env, items: CollectedItemRecord[], op
                   }
                 ]
               },
+              author_profile: authorProfile,
               items: items.map((item) => ({
                 itemId: item.id,
                 title: item.title,

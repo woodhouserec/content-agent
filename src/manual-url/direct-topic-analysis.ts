@@ -2,6 +2,7 @@ import { OpenAiDraftClient } from "../drafts/openai-draft-client";
 import type { OpenAiJsonResult } from "../drafts/types";
 import type { Env } from "../domain/runtime";
 import { formatPreferenceMemoryForPrompt, getActivePreferenceMemory } from "../preferences/memory";
+import { getActivePromptAuthorProfile } from "../scoring/relevance-profile";
 import type { CollectedItemRecord } from "../storage/collected-items";
 import { createRepositories } from "../storage/repositories";
 
@@ -28,6 +29,7 @@ export async function analyzeManualUrlForDirectTopic(env: Env, item: CollectedIt
 
   const client = new OpenAiDraftClient(env);
   const started = Date.now();
+  const authorProfile = await getActivePromptAuthorProfile(env);
 
   try {
     const result = await client.createJson<Record<string, unknown>>({
@@ -48,13 +50,7 @@ export async function analyzeManualUrlForDirectTopic(env: Env, item: CollectedIt
           context_links: metadataArray(item.metadata_json, "links", 8),
           extraction_status: extractionStatus(item.metadata_json)
         },
-        author_context: {
-          role: "UI/UX and Product Designer and Analyst, Startup Founder",
-          audience: ["Product Designers", "UI/UX Designers", "Design Leads", "Product Managers", "SaaS founders"],
-          language_for_post: "English",
-          review_language: "Russian",
-          position: "practitioner insight, not a news retelling"
-        },
+        author_context: authorProfile,
         preference_memory: formatPreferenceMemoryForPrompt(await getActivePreferenceMemory(env))
       }
     });
@@ -79,6 +75,7 @@ const directTopicPrompt = `Analyze one manually submitted source and create a sp
 This is NOT general topic clustering. The user explicitly wants a post based on this exact source.
 Use only the provided source. Do not invent facts, examples, numbers, or author claims.
 Create a distinctive Product/UX practitioner angle that uses concrete context from the source.
+Use author_context from the user payload as the selected author profile. Its role, focus areas, audience, tone, and position override the base profile.
 Avoid generic angles like "a Product/UX perspective on this article".
 Avoid clickbait and promotional tone.
 The final LinkedIn post will be in English, but Telegram review fields should also have Russian versions.

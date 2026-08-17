@@ -50,6 +50,21 @@ export const relevanceProfile = {
   timezone: "Europe/Amsterdam"
 } as const;
 
+export interface PromptAuthorProfile {
+  id: string;
+  name: string;
+  role: string;
+  focusAreas: string[];
+  unwantedAreas: string[];
+  audience: string[];
+  tone: string;
+  position: string;
+  languageForPost: string;
+  reviewLanguage: string;
+  minRuleScore: number;
+  minFinalScoreForTopic: number;
+}
+
 export function buildProfileSummary(): string {
   return [
     `Role: ${relevanceProfile.profession}`,
@@ -68,6 +83,48 @@ export async function getActiveRelevanceProfile(env: Env): Promise<RelevanceProf
   } catch {
     return null;
   }
+}
+
+export async function getActivePromptAuthorProfile(env: Env): Promise<PromptAuthorProfile> {
+  return storedProfileToPromptAuthorProfile(await getActiveRelevanceProfile(env));
+}
+
+export function storedProfileToPromptAuthorProfile(profile: RelevanceProfileRecord | null): PromptAuthorProfile {
+  if (!profile) {
+    return defaultPromptAuthorProfile();
+  }
+
+  return {
+    id: profile.id,
+    name: profile.name,
+    role: profile.role,
+    focusAreas: nonEmptyProfileArray(profile.focus_json, [...relevanceProfile.focusAreas]),
+    unwantedAreas: [...relevanceProfile.unwantedAreas],
+    audience: nonEmptyProfileArray(profile.audience_json, [...relevanceProfile.audience]),
+    tone: profile.tone,
+    position: profile.position,
+    languageForPost: relevanceProfile.contentLanguage,
+    reviewLanguage: "Russian",
+    minRuleScore: profile.min_rule_score,
+    minFinalScoreForTopic: profile.min_final_score_for_topic
+  };
+}
+
+export function defaultPromptAuthorProfile(): PromptAuthorProfile {
+  return {
+    id: "profile_base",
+    name: "Базовый",
+    role: relevanceProfile.profession,
+    focusAreas: [...relevanceProfile.focusAreas],
+    unwantedAreas: [...relevanceProfile.unwantedAreas],
+    audience: [...relevanceProfile.audience],
+    tone: relevanceProfile.tone,
+    position: relevanceProfile.authorPosition,
+    languageForPost: relevanceProfile.contentLanguage,
+    reviewLanguage: "Russian",
+    minRuleScore: relevanceProfile.minRuleScoreForAi,
+    minFinalScoreForTopic: relevanceProfile.minFinalScoreForTopic
+  };
 }
 
 export async function buildActiveProfileSummary(env: Env): Promise<string> {
@@ -102,11 +159,35 @@ export function formatStoredProfile(profile: RelevanceProfileRecord): string {
 }
 
 export function profileFocusKeywords(profile: RelevanceProfileRecord | null): string[] {
-  const base = relevanceProfile.focusAreas;
-  const stored = profile ? parseProfileArray(profile.focus_json) : [];
-  return [...new Set([...base, ...stored].map((value) => value.toLowerCase()))];
+  const focus = profile ? nonEmptyProfileArray(profile.focus_json, [...relevanceProfile.focusAreas]) : [...relevanceProfile.focusAreas];
+  return [...new Set(focus.flatMap(expandFocusKeywords))];
 }
 
 function formatMemoryLine(label: string, items: string[]): string {
   return `${label}: ${items.length > 0 ? items.slice(0, 5).join("; ") : "empty"}`;
 }
+
+function nonEmptyProfileArray(value: string, fallback: string[]): string[] {
+  const parsed = parseProfileArray(value).map((item) => item.trim()).filter(Boolean);
+  return parsed.length > 0 ? parsed : fallback;
+}
+
+function expandFocusKeywords(value: string): string[] {
+  const normalized = value.toLowerCase().replace(/\s+/g, " ").trim();
+  const parts = normalized
+    .split(/[^a-zа-яё0-9]+/i)
+    .map((part) => part.trim())
+    .filter((part) => part.length >= 4 && !profileKeywordStopWords.has(part));
+
+  return [normalized, ...parts];
+}
+
+const profileKeywordStopWords = new Set([
+  "and",
+  "with",
+  "from",
+  "для",
+  "или",
+  "про",
+  "как"
+]);

@@ -1,4 +1,5 @@
 import type { Env } from "../domain/runtime";
+import { getActivePromptAuthorProfile, type PromptAuthorProfile } from "../scoring/relevance-profile";
 import type { DraftBriefRecord } from "../storage/draft-briefs";
 import type { DraftRecord } from "../storage/drafts";
 import type { createRepositories } from "../storage/repositories";
@@ -70,6 +71,7 @@ export class DraftService {
       throw new Error("Draft can be generated only for selected topics");
     }
 
+    const authorProfile = await this.authorProfileForPrompt();
     const draftCount = await this.repos.drafts.countForTopic(topic.id);
     if (draftCount > 0) {
       const existing = await this.repos.drafts.latestForTopic(topic.id);
@@ -77,7 +79,9 @@ export class DraftService {
         throw new Error("Draft already exists for this topic, but latest draft was not found.");
       }
 
-      return this.resultFromExistingDraft(topic, existing);
+      if (draftMatchesAuthorProfile(existing, authorProfile)) {
+        return this.resultFromExistingDraft(topic, existing);
+      }
     }
 
     if (draftCount >= draftConfig.maxDraftGenerationsPerTopic) {
@@ -86,8 +90,8 @@ export class DraftService {
 
     const sources = await buildGroundedSourceContext(this.env, topic);
     const preferenceMemory = await this.preferenceMemoryForPrompt();
-    const brief = await this.getOrCreateBrief(topic, sources, preferenceMemory);
-    return this.createDraftFromBrief(topic, brief, sources, telegramChatId, null, null, null, preferenceMemory);
+    const brief = await this.getOrCreateBrief(topic, sources, preferenceMemory, authorProfile);
+    return this.createDraftFromBrief(topic, brief, sources, telegramChatId, null, null, null, preferenceMemory, authorProfile);
   }
 
   async reviseDraft(draftId: string, revisionType: DraftRevisionType, telegramChatId: string, userInstruction?: string): Promise<DraftServiceResult> {
@@ -101,7 +105,7 @@ export class DraftService {
 
     const brief = await this.requireBrief(parentDraft.draft_brief_id);
     const sources = await buildGroundedSourceContext(this.env, topic);
-    return this.createRevision(topic, brief, sources, parentDraft, revisionType, telegramChatId, userInstruction ?? null, await this.preferenceMemoryForPrompt());
+    return this.createRevision(topic, brief, sources, parentDraft, revisionType, telegramChatId, userInstruction ?? null, await this.preferenceMemoryForPrompt(), await this.authorProfileForPrompt());
   }
 
   async approveDraft(draftId: string): Promise<DraftRecord> {
@@ -157,9 +161,9 @@ export class DraftService {
     return lines.join("\n");
   }
 
-  private async getOrCreateBrief(topic: TopicRecord, sources: GroundedSource[], preferenceMemory: string): Promise<DraftBriefRecord> {
+  private async getOrCreateBrief(topic: TopicRecord, sources: GroundedSource[], preferenceMemory: string, authorProfile: PromptAuthorProfile): Promise<DraftBriefRecord> {
     const existing = await this.repos.draftBriefs.getLatestForTopic(topic.id);
-    if (existing) {
+    if (existing && briefMatchesAuthorProfile(existing, authorProfile)) {
       return existing;
     }
 
@@ -170,6 +174,7 @@ export class DraftService {
       payload: {
         topic: topicPayload(topic),
         sources,
+        author_profile: authorProfile,
         preference_memory: preferenceMemory
       }
     });
@@ -191,6 +196,7 @@ export class DraftService {
       generationMetadata: {
         provider: "openai",
         model: result.model,
+        authorProfile,
         usage: result.usage,
         latencyMs: result.latencyMs
       }
@@ -205,10 +211,11 @@ export class DraftService {
     parentDraft: DraftRecord | null,
     revisionType: DraftRevisionType | null,
     userInstruction: string | null,
-    preferenceMemory: string
+    preferenceMemory: string,
+    authorProfile: PromptAuthorProfile
   ): Promise<DraftServiceResult> {
     if (parentDraft) {
-      return this.createRevision(topic, brief, sources, parentDraft, revisionType ?? "rewrite", telegramChatId, userInstruction, preferenceMemory);
+      return this.createRevision(topic, brief, sources, parentDraft, revisionType ?? "rewrite", telegramChatId, userInstruction, preferenceMemory, authorProfile);
     }
 
     const generated = await this.callAi<Record<string, unknown>>({
@@ -219,6 +226,7 @@ export class DraftService {
         topic: topicPayload(topic),
         brief: briefPayload(brief),
         sources,
+        author_profile: authorProfile,
         preference_memory: preferenceMemory
       }
     });
@@ -232,7 +240,7 @@ export class DraftService {
       content: draft.content,
       model: generated.model,
       promptVersion: promptVersions.draftGeneration,
-      generationMetadata: buildDraftGenerationMetadata(generated, draft),
+      generationMetadata: buildDraftGenerationMetadata(generated, draft, authorProfile),
       sourceSnapshot: sources,
       factualReview: factual
     });
@@ -256,7 +264,8 @@ export class DraftService {
     revisionType: DraftRevisionType,
     telegramChatId: string,
     userInstruction: string | null,
-    preferenceMemory: string
+    preferenceMemory: string,
+    authorProfile: PromptAuthorProfile
   ): Promise<DraftServiceResult> {
     const prompt = promptForRevision(revisionType);
     const promptVersion = promptVersionForRevision(revisionType);
@@ -271,6 +280,7 @@ export class DraftService {
         current_draft: parentDraft.content,
         user_instruction: userInstruction,
         sources: compactSourcesForRevision(sources),
+        author_profile: authorProfile,
         preference_memory: preferenceMemory
       }
     });
@@ -287,7 +297,7 @@ export class DraftService {
       revisionType,
       userInstruction,
       promptVersion,
-      generationMetadata: buildDraftGenerationMetadata(generated, draft),
+      generationMetadata: buildDraftGenerationMetadata(generated, draft, authorProfile),
       sourceSnapshot: sources,
       factualReview: factual
     });
@@ -344,6 +354,10 @@ export class DraftService {
 
   private async preferenceMemoryForPrompt(): Promise<string> {
     return formatPreferenceMemoryForPrompt(await getActivePreferenceMemory(this.env));
+  }
+
+  private async authorProfileForPrompt(): Promise<PromptAuthorProfile> {
+    return getActivePromptAuthorProfile(this.env);
   }
 
   private async rememberDraftApproval(draft: DraftRecord): Promise<void> {
@@ -487,6 +501,32 @@ function briefPayload(brief: DraftBriefRecord) {
   };
 }
 
+function briefMatchesAuthorProfile(brief: DraftBriefRecord, authorProfile: PromptAuthorProfile): boolean {
+  if (!brief.generation_metadata_json) {
+    return false;
+  }
+
+  try {
+    const metadata = JSON.parse(brief.generation_metadata_json) as { authorProfile?: { id?: unknown } };
+    return metadata.authorProfile?.id === authorProfile.id;
+  } catch {
+    return false;
+  }
+}
+
+function draftMatchesAuthorProfile(draft: DraftRecord, authorProfile: PromptAuthorProfile): boolean {
+  if (!draft.generation_metadata_json) {
+    return false;
+  }
+
+  try {
+    const metadata = JSON.parse(draft.generation_metadata_json) as { authorProfile?: { id?: unknown } };
+    return metadata.authorProfile?.id === authorProfile.id;
+  } catch {
+    return false;
+  }
+}
+
 function compactSourcesForRevision(sources: GroundedSource[]): GroundedSource[] {
   return sources.map((source) => ({
     ...source,
@@ -572,13 +612,15 @@ function mergeUsage(usages: Array<OpenAiUsage | null>): { inputTokens: number; o
 
 function buildDraftGenerationMetadata(
   generated: OpenAiJsonResult<Record<string, unknown>>,
-  draft: DraftGenerationResult
+  draft: DraftGenerationResult,
+  authorProfile: PromptAuthorProfile
 ): Record<string, unknown> {
   return {
     provider: "openai",
     model: generated.model,
     usage: generated.usage,
     latencyMs: generated.latencyMs,
+    authorProfile,
     russian_translation: draft.russianTranslation
   };
 }

@@ -34,7 +34,7 @@ export function scoreCollectedItem(item: CollectedItemRecord, profile: Relevance
   const boosts: string[] = [];
   const penalties: string[] = [];
 
-  const activeFocusKeywords = [...new Set([...focusKeywords, ...profileFocusKeywords(profile)])];
+  const activeFocusKeywords = profile ? profileFocusKeywords(profile) : focusKeywords;
   const matchedFocus = activeFocusKeywords.filter((keyword) => text.includes(keyword));
   factors.topicMatch = Math.min(35, matchedFocus.length * 7);
   if (matchedFocus.length > 0) {
