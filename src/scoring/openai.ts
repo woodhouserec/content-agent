@@ -11,6 +11,7 @@ export interface AiScoringResult {
   noveltyScore: number;
   professionalValue: number;
   possibleLinkedInAngle: string;
+  suggestedAngle: string;
   explanation: string;
   keyThesis: string;
   keyThesisRu: string;
@@ -31,6 +32,7 @@ export interface AiScoringResponse {
   results: AiScoringResult[];
   model: string | null;
   usedFallback: boolean;
+  requestCount: number;
 }
 
 export async function scoreWithOpenAi(env: Env, items: CollectedItemRecord[], options: { timeoutMs?: number; profile?: RelevanceProfileRecord | null } = {}): Promise<AiScoringResponse> {
@@ -38,14 +40,39 @@ export async function scoreWithOpenAi(env: Env, items: CollectedItemRecord[], op
     return {
       results: [],
       model: null,
-      usedFallback: true
+      usedFallback: true,
+      requestCount: 0
     };
   }
 
   const model = env.OPENAI_SCORING_MODEL ?? scoringConfig.defaultOpenAiModel;
   const authorProfile = storedProfileToPromptAuthorProfile(options.profile ?? null);
+
+  const settled = await Promise.all(items.map(async (item) => scoreSingleItemWithOpenAi(env, model, authorProfile, item, options.timeoutMs)));
+  const results = settled.flatMap((result) => result.result ? [result.result] : []);
+  const firstError = settled.find((result) => result.error)?.error;
+
+  if (results.length === 0 && firstError) {
+    throw firstError;
+  }
+
+  return {
+    results,
+    model,
+    usedFallback: results.length === 0,
+    requestCount: settled.length
+  };
+}
+
+async function scoreSingleItemWithOpenAi(
+  env: Env,
+  model: string,
+  authorProfile: ReturnType<typeof storedProfileToPromptAuthorProfile>,
+  item: CollectedItemRecord,
+  timeoutMs?: number
+): Promise<{ result: AiScoringResult | null; error: Error | null }> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? scoringConfig.openAiTimeoutMs);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs ?? scoringConfig.openAiTimeoutMs);
 
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -67,30 +94,31 @@ export async function scoreWithOpenAi(env: Env, items: CollectedItemRecord[], op
               expected_schema: {
                 results: [
                   {
-                    itemId: "string",
+                    itemId: item.id,
                     aiRelevanceScore: "0-100",
                     noveltyScore: "0-100",
                     professionalValue: "0-100",
-                    possibleLinkedInAngle: "string",
-                    explanation: "string",
+                    possibleLinkedInAngle: "short English post idea, not the article title",
+                    suggestedAngle: "specific practitioner angle in English",
+                    explanation: "brief explanation of why this material is useful or not",
                     keyThesis: "one specific semantic thesis extracted from this material in English",
                     keyThesisRu: "one specific semantic thesis extracted from this material in Russian",
                     postTitle: "specific future LinkedIn post title in English, grounded in this exact material",
                     postTitleRu: "specific future LinkedIn post title in Russian, grounded in this exact material",
-                    shortDescription: "required, specific one-sentence preview in English; unique to this exact material; do not start with 'A post about'",
-                    shortDescriptionRu: "required, specific one-sentence preview in Russian; unique to this exact material; do not start with 'Пост о'",
-                    audienceValue: "value for Product/UX audience in English",
-                    audienceValueRu: "value for Product/UX audience in Russian",
-                    hrValue: "value for HR/hiring signal in English",
-                    hrValueRu: "value for HR/hiring signal in Russian",
+                    shortDescription: "factual 2-4 sentence summary of what the source material says in English; do not reuse the full article title",
+                    shortDescriptionRu: "factual 2-4 sentence summary of what the source material says in Russian; do not reuse the full article title",
+                    audienceValue: "specific value for Product/UX audience in English",
+                    audienceValueRu: "specific value for Product/UX audience in Russian",
+                    hrValue: "specific value for HR/hiring signal in English",
+                    hrValueRu: "specific value for HR/hiring signal in Russian",
                     recruiterValue: "what this post would signal to recruiters or hiring managers evaluating a product designer in English",
                     recruiterValueRu: "what this post would signal to recruiters or hiring managers evaluating a product designer in Russian",
-                    suggestedAngleRu: "suggested angle in Russian, grounded in this exact material"
+                    suggestedAngleRu: "specific practitioner angle in Russian, grounded in this exact material"
                   }
                 ]
               },
               author_profile: authorProfile,
-              items: items.map((item) => ({
+              item: {
                 itemId: item.id,
                 title: item.title,
                 canonicalUrl: item.canonical_url ?? item.url,
@@ -100,7 +128,7 @@ export async function scoreWithOpenAi(env: Env, items: CollectedItemRecord[], op
                 publishedAt: item.published_at,
                 ruleScore: item.rule_score,
                 metadata: compactMetadata(item.metadata_json)
-              }))
+              }
             })
           }
         ],
@@ -124,17 +152,19 @@ export async function scoreWithOpenAi(env: Env, items: CollectedItemRecord[], op
       throw new Error("OpenAI scoring response did not include text.");
     }
 
-    return {
-      results: validateAiResults(JSON.parse(text)),
-      model,
-      usedFallback: false
-    };
+    const result = validateAiResults(JSON.parse(text))[0] ?? null;
+    if (!result || result.itemId !== item.id) {
+      throw new Error("OpenAI scoring response did not match requested item.");
+    }
+    rejectTitleStuffing(result, item);
+
+    return { result, error: null };
   } catch (error: unknown) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error("OpenAI scoring timed out");
+      return { result: null, error: new Error("OpenAI scoring timed out") };
     }
 
-    throw error;
+    return { result: null, error: error instanceof Error ? error : new Error(String(error)) };
   } finally {
     clearTimeout(timeout);
   }
@@ -156,6 +186,7 @@ export function validateAiResults(value: unknown): AiScoringResult[] {
       noveltyScore: requireScore(result.noveltyScore, "noveltyScore"),
       professionalValue: requireScore(result.professionalValue, "professionalValue"),
       possibleLinkedInAngle: requireString(result.possibleLinkedInAngle, "possibleLinkedInAngle"),
+      suggestedAngle: optionalString(result.suggestedAngle) ?? requireString(result.possibleLinkedInAngle, "possibleLinkedInAngle"),
       explanation: requireString(result.explanation, "explanation"),
       keyThesis: requireQualityString(result.keyThesis, "keyThesis"),
       keyThesisRu: requireQualityString(result.keyThesisRu, "keyThesisRu"),
@@ -228,6 +259,39 @@ function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value.trim().slice(0, 900) : undefined;
 }
 
+function rejectTitleStuffing(result: AiScoringResult, item: CollectedItemRecord): void {
+  const title = normalizeForContentCheck(item.title);
+  if (title.length < 28) {
+    return;
+  }
+
+  const fields: Array<[keyof AiScoringResult, string]> = [
+    ["shortDescription", result.shortDescription],
+    ["shortDescriptionRu", result.shortDescriptionRu],
+    ["audienceValue", result.audienceValue],
+    ["audienceValueRu", result.audienceValueRu],
+    ["recruiterValue", result.recruiterValue],
+    ["recruiterValueRu", result.recruiterValueRu],
+    ["suggestedAngle", result.suggestedAngle],
+    ["suggestedAngleRu", result.suggestedAngleRu]
+  ];
+
+  for (const [field, value] of fields) {
+    if (normalizeForContentCheck(value).includes(title)) {
+      throw new Error(`Invalid AI scoring JSON: ${field} repeats the full article title.`);
+    }
+  }
+}
+
+function normalizeForContentCheck(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/&[#a-z0-9]+;/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function isGenericQualityText(value: string): boolean {
   const normalized = value.toLowerCase().replace(/\s+/g, " ").trim();
   const genericPatterns = [
@@ -236,6 +300,9 @@ function isGenericQualityText(value: string): boolean {
     "a post about how",
     "a post about why",
     "a post preview grounded in",
+    "post about ai ux",
+    "post about ai",
+    "post about ux",
     "based on the material",
     "this material can become",
     "turns the material into",
@@ -244,6 +311,12 @@ function isGenericQualityText(value: string): boolean {
     "shows professional thinking",
     "возможный пост о",
     "возможный пост, который",
+    "пост об ai",
+    "пост о ai",
+    "пост про ai",
+    "пост об ux",
+    "пост о ux",
+    "пост про ux",
     "пост о том, как",
     "пост о том, почему",
     "на базе материала",

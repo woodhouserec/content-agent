@@ -231,18 +231,18 @@ async function formAiPostIdeas(
       continue;
     }
 
-    const title = usableAiTitle(ai.postTitle) ?? usableAiTitle(ai.possibleLinkedInAngle) ?? sourceBasedTitle([item]);
+    const title = usableAiTitle(ai.postTitle) ?? sourceBasedTitle([item]);
     const titleRu = usableAiTitle(ai.postTitleRu) ?? sourceBasedTitleRu([item]);
-    const suggestedAngle = usableAiField(ai.possibleLinkedInAngle) ?? sourceBasedAngle([item]);
-    const suggestedAngleRu = ai.suggestedAngleRu;
+    const suggestedAngle = usableAiField(ai.suggestedAngle) ?? usableAiField(ai.possibleLinkedInAngle) ?? sourceBasedAngle([item]);
+    const suggestedAngleRu = usableAiMaterialField(ai.suggestedAngleRu, item) ?? sourceBasedAngleRu([item]);
     const summary = ai.shortDescription;
     const summaryRu = ai.shortDescriptionRu;
-    const audienceValue = ai.audienceValue;
+    const audienceValue = usableAiMaterialField(ai.audienceValue, item);
     const hrValue = usableAiMaterialField(ai.hrValue, item) ?? "Shows how the author thinks about product quality, design judgment, and business context through a concrete source.";
-    const audienceValueRu = ai.audienceValueRu;
+    const audienceValueRu = usableAiMaterialField(ai.audienceValueRu, item);
     const hrValueRu = usableAiMaterialField(ai.hrValueRu, item) ?? "Показывает профессиональное мышление автора через конкретный материал: продуктовый взгляд, дизайн-суждение и связь с бизнес-контекстом.";
-    const recruiterValue = ai.recruiterValue;
-    const recruiterValueRu = ai.recruiterValueRu;
+    const recruiterValue = usableAiMaterialField(ai.recruiterValue, item);
+    const recruiterValueRu = usableAiMaterialField(ai.recruiterValueRu, item);
     const sourceItemIds = [item.id];
     const combinedScore = Math.round(((item.final_score ?? item.rule_score ?? 70) * 0.35) + (ai.aiRelevanceScore * 0.35) + (ai.professionalValue * 0.3));
     const noveltyScore = ai.noveltyScore;
@@ -253,8 +253,8 @@ async function formAiPostIdeas(
       titleRu,
       summary,
       summaryRu,
-      whyItMatters: formatHiringValue(ai.keyThesis, audienceValue, recruiterValue ?? hrValue),
-      whyItMattersRu: formatHiringValueRu(ai.keyThesisRu, audienceValueRu, recruiterValueRu ?? hrValueRu),
+      whyItMatters: recruiterValue ?? hrValue ?? audienceValue ?? sourceBasedRecruiterValue([item], ai) ?? sourceBasedValue([item]),
+      whyItMattersRu: recruiterValueRu ?? hrValueRu ?? audienceValueRu ?? sourceBasedRecruiterValueRu([item], ai) ?? sourceBasedValueRu([item]),
       suggestedAngle,
       suggestedAngleRu,
       targetAudience: "Product Designers, UI/UX Designers, Design Leads, Product Managers, Founders, HR",
@@ -649,7 +649,7 @@ function usableAiMaterialField(value: string | undefined, item: CollectedItemRec
   const terms = materialSpecificTerms(item);
   const hasSpecificTerm = terms.some((term) => lower.includes(term));
 
-  return hasSpecificTerm ? candidate : undefined;
+  return hasSpecificTerm || candidate.length >= 80 ? candidate : undefined;
 }
 
 function isGenericMaterialField(value: string): boolean {

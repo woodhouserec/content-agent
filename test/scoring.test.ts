@@ -139,6 +139,32 @@ test("AI JSON validation rejects generic post-preview text", () => {
   }), /shortDescription is too generic/);
 });
 
+test("AI JSON validation rejects mechanical AI UX post wording", () => {
+  assert.throws(() => validateAiResults({
+    results: [
+      {
+        itemId: "item_1",
+        aiRelevanceScore: 82,
+        noveltyScore: 74,
+        professionalValue: 88,
+        possibleLinkedInAngle: "How AI changes product design workflows",
+        explanation: "Strong practitioner angle.",
+        keyThesis: "AI reduces the cost of iteration but increases the importance of choosing the right problem.",
+        keyThesisRu: "AI снижает стоимость итерации, но повышает важность выбора правильной проблемы.",
+        postTitle: "When cheaper iteration changes the designer's job",
+        postTitleRu: "Когда дешёвая итерация меняет работу дизайнера",
+        shortDescription: "Post about AI UX and product design responsibility.",
+        shortDescriptionRu: "Пост об AI UX: как автоматизация связана с ответственностью дизайнера.",
+        audienceValue: "Helps designers reason about iteration speed and product judgment.",
+        audienceValueRu: "Помогает дизайнерам связать скорость итераций с продуктовым суждением.",
+        recruiterValue: "Signals product judgment around faster AI-enabled iteration cycles.",
+        recruiterValueRu: "Показывает продуктовое суждение вокруг ускоренных AI-итераций.",
+        suggestedAngleRu: "Разобрать AI-итерации через стоимость ошибки и выбор правильной проблемы."
+      }
+    ]
+  }), /shortDescription is too generic/);
+});
+
 test("OpenAI scoring falls back when API key is absent", async () => {
   const result = await scoreWithOpenAi({} as Env, [makeItem({})]);
 
@@ -160,6 +186,37 @@ test("OpenAI scoring times out instead of hanging", async () => {
       () => scoreWithOpenAi({ OPENAI_API_KEY: "test" } as Env, [makeItem({})], { timeoutMs: 5 }),
       /OpenAI scoring timed out/
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("OpenAI scoring analyzes items one by one and rejects full title stuffing", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    calls += 1;
+    const body = JSON.parse(String(init?.body)) as { input: Array<{ role: string; content: string }> };
+    const userPayload = JSON.parse(body.input.find((entry) => entry.role === "user")?.content ?? "{}") as { item: { itemId: string; title: string } };
+    const result = makeAiResult({
+      itemId: userPayload.item.itemId,
+      shortDescriptionRu: `Статья показывает, как ${userPayload.item.title} раскрывает продуктовый контекст.`
+    });
+
+    return new Response(JSON.stringify({
+      output_text: JSON.stringify({ results: [result] })
+    }), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () => scoreWithOpenAi({ OPENAI_API_KEY: "test" } as Env, [makeItem({
+        id: "item_lovable",
+        title: "Firsthand: How I Built a Brand with Heart at Lovable"
+      })]),
+      /repeats the full article title/
+    );
+    assert.equal(calls, 1);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -217,6 +274,30 @@ function makeProfile(overrides: Partial<RelevanceProfileRecord>): RelevanceProfi
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     deleted_at: null,
+    ...overrides
+  };
+}
+
+function makeAiResult(overrides: Partial<ReturnType<typeof validateAiResults>[number]>) {
+  return {
+    itemId: "item_1",
+    aiRelevanceScore: 84,
+    noveltyScore: 72,
+    professionalValue: 86,
+    possibleLinkedInAngle: "How faster AI iteration changes product design judgment",
+    suggestedAngle: "Use the material to discuss how cheaper iteration shifts design value from execution toward problem choice and success criteria.",
+    explanation: "The material supports a concrete Product/UX angle.",
+    keyThesis: "AI lowers the cost of product iteration, which makes problem framing and decision criteria more important.",
+    keyThesisRu: "AI снижает стоимость продуктовой итерации, поэтому постановка проблемы и критерии решения становятся важнее.",
+    postTitle: "When cheaper iteration changes the designer's job",
+    postTitleRu: "Когда дешёвая итерация меняет работу дизайнера",
+    shortDescription: "The article describes a fast AI-product culture where teams make decisions quickly, test ideas, and rebuild when a hypothesis is wrong.",
+    shortDescriptionRu: "Статья описывает культуру быстрой AI-компании, где команда быстро принимает решения, проверяет идеи и перестраивает продукт, если гипотеза не сработала.",
+    audienceValue: "Helps Product/UX teams connect iteration speed with judgment about problems, hypotheses, and success criteria.",
+    audienceValueRu: "Помогает Product/UX-командам связать скорость итераций с выбором проблемы, гипотезы и критерия успеха.",
+    recruiterValue: "Signals that the designer understands how AI changes iteration cost, product strategy, audience choice, and design responsibility.",
+    recruiterValueRu: "Показывает, что дизайнер понимает, как AI меняет стоимость итераций, продуктовую стратегию, выбор аудитории и ответственность дизайна.",
+    suggestedAngleRu: "Разобрать, как снижение стоимости ошибки меняет роль дизайнера: от поиска правильного интерфейса к выбору правильной проблемы, гипотезы и критерия успеха.",
     ...overrides
   };
 }

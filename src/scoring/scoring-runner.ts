@@ -66,7 +66,7 @@ export async function runScoring(env: Env, options: { mode?: CollectedItemMode }
     const ai = await scoreWithOpenAi(env, shortlist, { profile: activeProfile });
     aiResults = ai.results;
     usedAiFallback = ai.usedFallback;
-    aiRequests = ai.usedFallback || shortlist.length === 0 ? 0 : 1;
+    aiRequests = ai.requestCount;
 
     for (const result of ai.results) {
       const item = scoredItems.find((candidate) => candidate.id === result.itemId);

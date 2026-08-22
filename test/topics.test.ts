@@ -105,7 +105,7 @@ test("topic formation prefers AI post ideas over generic clusters", async () => 
   assert.equal(topics[0].title, "What AI onboarding in design tools reveals about trust and control");
   assert.equal(topics[0].titleRu.includes("AI-onboarding"), true);
   assert.deepEqual(topics[0].sourceItemIds, ["item_ai_ux"]);
-  assert.equal(topics[0].whyItMattersRu.includes("Ценность для рекрутера"), true);
+  assert.equal(topics[0].whyItMattersRu, "Показывает interaction-design judgment вокруг доверия, контроля, обратной связи и восстановления в AI-инструментах.");
 });
 
 test("topic formation uses specific AI post title and description", async () => {
@@ -281,7 +281,7 @@ test("topic formation can use strong AI signal when final score is below hard th
 
   assert.equal(topics.length, 1);
   assert.equal(topics[0].title, "How startup storytelling can make product value easier to understand");
-  assert.equal(topics[0].whyItMattersRu.includes("Ценность для рекрутера"), true);
+  assert.equal(topics[0].whyItMattersRu.includes("стратегическую коммуникацию"), true);
   assert.equal(topics[0].whyItMattersRu.includes("продуктовой ценностью"), true);
 });
 
