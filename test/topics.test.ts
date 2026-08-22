@@ -216,6 +216,37 @@ test("topic formation varies fallback summaries inside adjacent trust and health
   assert.match(diagnosisTopics[0].summaryRu, /AI|healthcare|диагност|автоматизац/i);
 });
 
+test("topic formation creates one fallback thesis per article", async () => {
+  const items = [
+    {
+      id: "item_forms",
+      source_id: "src_test",
+      title: "Does Your Form Really Need a Dropdown List?",
+      summary: "A practical UX article about choosing the right form controls.",
+      normalized_content: "Forms, dropdowns, interaction friction, completion, and user effort.",
+      final_score: 82,
+      rule_score: 82,
+      scoring_breakdown_json: JSON.stringify({ factors: { freshness: 8 } })
+    },
+    {
+      id: "item_research",
+      source_id: "src_test",
+      title: "Understanding Alpha Inflation",
+      summary: "A research article about evidence quality and statistical decision risks.",
+      normalized_content: "UX research, evidence quality, statistics, alpha inflation, decision risk.",
+      final_score: 81,
+      rule_score: 81,
+      scoring_breakdown_json: JSON.stringify({ factors: { freshness: 8 } })
+    }
+  ] as CollectedItemRecord[];
+
+  const topics = await formTopics(items, [], { minFinalScoreForTopic: 70 });
+
+  assert.equal(topics.length, 2);
+  assert.deepEqual(topics.map((topic) => topic.sourceItemIds), [["item_forms"], ["item_research"]]);
+  assert.notEqual(topics[0].fingerprint, topics[1].fingerprint);
+});
+
 test("topic formation can use strong AI signal when final score is below hard threshold", async () => {
   const item = {
     id: "item_creativeboom",

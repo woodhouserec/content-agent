@@ -174,18 +174,12 @@ export async function formTopics(
     return aiCandidates.slice(0, scoringConfig.maxTopicsPerRun);
   }
 
-  const groups = new Map<string, CollectedItemRecord[]>();
-
-  for (const item of eligible) {
-    const key = classifyItem(item);
-    groups.set(key, [...(groups.get(key) ?? []), item]);
-  }
-
   const candidates: Array<TopicCandidate & { fingerprint: string }> = [];
 
-  for (const [key, group] of groups) {
+  for (const item of eligible.slice(0, scoringConfig.maxTopicsPerRun)) {
+    const key = classifyItem(item);
     const template = topicMap.find((topic) => topic.key === key) ?? topicMap[topicMap.length - 1];
-    const topItems = group.slice(0, 3);
+    const topItems = [item];
     const ai = topItems.map((item) => aiByItemId.get(item.id)).find(Boolean);
     const sourceItemIds = topItems.map((item) => item.id);
     const combinedScore = Math.round(topItems.reduce((sum, item) => sum + (item.final_score ?? 0), 0) / topItems.length);

@@ -48,6 +48,10 @@ export interface UpsertCollectedItemResult {
 
 export type CollectedItemMode = "temporary" | "permanent";
 
+export interface CollectedItemFilters {
+  freshnessSince?: string;
+}
+
 export class CollectedItemsRepository {
   constructor(private readonly db: D1Database) {}
 
@@ -68,7 +72,14 @@ export class CollectedItemsRepository {
                summary = COALESCE(summary, ?),
                raw_content = COALESCE(raw_content, ?),
                normalized_content = COALESCE(normalized_content, ?),
-               metadata_json = COALESCE(metadata_json, ?)
+               metadata_json = COALESCE(metadata_json, ?),
+               status = CASE
+                 WHEN source_id != 'src_manual_urls'
+                   AND COALESCE(metadata_json, '') NOT LIKE '%"ingestion_method":"manual_url"%'
+                   AND COALESCE(metadata_json, '') NOT LIKE '%"ingestionMethod":"manual_url"%'
+                 THEN 'collected'
+                 ELSE status
+               END
            WHERE id = ?`
         )
         .bind(
@@ -197,6 +208,22 @@ export class CollectedItemsRepository {
     return this.setStatus(id, "collected");
   }
 
+  async archivePermanentItems(): Promise<number> {
+    const result = await this.db
+      .prepare(
+        `UPDATE collected_items
+         SET status = 'archived',
+             last_seen_at = ?
+         WHERE source_id != 'src_manual_urls'
+           AND COALESCE(metadata_json, '') NOT LIKE '%"ingestion_method":"manual_url"%'
+           AND COALESCE(metadata_json, '') NOT LIKE '%"ingestionMethod":"manual_url"%'`
+      )
+      .bind(nowIso())
+      .run();
+
+    return Number(result.meta?.changes ?? 0);
+  }
+
   async setStatus(id: string, status: "archived" | "collected"): Promise<boolean> {
     const result = await this.db
       .prepare("UPDATE collected_items SET status = ?, last_seen_at = ? WHERE id = ?")
@@ -270,50 +297,61 @@ export class CollectedItemsRepository {
     return Boolean(result.meta?.changes);
   }
 
-  async listForScoring(limit: number, mode?: CollectedItemMode): Promise<CollectedItemRecord[]> {
+  async listForScoring(limit: number, mode?: CollectedItemMode, filters: CollectedItemFilters = {}): Promise<CollectedItemRecord[]> {
     const modeFilter = modeFilterSql(mode);
+    const freshnessFilter = freshnessFilterSql(filters);
     const result = await this.db
       .prepare(
         `SELECT * FROM collected_items
          WHERE status != 'archived'
            ${modeFilter}
+           ${freshnessFilter.sql}
            AND (scored_at IS NULL
             OR scoring_version IS NULL
            )
          ORDER BY collected_at DESC
          LIMIT ?`
       )
-      .bind(limit)
+      .bind(...freshnessFilter.bindings, limit)
       .all<CollectedItemRecord>();
 
     return result.results ?? [];
   }
 
-  async listTopicCandidates(limit: number, mode?: CollectedItemMode): Promise<CollectedItemRecord[]> {
+  async listTopicCandidates(limit: number, mode?: CollectedItemMode, filters: CollectedItemFilters = {}): Promise<CollectedItemRecord[]> {
     const modeFilter = modeFilterSql(mode);
+    const freshnessFilter = freshnessFilterSql(filters);
     const result = await this.db
       .prepare(
         `SELECT * FROM collected_items
          WHERE status != 'archived'
            ${modeFilter}
+           ${freshnessFilter.sql}
            AND final_score IS NOT NULL
            AND scored_at IS NOT NULL
          ORDER BY final_score DESC, scored_at DESC, collected_at DESC
          LIMIT ?`
       )
-      .bind(limit)
+      .bind(...freshnessFilter.bindings, limit)
       .all<CollectedItemRecord>();
 
     return result.results ?? [];
   }
 
-  async listRecentlySeen(limit: number, mode: CollectedItemMode, seenSince: string): Promise<CollectedItemRecord[]> {
+  async listRecentlySeen(
+    limit: number,
+    mode: CollectedItemMode,
+    seenSince: string,
+    filters: CollectedItemFilters = {}
+  ): Promise<CollectedItemRecord[]> {
     const modeFilter = modeFilterSql(mode);
+    const freshnessFilter = freshnessFilterSql(filters);
     const result = await this.db
       .prepare(
         `SELECT * FROM collected_items
          WHERE status != 'archived'
            ${modeFilter}
+           ${freshnessFilter.sql}
            AND (
              last_seen_at >= ?
              OR collected_at >= ?
@@ -321,7 +359,7 @@ export class CollectedItemsRepository {
          ORDER BY COALESCE(last_seen_at, collected_at) DESC, collected_at DESC
          LIMIT ?`
       )
-      .bind(seenSince, seenSince, limit)
+      .bind(...freshnessFilter.bindings, seenSince, seenSince, limit)
       .all<CollectedItemRecord>();
 
     return result.results ?? [];
@@ -403,10 +441,32 @@ export class CollectedItemsRepository {
 
   private async touch(id: string, seenAt: string): Promise<void> {
     await this.db
-      .prepare("UPDATE collected_items SET last_seen_at = ? WHERE id = ?")
+      .prepare(
+        `UPDATE collected_items
+         SET last_seen_at = ?,
+             status = CASE
+               WHEN source_id != 'src_manual_urls'
+                 AND COALESCE(metadata_json, '') NOT LIKE '%"ingestion_method":"manual_url"%'
+                 AND COALESCE(metadata_json, '') NOT LIKE '%"ingestionMethod":"manual_url"%'
+               THEN 'collected'
+               ELSE status
+             END
+         WHERE id = ?`
+      )
       .bind(seenAt, id)
       .run();
   }
+}
+
+function freshnessFilterSql(filters: CollectedItemFilters): { sql: string; bindings: unknown[] } {
+  if (!filters.freshnessSince) {
+    return { sql: "", bindings: [] };
+  }
+
+  return {
+    sql: "AND COALESCE(published_at, collected_at) >= ?",
+    bindings: [filters.freshnessSince]
+  };
 }
 
 export function modeFilterSql(mode?: CollectedItemMode): string {

@@ -433,7 +433,7 @@ async function updateCurrentManualItemUrl(env: Env, telegram: TelegramClient, ch
 
 function formatTemporarySources(items: Array<{ title: string; canonical_url: string | null; url: string; published_at: string | null; collected_at: string; extraction_status?: string | null; metadata_json: string | null }>): string {
   if (items.length === 0) {
-    return "Временных источников пока нет. Нажмите «Добавить URL источника» и отправьте ссылку на статью.";
+    return "Временных источников пока нет. Нажмите «Добавить источник» и отправьте ссылку на статью.";
   }
 
   const lines = items.map((item, index) => {

@@ -3,6 +3,7 @@ import { createRepositories } from "../storage/repositories";
 import type { CollectedItemMode } from "../storage/collected-items";
 import { logger } from "../utils/logger";
 import { scoringConfig } from "./config";
+import { createMaterialFreshnessFilter } from "./material-filter";
 import type { AiScoringResult } from "./openai";
 import { scoreWithOpenAi } from "./openai";
 import { scoreCollectedItem } from "./rule-based";
@@ -22,7 +23,10 @@ export interface ScoringRunResult {
 export async function runScoring(env: Env, options: { mode?: CollectedItemMode } = {}): Promise<ScoringRunResult> {
   const repos = createRepositories(env.DB);
   const activeProfile = await repos.relevanceProfiles.getActive();
-  const candidates = await loadScoringCandidates(env, options.mode);
+  const materialFilters = options.mode === "permanent"
+    ? { freshnessSince: createMaterialFreshnessFilter(activeProfile).sinceIso }
+    : {};
+  const candidates = await loadScoringCandidates(env, options.mode, materialFilters);
   const scoredItems = [];
 
   for (const item of candidates) {
@@ -98,7 +102,7 @@ export async function runScoring(env: Env, options: { mode?: CollectedItemMode }
 
   const topicItems = scoredItems.length > 0
     ? scoredItems
-    : await repos.collectedItems.listTopicCandidates(100, options.mode);
+    : await repos.collectedItems.listTopicCandidates(100, options.mode, materialFilters);
 
   const topics = await formTopics(topicItems, aiResults, {
     minFinalScoreForTopic: activeProfile?.min_final_score_for_topic
@@ -154,9 +158,13 @@ export async function runScoring(env: Env, options: { mode?: CollectedItemMode }
   };
 }
 
-async function loadScoringCandidates(env: Env, mode?: CollectedItemMode) {
+async function loadScoringCandidates(
+  env: Env,
+  mode?: CollectedItemMode,
+  filters: { freshnessSince?: string } = {}
+) {
   const repos = createRepositories(env.DB);
-  const candidates = await repos.collectedItems.listForScoring(100, mode);
+  const candidates = await repos.collectedItems.listForScoring(100, mode, filters);
 
   if (candidates.length > 0 || mode !== "permanent") {
     return candidates;
@@ -167,5 +175,5 @@ async function loadScoringCandidates(env: Env, mode?: CollectedItemMode) {
     return candidates;
   }
 
-  return repos.collectedItems.listRecentlySeen(100, mode, latestRun.started_at);
+  return repos.collectedItems.listRecentlySeen(100, mode, latestRun.started_at, filters);
 }

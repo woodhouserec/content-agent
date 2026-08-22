@@ -36,6 +36,9 @@ export interface PreferenceMemory {
   visual_preferences: string[];
   topic_preferences: string[];
   avoid: string[];
+  material_filter?: {
+    max_content_age_days: number;
+  } | null;
   updated_at: string | null;
 }
 
@@ -192,6 +195,7 @@ export function emptyPreferenceMemory(): PreferenceMemory {
     visual_preferences: [],
     topic_preferences: [],
     avoid: [],
+    material_filter: null,
     updated_at: null
   };
 }
@@ -208,11 +212,27 @@ export function parsePreferenceMemory(value: string | null | undefined): Prefere
       visual_preferences: normalizeMemoryList(parsed.visual_preferences),
       topic_preferences: normalizeMemoryList(parsed.topic_preferences),
       avoid: normalizeMemoryList(parsed.avoid),
+      material_filter: normalizeMaterialFilter(parsed.material_filter),
       updated_at: typeof parsed.updated_at === "string" ? parsed.updated_at : null
     };
   } catch {
     return emptyPreferenceMemory();
   }
+}
+
+function normalizeMaterialFilter(value: unknown): PreferenceMemory["material_filter"] {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const maxContentAgeDays = Number((value as { max_content_age_days?: unknown }).max_content_age_days);
+  if (![1, 3, 5, 7].includes(maxContentAgeDays)) {
+    return null;
+  }
+
+  return {
+    max_content_age_days: maxContentAgeDays
+  };
 }
 
 function normalizeMemoryList(value: unknown): string[] {

@@ -32,6 +32,10 @@ import {
   tightenThesisFilter
 } from "./thesis-filter-settings";
 import {
+  setMaterialFreshnessFilter,
+  showMaterialFilterSettings
+} from "./material-filter-settings";
+import {
   buildApprovedDraftKeyboard,
   buildUsageMessage,
   buildLinkedInConnectMessage,
@@ -234,6 +238,35 @@ async function processTelegramUpdate(
             ? `Тезисы сброшены (${mode === "temporary" ? "временные источники" : "постоянные источники"}): ${resetCount}. Теперь нажмите «Сгенерировать тезисы».`
             : `Нет тезисов для сброса (${mode === "temporary" ? "временные источники" : "постоянные источники"}).`
         );
+        return;
+      }
+
+      if (menuAction.value === "reset_materials") {
+        const mode = await getSourceMenuMode(env, telegramUserId);
+        if (mode !== "permanent") {
+          await telegram.sendMessage(chatId, "Сброс материалов сейчас доступен только для постоянных источников.");
+          return;
+        }
+
+        const resetCount = await createRepositories(env.DB).collectedItems.archivePermanentItems();
+        await telegram.sendMessage(
+          chatId,
+          resetCount > 0
+            ? `Материалы постоянных источников сброшены: ${resetCount}. Теперь можно заново нажать «Собрать материалы».`
+            : "Нет материалов постоянных источников для сброса.",
+          { replyMarkup: buildSectionMenu("permanentSources") }
+        );
+        return;
+      }
+
+      if (menuAction.value === "show_material_filter") {
+        await showMaterialFilterSettings(env, telegram, chatId);
+        return;
+      }
+
+      if (menuAction.value.startsWith("material_filter_")) {
+        const days = Number(menuAction.value.replace("material_filter_", ""));
+        await setMaterialFreshnessFilter(env, telegram, chatId, days);
         return;
       }
 

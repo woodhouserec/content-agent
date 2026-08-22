@@ -8,8 +8,9 @@ export const menuLabels = {
   topics: "Профиль",
   system: "Система",
   collect: "Собрать материалы",
+  resetMaterials: "Сброс материалов",
   showSources: "Показать источники",
-  addUrlSource: "Добавить URL источника",
+  addUrlSource: "Добавить источник",
   editList: "Редактировать список",
   change: "Изменить",
   delete: "Удалить",
@@ -24,7 +25,12 @@ export const menuLabels = {
   showTopics: "Показать тезисы",
   score: "Сгенерировать тезисы",
   resetTopics: "Сбросить тезисы",
+  materialFilter: "Фильтр материалов",
   thesisFilter: "Фильтр тезисов",
+  freshness7Days: "До 7 дней",
+  freshness5Days: "До 5 дней",
+  freshness3Days: "До 3 дней",
+  freshness1Day: "До 1 суток",
   softerFilter: "Мягче фильтр",
   stricterFilter: "Строже фильтр",
   changeRuleScore: "Изменить Rule Score",
@@ -50,6 +56,7 @@ export type MenuScreen =
   | "permanentSources"
   | "sourceList"
   | "sourceEditor"
+  | "materialFilter"
   | "thesisFilter"
   | "profileRoot"
   | "myProfiles"
@@ -85,12 +92,20 @@ export function buildSectionMenu(screen: MenuScreen): ReplyKeyboardMarkup {
 
   if (screen === "permanentSources") {
     return keyboard([
-      [menuLabels.collect],
-      [menuLabels.addUrlSource, menuLabels.showSources],
-      [menuLabels.score],
-      [menuLabels.thesisFilter, menuLabels.resetTopics],
+      [menuLabels.collect, menuLabels.resetMaterials],
+      [menuLabels.score, menuLabels.resetTopics],
+      [menuLabels.showSources, menuLabels.addUrlSource],
+      [menuLabels.materialFilter, menuLabels.thesisFilter],
       [menuLabels.back]
     ], "Постоянные источники");
+  }
+
+  if (screen === "materialFilter") {
+    return keyboard([
+      [menuLabels.freshness7Days, menuLabels.freshness5Days],
+      [menuLabels.freshness3Days, menuLabels.freshness1Day],
+      [menuLabels.back]
+    ], "Фильтр материалов");
   }
 
   if (screen === "thesisFilter") {
@@ -209,6 +224,30 @@ export function resolveMenuAction(text: string | undefined): MenuAction | null {
     return { kind: "instruction", value: "reset_topics" };
   }
 
+  if (normalized === menuLabels.resetMaterials) {
+    return { kind: "instruction", value: "reset_materials" };
+  }
+
+  if (normalized === menuLabels.materialFilter) {
+    return { kind: "instruction", value: "show_material_filter" };
+  }
+
+  if (normalized === menuLabels.freshness7Days) {
+    return { kind: "instruction", value: "material_filter_7" };
+  }
+
+  if (normalized === menuLabels.freshness5Days) {
+    return { kind: "instruction", value: "material_filter_5" };
+  }
+
+  if (normalized === menuLabels.freshness3Days) {
+    return { kind: "instruction", value: "material_filter_3" };
+  }
+
+  if (normalized === menuLabels.freshness1Day) {
+    return { kind: "instruction", value: "material_filter_1" };
+  }
+
   if (normalized === menuLabels.thesisFilter) {
     return { kind: "instruction", value: "show_thesis_filter" };
   }
@@ -255,6 +294,10 @@ export function buildMenuMessage(screen: MenuScreen): string {
 
   if (screen === "thesisFilter") {
     return "Фильтр отбора материалов в тезисы.";
+  }
+
+  if (screen === "materialFilter") {
+    return "Фильтр свежести материалов для постоянных источников.";
   }
 
   if (screen === "sourceList") {
