@@ -35,6 +35,8 @@ export const menuLabels = {
   stricterFilter: "Строже фильтр",
   changeRuleScore: "Изменить Rule Score",
   changeTopicScore: "Изменить Topic Score",
+  fewerTheses: "Меньше тезисов",
+  moreTheses: "Больше тезисов",
   profile: "Профиль",
   currentProfile: "Текущий профиль",
   myProfiles: "Мои профили",
@@ -111,6 +113,7 @@ export function buildSectionMenu(screen: MenuScreen): ReplyKeyboardMarkup {
   if (screen === "thesisFilter") {
     return keyboard([
       [menuLabels.softerFilter, menuLabels.stricterFilter],
+      [menuLabels.fewerTheses, menuLabels.moreTheses],
       [menuLabels.changeRuleScore],
       [menuLabels.changeTopicScore],
       [menuLabels.back]
@@ -266,6 +269,14 @@ export function resolveMenuAction(text: string | undefined): MenuAction | null {
 
   if (normalized === menuLabels.changeTopicScore) {
     return { kind: "instruction", value: "change_topic_score" };
+  }
+
+  if (normalized === menuLabels.fewerTheses) {
+    return { kind: "instruction", value: "decrease_thesis_limit" };
+  }
+
+  if (normalized === menuLabels.moreTheses) {
+    return { kind: "instruction", value: "increase_thesis_limit" };
   }
 
   if (normalized === menuLabels.connectLinkedIn) {

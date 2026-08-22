@@ -26,6 +26,8 @@ import { getSourceMenuMode } from "./source-editor";
 import { handleProfileMessage, showMyProfiles, startCreateProfile } from "./profiles";
 import {
   handleThesisFilterMessage,
+  decreaseThesisLimit,
+  increaseThesisLimit,
   requestThesisFilterValue,
   showThesisFilterSettings,
   softenThesisFilter,
@@ -282,6 +284,16 @@ async function processTelegramUpdate(
 
       if (menuAction.value === "tighten_thesis_filter") {
         await tightenThesisFilter(env, telegram, chatId);
+        return;
+      }
+
+      if (menuAction.value === "decrease_thesis_limit") {
+        await decreaseThesisLimit(env, telegram, chatId);
+        return;
+      }
+
+      if (menuAction.value === "increase_thesis_limit") {
+        await increaseThesisLimit(env, telegram, chatId);
         return;
       }
 

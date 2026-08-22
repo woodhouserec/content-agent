@@ -145,8 +145,9 @@ const topicMap = [
 export async function formTopics(
   items: CollectedItemRecord[],
   aiResults: AiScoringResult[],
-  options: { minFinalScoreForTopic?: number } = {}
+  options: { minFinalScoreForTopic?: number; maxTopicsPerRun?: number } = {}
 ): Promise<Array<TopicCandidate & { fingerprint: string }>> {
+  const maxTopicsPerRun = options.maxTopicsPerRun ?? scoringConfig.maxTopicsPerRun;
   const aiByItemId = new Map(aiResults.map((result) => [result.itemId, result]));
   let eligible = items
     .filter((item) => (item.final_score ?? 0) >= (options.minFinalScoreForTopic ?? scoringConfig.minFinalScoreForTopic))
@@ -159,24 +160,24 @@ export async function formTopics(
         return Boolean(ai && isUsefulAiMaterial(ai, item));
       })
       .sort((a, b) => aiMaterialScore(aiByItemId.get(b.id), b) - aiMaterialScore(aiByItemId.get(a.id), a))
-      .slice(0, scoringConfig.maxTopicsPerRun);
+      .slice(0, maxTopicsPerRun);
   }
 
   if (eligible.length === 0 && items.length > 0) {
     eligible = items
       .filter((item) => (item.final_score ?? item.rule_score ?? 0) >= 35)
       .sort((a, b) => (b.final_score ?? b.rule_score ?? 0) - (a.final_score ?? a.rule_score ?? 0))
-      .slice(0, Math.min(3, scoringConfig.maxTopicsPerRun));
+      .slice(0, Math.min(3, maxTopicsPerRun));
   }
 
   const aiCandidates = await formAiPostIdeas(eligible, aiResults);
   if (aiCandidates.length > 0) {
-    return aiCandidates.slice(0, scoringConfig.maxTopicsPerRun);
+    return aiCandidates.slice(0, maxTopicsPerRun);
   }
 
   const candidates: Array<TopicCandidate & { fingerprint: string }> = [];
 
-  for (const item of eligible.slice(0, scoringConfig.maxTopicsPerRun)) {
+  for (const item of eligible.slice(0, maxTopicsPerRun)) {
     const key = classifyItem(item);
     const template = topicMap.find((topic) => topic.key === key) ?? topicMap[topicMap.length - 1];
     const topItems = [item];
@@ -212,7 +213,7 @@ export async function formTopics(
 
   return candidates
     .sort((a, b) => b.combinedScore - a.combinedScore)
-    .slice(0, scoringConfig.maxTopicsPerRun);
+    .slice(0, maxTopicsPerRun);
 }
 
 async function formAiPostIdeas(

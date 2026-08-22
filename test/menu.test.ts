@@ -74,19 +74,38 @@ test("thesis filter menu exposes threshold controls", () => {
 
   assert.ok(buttons.includes(menuLabels.softerFilter));
   assert.ok(buttons.includes(menuLabels.stricterFilter));
+  assert.ok(buttons.includes(menuLabels.fewerTheses));
+  assert.ok(buttons.includes(menuLabels.moreTheses));
   assert.ok(buttons.includes(menuLabels.changeRuleScore));
   assert.ok(buttons.includes(menuLabels.changeTopicScore));
+  assert.deepEqual(resolveMenuAction(menuLabels.fewerTheses), {
+    kind: "instruction",
+    value: "decrease_thesis_limit"
+  });
+  assert.deepEqual(resolveMenuAction(menuLabels.moreTheses), {
+    kind: "instruction",
+    value: "increase_thesis_limit"
+  });
 });
 
 test("thesis filter message shows active scoring thresholds", () => {
   const message = buildThesisFilterMessage({
     name: "Базовый",
     min_rule_score: 55,
-    min_final_score_for_topic: 70
+    min_final_score_for_topic: 70,
+    memory_json: JSON.stringify({
+      writing_preferences: [],
+      visual_preferences: [],
+      topic_preferences: [],
+      avoid: [],
+      thesis_filter: { max_topics_per_run: 6 },
+      updated_at: null
+    })
   });
 
   assert.equal(message.includes("Min Rule Score: 55"), true);
   assert.equal(message.includes("Min Final Score for Topic: 70"), true);
+  assert.equal(message.includes("Лимит тезисов за запуск: 6"), true);
   assert.equal(message.includes("Max AI items per run"), true);
 });
 

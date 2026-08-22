@@ -7,6 +7,7 @@ import { createMaterialFreshnessFilter } from "./material-filter";
 import type { AiScoringResult } from "./openai";
 import { scoreWithOpenAi } from "./openai";
 import { scoreCollectedItem } from "./rule-based";
+import { getMaxTopicsPerRun } from "./thesis-filter";
 import { formTopics } from "./topic-formation";
 
 export interface ScoringRunResult {
@@ -105,7 +106,8 @@ export async function runScoring(env: Env, options: { mode?: CollectedItemMode }
     : await repos.collectedItems.listTopicCandidates(100, options.mode, materialFilters);
 
   const topics = await formTopics(topicItems, aiResults, {
-    minFinalScoreForTopic: activeProfile?.min_final_score_for_topic
+    minFinalScoreForTopic: activeProfile?.min_final_score_for_topic,
+    maxTopicsPerRun: getMaxTopicsPerRun(activeProfile)
   });
   let topicsCreated = 0;
   let topicsSkippedAsDuplicates = 0;

@@ -39,6 +39,9 @@ export interface PreferenceMemory {
   material_filter?: {
     max_content_age_days: number;
   } | null;
+  thesis_filter?: {
+    max_topics_per_run: number;
+  } | null;
   updated_at: string | null;
 }
 
@@ -213,6 +216,7 @@ export function parsePreferenceMemory(value: string | null | undefined): Prefere
       topic_preferences: normalizeMemoryList(parsed.topic_preferences),
       avoid: normalizeMemoryList(parsed.avoid),
       material_filter: normalizeMaterialFilter(parsed.material_filter),
+      thesis_filter: normalizeThesisFilter(parsed.thesis_filter),
       updated_at: typeof parsed.updated_at === "string" ? parsed.updated_at : null
     };
   } catch {
@@ -232,6 +236,21 @@ function normalizeMaterialFilter(value: unknown): PreferenceMemory["material_fil
 
   return {
     max_content_age_days: maxContentAgeDays
+  };
+}
+
+function normalizeThesisFilter(value: unknown): PreferenceMemory["thesis_filter"] {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const maxTopicsPerRun = Number((value as { max_topics_per_run?: unknown }).max_topics_per_run);
+  if (!Number.isInteger(maxTopicsPerRun) || maxTopicsPerRun < 1 || maxTopicsPerRun > 10) {
+    return null;
+  }
+
+  return {
+    max_topics_per_run: maxTopicsPerRun
   };
 }
 

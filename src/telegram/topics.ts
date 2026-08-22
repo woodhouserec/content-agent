@@ -1,6 +1,6 @@
 import type { Env } from "../domain/runtime";
-import { scoringConfig } from "../scoring/config";
 import { runScoring } from "../scoring/scoring-runner";
+import { getMaxTopicsPerRun } from "../scoring/thesis-filter";
 import type { CollectedItemMode } from "../storage/collected-items";
 import { createRepositories } from "../storage/repositories";
 import type { TopicRecord } from "../storage/topics";
@@ -34,8 +34,10 @@ export async function runScoringAndSendTopics(env: Env, telegram: TelegramClient
 
 export async function sendLatestTopics(env: Env, telegram: TelegramClient, chatId: string, mode?: CollectedItemMode): Promise<void> {
   const repos = createRepositories(env.DB);
+  const activeProfile = await repos.relevanceProfiles.getActive();
+  const limit = getMaxTopicsPerRun(activeProfile);
   const allTopics = await repos.topics.listAvailable(mode ? 100 : 10);
-  const topics = mode ? await filterTopicsByMode(env, allTopics, mode, scoringConfig.maxTopicsPerRun) : allTopics.slice(0, scoringConfig.maxTopicsPerRun);
+  const topics = mode ? await filterTopicsByMode(env, allTopics, mode, limit) : allTopics.slice(0, limit);
 
   if (topics.length === 0) {
     await telegram.sendMessage(chatId, "Пока нет доступных тезисов. Сначала нажмите «Сгенерировать тезисы» после сбора материалов.");
@@ -65,7 +67,8 @@ export async function sendLatestTopics(env: Env, telegram: TelegramClient, chatI
 
 async function sendTopicsByIds(env: Env, telegram: TelegramClient, chatId: string, topicIds: string[]): Promise<void> {
   const repos = createRepositories(env.DB);
-  const uniqueIds = [...new Set(topicIds)].slice(0, scoringConfig.maxTopicsPerRun);
+  const activeProfile = await repos.relevanceProfiles.getActive();
+  const uniqueIds = [...new Set(topicIds)].slice(0, getMaxTopicsPerRun(activeProfile));
   const topics = (await Promise.all(uniqueIds.map((id) => repos.topics.getById(id))))
     .filter((topic): topic is TopicRecord => topic !== null)
     .filter((topic) => topic.status !== "selected" && topic.status !== "skipped" && topic.status !== "archived");
