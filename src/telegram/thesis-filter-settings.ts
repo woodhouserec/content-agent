@@ -1,6 +1,6 @@
 import type { Env } from "../domain/runtime";
 import { scoringConfig } from "../scoring/config";
-import { clampMaxTopicsPerRun, getMaxTopicsPerRun, maxConfigurableTopicsPerRun, minTopicsPerRun } from "../scoring/thesis-filter";
+import { clampMaxTopicsPerRun, getMaxTopicsPerRun, minTopicsPerRun } from "../scoring/thesis-filter";
 import { createRepositories } from "../storage/repositories";
 import { parsePreferenceMemory, type RelevanceProfileRecord } from "../storage/relevance-profiles";
 import { nowIso } from "../utils/time";
@@ -138,7 +138,7 @@ export function buildThesisFilterMessage(profile: Pick<RelevanceProfileRecord, "
     "Материалы ниже этого порога обычно не превращаются в тезисы.",
     "",
     `Лимит тезисов за запуск: ${maxTopicsPerRun}`,
-    `Можно менять от ${minTopicsPerRun} до ${maxConfigurableTopicsPerRun}.`,
+    `Минимум: ${minTopicsPerRun}. Жёсткий верхний предел не задан.`,
     "",
     "Как влияет настройка:",
     "Мягче фильтр = больше материалов и больше экспериментов.",
@@ -146,7 +146,7 @@ export function buildThesisFilterMessage(profile: Pick<RelevanceProfileRecord, "
     "Больше тезисов = шире выбор, но выше расход OpenAI и больше сообщений в Telegram.",
     "",
     "Системные лимиты сейчас:",
-    `Max AI items per run: ${scoringConfig.maxAiScoringItems}`,
+    `AI items per run: ${maxTopicsPerRun}`,
     `Max theses per run: ${maxTopicsPerRun}`,
     `Max text length per material: ${scoringConfig.maxItemTextLength}`
   ].join("\n");

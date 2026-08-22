@@ -27,6 +27,7 @@ export async function runScoring(env: Env, options: { mode?: CollectedItemMode }
   const materialFilters = options.mode === "permanent"
     ? { freshnessSince: createMaterialFreshnessFilter(activeProfile).sinceIso }
     : {};
+  const maxTopicsPerRun = getMaxTopicsPerRun(activeProfile);
   const candidates = await loadScoringCandidates(env, options.mode, materialFilters);
   const scoredItems = [];
 
@@ -57,7 +58,7 @@ export async function runScoring(env: Env, options: { mode?: CollectedItemMode }
   const shortlist = scoredItems
     .filter((item) => (item.rule_score ?? 0) >= (activeProfile?.min_rule_score ?? scoringConfig.minRuleScoreForAi))
     .sort((a, b) => (b.rule_score ?? 0) - (a.rule_score ?? 0))
-    .slice(0, scoringConfig.maxAiScoringItems);
+    .slice(0, maxTopicsPerRun);
 
   let aiRequests = 0;
   let usedAiFallback = true;
@@ -107,7 +108,7 @@ export async function runScoring(env: Env, options: { mode?: CollectedItemMode }
 
   const topics = await formTopics(topicItems, aiResults, {
     minFinalScoreForTopic: activeProfile?.min_final_score_for_topic,
-    maxTopicsPerRun: getMaxTopicsPerRun(activeProfile)
+    maxTopicsPerRun
   });
   let topicsCreated = 0;
   let topicsSkippedAsDuplicates = 0;

@@ -7,6 +7,21 @@ test("preference memory parser falls back to empty memory", () => {
   assert.deepEqual(parsePreferenceMemory("not json"), emptyPreferenceMemory());
 });
 
+test("preference memory keeps thesis limit above ten", () => {
+  const memory = parsePreferenceMemory(JSON.stringify({
+    writing_preferences: [],
+    visual_preferences: [],
+    topic_preferences: [],
+    avoid: [],
+    thesis_filter: {
+      max_topics_per_run: 15
+    },
+    updated_at: null
+  }));
+
+  assert.equal(memory.thesis_filter?.max_topics_per_run, 15);
+});
+
 test("preference memory prompt stays compact and structured", () => {
   const text = formatPreferenceMemoryForPrompt({
     writing_preferences: ["Prefer more authorial practitioner framing."],

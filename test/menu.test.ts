@@ -106,7 +106,7 @@ test("thesis filter message shows active scoring thresholds", () => {
   assert.equal(message.includes("Min Rule Score: 55"), true);
   assert.equal(message.includes("Min Final Score for Topic: 70"), true);
   assert.equal(message.includes("Лимит тезисов за запуск: 6"), true);
-  assert.equal(message.includes("Max AI items per run"), true);
+  assert.equal(message.includes("AI items per run: 6"), true);
 });
 
 test("material filter message shows active freshness setting", () => {

@@ -245,7 +245,7 @@ function normalizeThesisFilter(value: unknown): PreferenceMemory["thesis_filter"
   }
 
   const maxTopicsPerRun = Number((value as { max_topics_per_run?: unknown }).max_topics_per_run);
-  if (!Number.isInteger(maxTopicsPerRun) || maxTopicsPerRun < 1 || maxTopicsPerRun > 10) {
+  if (!Number.isInteger(maxTopicsPerRun) || maxTopicsPerRun < 1) {
     return null;
   }
 

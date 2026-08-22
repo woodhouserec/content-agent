@@ -3,7 +3,6 @@ import { parsePreferenceMemory } from "../storage/relevance-profiles";
 import { scoringConfig } from "./config";
 
 export const minTopicsPerRun = 1;
-export const maxConfigurableTopicsPerRun = scoringConfig.maxTopicsPerRun;
 
 export function getMaxTopicsPerRun(profile: Pick<RelevanceProfileRecord, "memory_json"> | null): number {
   if (!profile) {
@@ -20,5 +19,5 @@ export function clampMaxTopicsPerRun(value: number): number {
     return scoringConfig.maxTopicsPerRun;
   }
 
-  return Math.max(minTopicsPerRun, Math.min(maxConfigurableTopicsPerRun, Math.round(value)));
+  return Math.max(minTopicsPerRun, Math.round(value));
 }
