@@ -7,8 +7,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test test/**/*.test.ts",
     "dev": "wrangler dev",
-    "wrytr:dev": "pnpm --dir apps/wrytr dev",
-    "wrytr:build": "pnpm --dir apps/wrytr build",
+    "wrytr:dev": "pnpm --dir Wrytr dev",
+    "wrytr:build": "pnpm --dir Wrytr build",
     "deploy": "wrangler deploy",
     "db:migrations:local": "wrangler d1 migrations apply content-agent --local",
     "db:migrations:remote": "wrangler d1 migrations apply content-agent --remote"

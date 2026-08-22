@@ -17,8 +17,8 @@ It is intentionally kept as a separate subproject from the Cloudflare Worker so 
 From the repository root:
 
 ```bash
-pnpm --dir apps/wrytr dev
-pnpm --dir apps/wrytr build
+pnpm --dir Wrytr dev
+pnpm --dir Wrytr build
 ```
 
 Or through the root package scripts:
