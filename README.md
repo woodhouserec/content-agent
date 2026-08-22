@@ -4,6 +4,8 @@ Content Agent is a Cloudflare Worker for a Telegram-based LinkedIn content assis
 
 This version contains the deployable foundation, collection, topic scoring, manual URL intake, and selected-topic draft generation.
 
+The repository also contains an early Wrytr web-interface prototype in `apps/wrytr`. It is kept as a separate subproject and is not connected to the production Worker yet.
+
 It includes:
 
 - Cloudflare Worker;
