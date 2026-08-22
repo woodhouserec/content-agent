@@ -57,6 +57,8 @@ export async function collectSources(env: Env, runId: string, sources: SourceRec
         result: null,
         error: {
           sourceId: source.id,
+          sourceName: source.name,
+          sourceUrl: source.url,
           stage: "config",
           message: `No collector registered for source type: ${source.type}`,
           recoverable: false
@@ -87,6 +89,8 @@ export async function collectSources(env: Env, runId: string, sources: SourceRec
         result: null,
         error: {
           sourceId: source.id,
+          sourceName: source.name,
+          sourceUrl: source.url,
           stage: "fetch",
           message: error instanceof Error ? error.message : String(error),
           recoverable: false
@@ -106,7 +110,7 @@ export async function collectSources(env: Env, runId: string, sources: SourceRec
       continue;
     }
 
-    stats.errors.push(...result.errors);
+    stats.errors.push(...result.errors.map((collectorError) => enrichSourceError(collectorError, source)));
     stats.receivedItems += result.items.length;
 
     if (result.ok) {
@@ -121,7 +125,7 @@ export async function collectSources(env: Env, runId: string, sources: SourceRec
         stats.normalizedItems += 1;
         const saveResult = await repos.collectedItems.upsertCollectedItem(normalized);
 
-        if (saveResult.inserted) {
+        if (saveResult.inserted || saveResult.restored) {
           stats.newItems += 1;
         } else {
           stats.duplicateItems += 1;
@@ -129,6 +133,8 @@ export async function collectSources(env: Env, runId: string, sources: SourceRec
       } catch (itemError: unknown) {
         stats.errors.push({
           sourceId: source.id,
+          sourceName: source.name,
+          sourceUrl: source.url,
           stage: "item",
           message: itemError instanceof Error ? itemError.message : String(itemError),
           recoverable: true
@@ -138,6 +144,14 @@ export async function collectSources(env: Env, runId: string, sources: SourceRec
   }
 
   return stats;
+}
+
+function enrichSourceError(error: CollectorError, source: SourceRecord): CollectorError {
+  return {
+    ...error,
+    sourceName: error.sourceName ?? source.name,
+    sourceUrl: error.sourceUrl ?? source.url
+  };
 }
 
 export function emptyCollectionRunStats(): CollectionRunStats {

@@ -22,6 +22,8 @@ export interface CollectorItem {
 
 export interface CollectorError {
   sourceId: string;
+  sourceName?: string;
+  sourceUrl?: string;
   stage: "fetch" | "parse" | "item" | "config";
   message: string;
   recoverable: boolean;

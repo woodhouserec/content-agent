@@ -43,6 +43,7 @@ export interface UpdateScoringInput {
 
 export interface UpsertCollectedItemResult {
   inserted: boolean;
+  restored: boolean;
   id: string;
 }
 
@@ -65,6 +66,7 @@ export class CollectedItemsRepository {
     const seenAt = nowIso();
 
     if (existing) {
+      const restored = existing.status === "archived" && !isManualItem(existing);
       await this.db
         .prepare(
           `UPDATE collected_items
@@ -94,6 +96,7 @@ export class CollectedItemsRepository {
 
       return {
         inserted: false,
+        restored,
         id: existing.id
       };
     }
@@ -140,12 +143,14 @@ export class CollectedItemsRepository {
 
       return {
         inserted: false,
+        restored: false,
         id: duplicate.id
       };
     }
 
     return {
       inserted: true,
+      restored: false,
       id
     };
   }
@@ -412,12 +417,12 @@ export class CollectedItemsRepository {
       .first<{ id: string }>();
   }
 
-  private async findDuplicate(item: CollectedItem): Promise<{ id: string } | null> {
+  private async findDuplicate(item: CollectedItem): Promise<{ id: string; source_id: string; status: string; metadata_json: string | null } | null> {
     if (item.externalId) {
       const byExternalId = await this.db
-        .prepare("SELECT id FROM collected_items WHERE source_id = ? AND external_id = ? LIMIT 1")
+        .prepare("SELECT id, source_id, status, metadata_json FROM collected_items WHERE source_id = ? AND external_id = ? LIMIT 1")
         .bind(item.sourceId, item.externalId)
-        .first<{ id: string }>();
+        .first<{ id: string; source_id: string; status: string; metadata_json: string | null }>();
 
       if (byExternalId) {
         return byExternalId;
@@ -425,18 +430,18 @@ export class CollectedItemsRepository {
     }
 
     const byUrl = await this.db
-      .prepare("SELECT id FROM collected_items WHERE canonical_url = ? LIMIT 1")
+      .prepare("SELECT id, source_id, status, metadata_json FROM collected_items WHERE canonical_url = ? LIMIT 1")
       .bind(item.canonicalUrl)
-      .first<{ id: string }>();
+      .first<{ id: string; source_id: string; status: string; metadata_json: string | null }>();
 
     if (byUrl) {
       return byUrl;
     }
 
     return this.db
-      .prepare("SELECT id FROM collected_items WHERE content_hash = ? LIMIT 1")
+      .prepare("SELECT id, source_id, status, metadata_json FROM collected_items WHERE content_hash = ? LIMIT 1")
       .bind(item.contentHash)
-      .first<{ id: string }>();
+      .first<{ id: string; source_id: string; status: string; metadata_json: string | null }>();
   }
 
   private async touch(id: string, seenAt: string): Promise<void> {
@@ -456,6 +461,12 @@ export class CollectedItemsRepository {
       .bind(seenAt, id)
       .run();
   }
+}
+
+function isManualItem(item: { source_id: string; metadata_json: string | null }): boolean {
+  return item.source_id === "src_manual_urls"
+    || Boolean(item.metadata_json?.includes("\"ingestion_method\":\"manual_url\""))
+    || Boolean(item.metadata_json?.includes("\"ingestionMethod\":\"manual_url\""));
 }
 
 function freshnessFilterSql(filters: CollectedItemFilters): { sql: string; bindings: unknown[] } {

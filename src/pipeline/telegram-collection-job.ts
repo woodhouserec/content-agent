@@ -127,7 +127,7 @@ export async function processPendingTelegramCollectionJobs(env: Env, telegram: T
 export function formatCollectionFinishedMessage(stats: CollectionRunStats): string {
   const sourceErrors = stats.errors
     .slice(0, 5)
-    .map((error, index) => `${index + 1}. ${error.sourceId}: ${error.stage} - ${error.message}`);
+    .map((error, index) => `${index + 1}. ${formatSourceErrorLabel(error)}\n${error.stage} - ${error.message}`);
 
   return [
     "Сбор материалов завершён.",
@@ -140,6 +140,11 @@ export function formatCollectionFinishedMessage(stats: CollectionRunStats): stri
     "",
     "Теперь можно нажать «Сгенерировать тезисы»."
   ].join("\n");
+}
+
+function formatSourceErrorLabel(error: CollectionRunStats["errors"][number]): string {
+  const name = error.sourceName ?? error.sourceId;
+  return error.sourceUrl ? `${name} — ${error.sourceUrl}` : name;
 }
 
 function parseMetadata(value: string | null): TelegramCollectionJobMetadata | null {
